@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Space — 별들의 공간</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace}
+#wrap{width:100vw;height:100vh;position:relative}
+canvas{position:absolute;top:0;left:0}
+#bgC{z-index:1}
+#spC{z-index:2;cursor:crosshair}
+.hud{position:absolute;top:0;left:0;right:210px;height:36px;background:rgba(0,4,8,0.9);border-bottom:1px solid rgba(255,215,0,0.2);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:10;font-size:11px;color:#FFD700}
+.side{position:absolute;right:0;top:0;bottom:0;width:210px;background:rgba(0,4,8,0.95);border-left:1px solid rgba(255,215,0,0.15);z-index:10;display:flex;flex-direction:column}
+.stabs{display:flex;border-bottom:1px solid rgba(255,255,255,0.06)}
+.stab{flex:1;padding:8px 2px;font-size:9px;text-align:center;color:rgba(255,255,255,0.3);cursor:pointer;border-bottom:2px solid transparent}
+.stab.on{color:#FFD700;border-bottom-color:#FFD700}
+.sbody{flex:1;overflow-y:auto;padding:8px 10px;color:rgba(255,255,255,0.7);font-size:11px}
+.botbar{position:absolute;bottom:0;left:0;right:210px;height:40px;background:rgba(0,4,8,0.9);border-top:1px solid rgba(255,215,0,0.1);display:flex;align-items:center;gap:6px;padding:0 10px;z-index:10}
+.abtn{padding:3px 9px;border-radius:8px;border:1px solid rgba(255,215,0,0.3);color:rgba(255,215,0,0.7);font-size:9px;cursor:pointer;background:none}
+.abtn:hover{border-color:#FFD700;color:#FFD700}
+.feed{flex:1;font-size:9px;color:rgba(255,215,0,0.3);overflow:hidden;white-space:nowrap}
+.back{position:absolute;top:46px;left:10px;z-index:15;font-size:9px;color:rgba(255,215,0,0.5);padding:3px 8px;border:1px solid rgba(255,215,0,0.2);border-radius:5px;background:rgba(0,4,8,0.8);cursor:pointer;text-decoration:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="bgC"></canvas>
+<div id="scrollWrap" style="position:absolute;left:0;top:36px;right:210px;bottom:40px;overflow:auto;z-index:2">
+<canvas id="spC"></canvas>
+</div>
+<div class="hud">
+  <span>⭐ Dot Space Layer — 별들의 공간</span>
+  <span>AU <b id="auBal">5.00</b> &nbsp; 채굴중 <b id="mineCnt">0</b> &nbsp; 발견 <b id="foundCnt">0</b>/992 &nbsp; SAU <b id="sauBal">0.0</b></span>
+  <span id="clk">00:00:00</span>
+</div>
+<a class="back" href="/dot.html">← 전체 지도</a>
+<div class="side">
+  <div class="stabs">
+    <div class="stab on" onclick="sw('info',this)">행성 정보</div>
+    <div class="stab" onclick="sw('list',this)">목록</div>
+    <div class="stab" onclick="sw('mine',this)">채굴</div>
+  </div>
+  <div class="sbody" id="sbody"><div style="text-align:center;margin-top:20px;color:rgba(255,255,255,0.3)">행성을 클릭하세요</div></div>
+</div>
+<div class="botbar">
+  <button class="abtn" onclick="addShip()">🚀 탐사선</button>
+  <button class="abtn" onclick="discover()">🔭 발견</button>
+  <button class="abtn" onclick="mineAll()">⛏ 전체채굴</button>
+  <button class="abtn" onclick="warp()">⚡ 워프</button>
+  <div class="feed" id="feed">[ SPACE ] 초기화중...</div>
+</div>
+</div>
+<script>
+const bg=document.getElementById('bgC'),bx=bg.getContext('2d');
+const sp=document.getElementById('spC'),sx=sp.getContext('2d');
+const wrap=document.getElementById('wrap');
+let W=0,H=0,frame=0,curTab='info';
+let planets=[],ships=[],selP=null,auBal=5,mCnt=0,fCnt=0;
+const PT=[
+  {k:'hot',n:'화염 행성',c:'#FF4500'},{k:'giant',n:'가스 행성',c:'#F5A623'},
+  {k:'super',n:'슈퍼지구',c:'#378add'},{k:'habitable',n:'생명 행성',c:'#27AE60'},
+  {k:'dark',n:'다크 행성',c:'#9B59B6'},{k:'crystal',n:'수정 행성',c:'#00FFFF'},
+  {k:'ice',n:'얼음 행성',c:'#87CEEB'},
+];
+const TM={hot:0,giant:1,super:2,habitable:3,dark:4,crystal:5,ice:6};
+function resize(){
+  W=wrap.clientWidth;H=wrap.clientHeight;
+  bg.width=W;bg.height=H;
+  sp.width=Math.max(3000,W*2);sp.height=Math.max(1500,H*1.5);
+  sp.style.width=sp.width+'px';sp.style.height=sp.height+'px';
+}
+let stars=[];
+function initStars(){
+  stars=Array.from({length:200},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.3,t:Math.random()*Math.PI*2,s:Math.random()*0.02+0.005}));
+}
+function drawBg(){
+  bx.fillStyle='#000408';bx.fillRect(0,0,W,H);
+  stars.forEach(s=>{s.t+=s.s;bx.beginPath();bx.arc(s.x,s.y,s.r,0,Math.PI*2);bx.fillStyle='rgba(200,220,255,'+(0.3+Math.sin(s.t)*0.4)+')';bx.fill();});
+}
+function drawPlanets(){
+  planets.forEach(p=>{
+    if(p.x<0||p.y<0)return;
+    const col=p.pt.c;
+    if(p.mining||p===selP){
+      const g=sx.createRadialGradient(p.x,p.y,p.r,p.x,p.y,p.r*2.5);
+      g.addColorStop(0,col+'55');g.addColorStop(1,'rgba(0,0,0,0)');
+      sx.fillStyle=g;sx.beginPath();sx.arc(p.x,p.y,p.r*2.5,0,Math.PI*2);sx.fill();
+    }
+    const g2=sx.createRadialGradient(p.x-p.r*.3,p.y-p.r*.3,p.r*.1,p.x,p.y,p.r);
+    g2.addColorStop(0,'rgba(255,255,255,0.3)');g2.addColorStop(0.5,col);g2.addColorStop(1,'rgba(0,0,0,0.6)');
+    sx.beginPath();sx.arc(p.x,p.y,p.r,0,Math.PI*2);sx.fillStyle=g2;sx.fill();
+    sx.font='bold 10px monospace';sx.textAlign='center';
+    const tw=sx.measureText(p.name).width;
+    sx.fillStyle='rgba(0,0,0,0.7)';sx.fillRect(p.x-tw/2-3,p.y+p.r+2,tw+6,13);
+    sx.fillStyle='#fff';sx.fillText(p.name,p.x,p.y+p.r+13);
+    if(p.mining){
+      p.prog+=0.003*p.sau;
+      if(p.prog>=1){p.prog=0;const e=p.sau*0.08;p.totSAU+=e;auBal+=e*0.01;document.getElementById('auBal').textContent=auBal.toFixed(2);feed('[채굴] '+p.name+' +'+e.toFixed(1)+' SAU');}
+      sx.beginPath();sx.arc(p.x,p.y,p.r+6,-Math.PI/2,-Math.PI/2+Math.PI*2*p.prog);
+      sx.strokeStyle='#27AE60';sx.lineWidth=2.5;sx.stroke();
+    }
+    if(p===selP){
+      sx.beginPath();sx.arc(p.x,p.y,p.r+8,0,Math.PI*2);
+      sx.strokeStyle='rgba(255,215,0,0.8)';sx.lineWidth=1.5;sx.setLineDash([4,4]);sx.stroke();sx.setLineDash([]);
+    }
+  });
+  ships.forEach(s=>{
+    s.x+=(s.tx-s.x)*0.02;s.y+=(s.ty-s.y)*0.02;
+    if(Math.random()<0.03&&planets.length){const p=planets[Math.floor(Math.random()*planets.length)];s.tx=p.x;s.ty=p.y;}
+    const a=Math.atan2(s.ty-s.y,s.tx-s.x);
+    sx.save();sx.translate(s.x,s.y);sx.rotate(a);sx.fillStyle='#378add';sx.beginPath();sx.moveTo(7,0);sx.lineTo(-4,3);sx.lineTo(-4,-3);sx.closePath();sx.fill();sx.restore();
+  });
+}
+function loop(){drawBg();sx.clearRect(0,0,W,H);drawPlanets();frame++;requestAnimationFrame(loop);}
+sp.addEventListener('click',e=>{
+  const sw=document.getElementById('scrollWrap');
+  const r=sp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  let f=null;planets.forEach(p=>{if(Math.hypot(mx-p.x,my-p.y)<p.r+10)f=p;});
+  if(f){selP=f;}renderInfo();
+});
+function sw(t,el){curTab=t;document.querySelectorAll('.stab').forEach(e=>e.classList.remove('on'));el.classList.add('on');if(t==='info')renderInfo();else if(t==='list')renderList();else renderMine();}
+function renderInfo(){
+  const p=selP,sb=document.getElementById('sbody');
+  if(!p){sb.innerHTML='<div style="text-align:center;margin-top:20px;color:rgba(255,255,255,0.3)">행성을 클릭하세요</div>';return;}
+  sb.innerHTML='<div style="font-size:13px;font-weight:500;color:'+p.pt.c+';margin-bottom:4px">'+p.name+'</div>'
+  +'<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:8px">'+p.pt.n+'</div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">SAU 수익</span><span style="color:#FFD700">'+p.sau+' SAU</span></div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">누적 SAU</span><span>'+p.totSAU.toFixed(1)+'</span></div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">레이어</span><span>'+p.dotLayer+'</span></div>'
+  +'<div onclick="toggleMine()" style="margin-top:8px;padding:7px;background:'+(p.mining?'rgba(231,76,60,0.2)':'rgba(39,174,96,0.15)')+';border:1px solid '+(p.mining?'#e74c3c':'#27AE60')+';border-radius:6px;text-align:center;cursor:pointer;font-size:11px;color:'+(p.mining?'#e74c3c':'#27AE60')+'">'+(p.mining?'⏹ 채굴 중지':'⛏ 채굴 시작')+'</div>';
+}
+function renderList(){
+  document.getElementById('sbody').innerHTML='<div style="display:flex;flex-direction:column;gap:3px">'+
+  planets.map((p,i)=>'<div onclick="selP=planets['+i+'];renderInfo()" style="padding:5px 7px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:5px;cursor:pointer"><div style="font-size:10px;font-weight:500;color:'+p.pt.c+'">'+p.name+'</div><div style="font-size:9px;color:rgba(255,255,255,0.35)">'+p.pt.n+' · '+p.sau+' SAU</div></div>').join('')+'</div>';
+}
+function renderMine(){
+  const mp=planets.filter(p=>p.mining);
+  document.getElementById('sbody').innerHTML='<div style="font-size:10px;color:rgba(255,215,0,0.6);margin-bottom:6px">채굴중: '+mp.length+'개</div>'
+  +mp.map(p=>'<div style="margin-bottom:5px;padding:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:5px"><div style="font-size:10px;color:'+p.pt.c+'">'+p.name+'</div><div style="height:3px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px"><div style="width:'+(p.prog*100).toFixed(0)+'%;height:100%;background:#27AE60;border-radius:2px"></div></div></div>').join('');
+}
+function toggleMine(){if(!selP)return;selP.mining=!selP.mining;mCnt=planets.filter(p=>p.mining).length;document.getElementById('mineCnt').textContent=mCnt;feed(selP.mining?'[채굴] '+selP.name+' 시작!':'[채굴] '+selP.name+' 중지');renderInfo();}
+function addShip(){if(!planets.length)return;const p=planets[Math.floor(Math.random()*planets.length)];ships.push({x:W/2,y:H/2,tx:p.x,ty:p.y});feed('[탐사선] '+p.name+' 파견!');}
+function mineAll(){planets.forEach(p=>p.mining=true);mCnt=planets.length;document.getElementById('mineCnt').textContent=mCnt;feed('[전체채굴] '+mCnt+'개 시작!');}
+function warp(){const sw=sp.width,sh=sp.height;planets.forEach(p=>{p.x=60+Math.random()*(sw-120);p.y=60+Math.random()*(sh-120);});feed('[워프] 완료!');}
+function discover(){
+  const pt=PT[Math.floor(Math.random()*PT.length)];
+  const p={name:'Nova-'+Math.floor(Math.random()*999),star:'미상',pt,sau:Math.floor(Math.random()*40+5),dotLayer:'L∞',x:60+Math.random()*(W-280),y:60+Math.random()*(H-100),r:20+Math.random()*20,mining:false,prog:0,totSAU:0};
+  planets.push(p);fCnt++;document.getElementById('foundCnt').textContent=fCnt+'/992+';selP=p;renderInfo();feed('[발견] '+p.name+'!');
+}
+const fq=[];
+function feed(m){fq.unshift(m);if(fq.length>3)fq.pop();document.getElementById('feed').textContent='[ SPACE ] '+fq[0];}
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toTimeString().slice(0,8);},1000);
+setInterval(()=>{document.getElementById('sauBal').textContent=planets.reduce((s,p)=>s+p.totSAU,0).toFixed(1);},2000);
+resize();initStars();window.addEventListener('resize',()=>{resize();initStars();});
+fetch('/dot/space/planets.json').then(r=>r.json()).then(data=>{
+  const cols=W-210,rows=H-76;
+  data.forEach((p,idx)=>{
+    const ti=TM[p.type]||1;
+    let px,py,ok,tries=0;
+    const sw=Math.max(2800,W*2),sh=Math.max(1400,H*1.5);
+    do{
+      px=60+Math.random()*(sw-120);
+      py=60+Math.random()*(sh-120);
+      ok=true;
+      planets.forEach(q=>{if(Math.hypot(px-q.x,py-q.y)<120)ok=false;});
+      tries++;
+    }while(!ok&&tries<200);
+    planets.push({...p,pt:PT[ti],x:px,y:py,r:10+Math.random()*14,sau:p.dotAU||p.sau||10,mining:false,prog:0,totSAU:0});
+  });
+  fCnt=planets.length;document.getElementById('foundCnt').textContent=fCnt+'/992+';
+  feed('IAU 행성 '+fCnt+'개 로딩완료!');
+}).catch(()=>feed('행성 데이터 오류'));
+loop();
+</script>
+</body>
+</html>

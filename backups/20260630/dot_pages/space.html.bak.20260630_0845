@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Space — 별들의 공간</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace}
+#wrap{width:100vw;height:100vh;position:relative}
+canvas{position:absolute;top:0;left:0}
+#bgC{z-index:1}
+.hud{position:absolute;top:0;left:0;right:210px;height:36px;background:rgba(0,4,8,0.9);border-bottom:1px solid rgba(255,215,0,0.2);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:10;font-size:11px;color:#FFD700}
+.side{position:absolute;right:0;top:0;bottom:0;width:210px;background:rgba(0,4,8,0.95);border-left:1px solid rgba(255,215,0,0.15);z-index:10;display:flex;flex-direction:column}
+.stabs{display:flex;border-bottom:1px solid rgba(255,255,255,0.06)}
+.stab{flex:1;padding:8px 2px;font-size:9px;text-align:center;color:rgba(255,255,255,0.3);cursor:pointer;border-bottom:2px solid transparent}
+.stab.on{color:#FFD700;border-bottom-color:#FFD700}
+.sbody{flex:1;overflow-y:auto;padding:8px 10px;color:rgba(255,255,255,0.7);font-size:11px}
+.botbar{position:absolute;bottom:0;left:0;right:210px;height:40px;background:rgba(0,4,8,0.9);border-top:1px solid rgba(255,215,0,0.1);display:flex;align-items:center;gap:6px;padding:0 10px;z-index:10}
+.abtn{padding:3px 9px;border-radius:8px;border:1px solid rgba(255,215,0,0.3);color:rgba(255,215,0,0.7);font-size:9px;cursor:pointer;background:none}
+.abtn:hover{border-color:#FFD700;color:#FFD700}
+.feed{flex:1;font-size:9px;color:rgba(255,215,0,0.3);overflow:hidden;white-space:nowrap}
+.back{position:absolute;top:46px;left:10px;z-index:15;font-size:9px;color:rgba(255,215,0,0.5);padding:3px 8px;border:1px solid rgba(255,215,0,0.2);border-radius:5px;background:rgba(0,4,8,0.8);cursor:pointer;text-decoration:none}
+#mineOverlay{display:none;position:absolute;left:0;top:36px;right:210px;bottom:40px;background:rgba(0,0,0,0.93);z-index:20;flex-direction:column}
+#mineOverlay.open{display:flex}
+#mineCanvas{width:100%;flex:1;cursor:crosshair;display:block}
+#mineHud{height:44px;background:rgba(0,4,8,0.95);border-bottom:1px solid rgba(255,215,0,0.15);display:flex;align-items:center;gap:12px;padding:0 14px;font-size:10px;color:rgba(255,215,0,0.7);flex-shrink:0}
+.mh-name{font-size:12px;font-weight:bold;color:#FFD700}
+.mh-sau{color:#27AE60;font-size:12px;font-weight:bold}
+.mh-bar-wrap{flex:1;height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden}
+.mh-bar{height:100%;width:100%;border-radius:4px}
+.mh-close{margin-left:auto;padding:3px 10px;border:1px solid rgba(255,215,0,0.3);border-radius:5px;cursor:pointer;font-size:9px;color:rgba(255,215,0,0.6)}
+.mh-close:hover{border-color:#FFD700;color:#FFD700}
+#veinPop{display:none;position:absolute;left:50%;top:35%;transform:translate(-50%,-50%);background:rgba(0,4,8,0.97);border:1px solid #FFD700;border-radius:12px;padding:18px 32px;text-align:center;z-index:30;pointer-events:none}
+#veinPop.show{display:block;animation:popIn .3s ease}
+@keyframes popIn{from{transform:translate(-50%,-50%) scale(0.7);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#veinTitle{font-size:15px;font-weight:bold;margin-bottom:4px}
+#veinAmt{font-size:24px;font-weight:bold;color:#FFD700;margin:6px 0}
+#veinSub{font-size:10px;color:rgba(255,255,255,0.4)}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="bgC"></canvas>
+<div id="scrollWrap" style="position:absolute;left:0;top:36px;right:210px;bottom:40px;overflow:auto;z-index:2">
+<canvas id="spC" style="cursor:crosshair"></canvas>
+</div>
+<div id="mineOverlay">
+  <div id="mineHud">
+    <span class="mh-name" id="mhName">—</span>
+    <span id="mhType" style="font-size:9px;color:rgba(255,255,255,0.35)"></span>
+    <span style="color:rgba(255,255,255,0.3)">세션SAU</span>
+    <span class="mh-sau" id="mhSau">+0</span>
+    <span style="color:rgba(255,255,255,0.3)">에너지</span>
+    <div class="mh-bar-wrap"><div class="mh-bar" id="mhBar"></div></div>
+    <span id="mhPct" style="font-size:9px;min-width:28px">100%</span>
+    <span class="mh-close" onclick="closeMine()">✕ 나가기</span>
+  </div>
+  <canvas id="mineCanvas"></canvas>
+</div>
+<div id="veinPop">
+  <div id="veinTitle">💎 특별 광맥 발견!</div>
+  <div id="veinAmt">+0 SAU</div>
+  <div id="veinSub">희귀 광물 채취 성공</div>
+</div>
+<div class="hud">
+  <span>⭐ Dot Space Layer</span>
+  <span>AU <b id="auBal">5.00</b> &nbsp; 발견 <b id="foundCnt">0</b>/992 &nbsp; SAU <b id="sauBal">0.0</b></span>
+  <span id="clk">00:00:00</span>
+</div>
+<a class="back" href="/dot.html">← 전체 지도</a>
+<div class="side">
+  <div class="stabs">
+    <div class="stab on" onclick="sw('info',this)">행성 정보</div>
+    <div class="stab" onclick="sw('list',this)">목록</div>
+    <div class="stab" onclick="sw('mine',this)">채굴 현황</div>
+  </div>
+  <div class="sbody" id="sbody"><div style="text-align:center;margin-top:20px;color:rgba(255,255,255,0.3)">행성을 클릭하세요</div></div>
+</div>
+<div class="botbar">
+  <button class="abtn" onclick="addShip()">🚀 탐사선</button>
+  <button class="abtn" onclick="discover()">🔭 발견</button>
+  <button class="abtn" onclick="warp()">⚡ 워프</button>
+  <div class="feed" id="feed">[ SPACE ] 초기화중...</div>
+</div>
+</div>
+<script>
+const bg=document.getElementById('bgC'),bx=bg.getContext('2d');
+const sp=document.getElementById('spC'),sx=sp.getContext('2d');
+const wrap=document.getElementById('wrap');
+let W=0,H=0,frame=0,curTab='info';
+let planets=[],ships=[],selP=null,auBal=5,fCnt=0,totalSAU=0;
+const PT=[
+  {k:'hot',n:'화염 행성',c:'#FF4500'},{k:'giant',n:'가스 행성',c:'#F5A623'},
+  {k:'super',n:'슈퍼지구',c:'#378add'},{k:'habitable',n:'생명 행성',c:'#27AE60'},
+  {k:'dark',n:'다크 행성',c:'#9B59B6'},{k:'crystal',n:'수정 행성',c:'#00FFFF'},
+  {k:'ice',n:'얼음 행성',c:'#87CEEB'},
+];
+const TM={hot:0,giant:1,super:2,habitable:3,dark:4,crystal:5,ice:6};
+const MCFG={
+  hot:{vc:0.06,vm:3,ed:1.8,bg:'#120200',lbl:'⚠️ 고온 위험 환경'},
+  giant:{vc:0.07,vm:2.5,ed:1.5,bg:'#0d0800',lbl:'🌪 폭풍 주의'},
+  super:{vc:0.08,vm:2,ed:1.0,bg:'#00050d',lbl:'🌍 안정적 지형'},
+  habitable:{vc:0.09,vm:2,ed:0.9,bg:'#000d02',lbl:'🌿 쉬운 채굴'},
+  dark:{vc:0.15,vm:5,ed:1.2,bg:'#080010',lbl:'💜 희귀 광맥 다수'},
+  crystal:{vc:0.12,vm:4,ed:1.1,bg:'#000d10',lbl:'💎 수정 광맥 풍부'},
+  ice:{vc:0.10,vm:2.5,ed:0.8,bg:'#000812',lbl:'❄️ 콤보 보너스'},
+};
+const VMSGS={
+  hot:['🔥 용암 광맥!','희귀 열석!','화염 광물!'],
+  giant:['🌪 폭풍 광맥!','가스 결정!','기체 광물!'],
+  super:['🌍 심층 광맥!','지각 광물!','심해 결정!'],
+  habitable:['🌿 생명 광맥!','유기 광물!','바이오 결정!'],
+  dark:['💜 다크 광맥!','보라 결정!','신비 광물!'],
+  crystal:['💎 수정 광맥!','빛나는 결정!','크리스탈!'],
+  ice:['❄️ 빙하 광맥!','얼음 결정!','극지 광물!'],
+};
+function resize(){
+  W=wrap.clientWidth;H=wrap.clientHeight;
+  bg.width=W;bg.height=H;
+  sp.width=Math.max(3000,W*2);sp.height=Math.max(1500,H*1.5);
+  sp.style.width=sp.width+'px';sp.style.height=sp.height+'px';
+}
+let stars=[];
+function initStars(){stars=Array.from({length:200},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.3,t:Math.random()*Math.PI*2,s:Math.random()*0.02+0.005}));}
+function drawBg(){bx.fillStyle='#000408';bx.fillRect(0,0,W,H);stars.forEach(s=>{s.t+=s.s;bx.beginPath();bx.arc(s.x,s.y,s.r,0,Math.PI*2);bx.fillStyle='rgba(200,220,255,'+(0.3+Math.sin(s.t)*0.4)+')';bx.fill();});}
+function drawGrid(){
+  const COLS='ABCDEFGHJKLMNOPQRS'.split(''),CW=160,CH=120;
+  sx.strokeStyle='rgba(255,215,0,0.06)';sx.lineWidth=0.5;
+  for(let c=0;c<=18;c++){sx.beginPath();sx.moveTo(c*CW+20,20);sx.lineTo(c*CW+20,18*CH+20);sx.stroke();}
+  for(let r=0;r<=18;r++){sx.beginPath();sx.moveTo(20,r*CH+20);sx.lineTo(18*CW+20,r*CH+20);sx.stroke();}
+  sx.fillStyle='rgba(255,215,0,0.2)';sx.font='9px monospace';sx.textAlign='center';
+  COLS.forEach((c,i)=>sx.fillText(c,i*CW+CW/2+20,14));
+  sx.textAlign='right';for(let r=0;r<18;r++)sx.fillText(r+1,18,r*CH+CH/2+20);
+}
+function drawPlanets(){
+  planets.forEach(p=>{
+    if(p.x<0||p.y<0)return;
+    const col=p.pt.c;
+    if(p===selP){const g=sx.createRadialGradient(p.x,p.y,p.r,p.x,p.y,p.r*2.5);g.addColorStop(0,col+'55');g.addColorStop(1,'rgba(0,0,0,0)');sx.fillStyle=g;sx.beginPath();sx.arc(p.x,p.y,p.r*2.5,0,Math.PI*2);sx.fill();}
+    const g2=sx.createRadialGradient(p.x-p.r*.3,p.y-p.r*.3,p.r*.1,p.x,p.y,p.r);
+    g2.addColorStop(0,'rgba(255,255,255,0.3)');g2.addColorStop(0.5,col);g2.addColorStop(1,'rgba(0,0,0,0.6)');
+    sx.beginPath();sx.arc(p.x,p.y,p.r,0,Math.PI*2);sx.fillStyle=g2;sx.fill();
+    sx.font='bold 10px monospace';sx.textAlign='center';
+    const tw=sx.measureText(p.name).width;
+    sx.fillStyle='rgba(0,0,0,0.7)';sx.fillRect(p.x-tw/2-3,p.y+p.r+2,tw+6,13);
+    sx.fillStyle='#fff';sx.fillText(p.name,p.x,p.y+p.r+13);
+    if(p.totSAU>0){sx.fillStyle='rgba(255,215,0,0.55)';sx.font='8px monospace';sx.fillText('+'+p.totSAU.toFixed(0)+' SAU',p.x,p.y+p.r+24);}
+    if(p===selP){sx.beginPath();sx.arc(p.x,p.y,p.r+8,0,Math.PI*2);sx.strokeStyle='rgba(255,215,0,0.8)';sx.lineWidth=1.5;sx.setLineDash([4,4]);sx.stroke();sx.setLineDash([]);}
+    sx.font='11px serif';sx.fillText('⛏',p.x,p.y-p.r-4);
+  });
+  ships.forEach(s=>{
+    s.x+=(s.tx-s.x)*0.02;s.y+=(s.ty-s.y)*0.02;
+    if(Math.random()<0.03&&planets.length){const p=planets[Math.floor(Math.random()*planets.length)];s.tx=p.x;s.ty=p.y;}
+    const a=Math.atan2(s.ty-s.y,s.tx-s.x);
+    sx.save();sx.translate(s.x,s.y);sx.rotate(a);sx.fillStyle='#378add';sx.beginPath();sx.moveTo(7,0);sx.lineTo(-4,3);sx.lineTo(-4,-3);sx.closePath();sx.fill();sx.restore();
+  });
+}
+function loop(){drawBg();sx.clearRect(0,0,sp.width,sp.height);drawGrid();drawPlanets();frame++;requestAnimationFrame(loop);}
+sp.addEventListener('click',e=>{
+  const sc=document.getElementById('scrollWrap'),r=sp.getBoundingClientRect();
+  const mx=e.clientX-r.left+sc.scrollLeft,my=e.clientY-r.top+sc.scrollTop;
+  let f=null;planets.forEach(p=>{if(Math.hypot(mx-p.x,my-p.y)<p.r+14)f=p;});
+  if(f){selP=f;renderInfo();openMine(f);}
+});
+sp.addEventListener('mousemove',e=>{
+  const sc=document.getElementById('scrollWrap'),r=sp.getBoundingClientRect();
+  const mx=e.clientX-r.left+sc.scrollLeft,my=e.clientY-r.top+sc.scrollTop;
+});
+const mc=document.getElementById('mineCanvas'),mc2=mc.getContext('2d');
+let mineOpen=false,mineP=null,rocks=[],parts=[],floats=[],sessionSAU=0,energy=100,combo=0,lastClick=0,mineAF=null;
+function openMine(p){
+  mineP=p;mineOpen=true;sessionSAU=0;energy=100;combo=0;
+  document.getElementById('mineOverlay').classList.add('open');
+  document.getElementById('mhName').textContent=p.name;
+  const cfg=MCFG[p.pt.k]||MCFG.super;
+  document.getElementById('mhType').textContent=cfg.lbl;
+  document.getElementById('mhBar').style.background=p.pt.c;
+  document.getElementById('mhBar').style.width='100%';
+  document.getElementById('mhPct').textContent='100%';
+  document.getElementById('mhSau').textContent='+0';
+  mc.width=mc.offsetWidth;mc.height=mc.offsetHeight;
+  rocks=[];parts=[];floats=[];initRocks();
+  feed('[채굴] '+p.name+' 시작!');
+  if(mineAF)cancelAnimationFrame(mineAF);mineDraw();
+}
+function closeMine(){
+  mineOpen=false;document.getElementById('mineOverlay').classList.remove('open');
+  if(mineAF)cancelAnimationFrame(mineAF);
+  if(mineP&&sessionSAU>0){
+    mineP.totSAU+=sessionSAU;totalSAU+=sessionSAU;auBal+=sessionSAU*0.001;
+    document.getElementById('auBal').textContent=auBal.toFixed(2);
+    document.getElementById('sauBal').textContent=totalSAU.toFixed(1);
+    feed('[완료] '+mineP.name+' +'+sessionSAU.toFixed(1)+' SAU!');
+  }
+  mineP=null;rocks=[];parts=[];floats=[];renderInfo();
+}
+function initRocks(){
+  const cfg=MCFG[mineP.pt.k]||MCFG.super,col=mineP.pt.c,W2=mc.width,H2=mc.height;
+  const cnt=4+Math.floor(Math.random()*4);
+  for(let i=0;i<cnt;i++){
+    const isV=Math.random()<cfg.vc*0.4,r=isV?42+Math.random()*20:22+Math.random()*18;
+    let x,y,ok,t=0;
+    do{x=80+Math.random()*(W2-160);y=60+Math.random()*(H2-120);ok=true;rocks.forEach(q=>{if(Math.hypot(x-q.x,y-q.y)<r+q.r+22)ok=false;});t++;}while(!ok&&t<100);
+    const hp=isV?80:30+Math.floor(Math.random()*30);
+    rocks.push({x,y,r,isV,col:isV?'#B8860B':col,hp,mhp:hp,sau:isV?18*cfg.vm:3+Math.random()*5,cracks:[],pulse:0,sp:isV?Math.random()*Math.PI*2:0});
+  }
+}
+function spawnP(x,y,col,n,spd,sz){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=spd*(0.5+Math.random());parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,col,life:1,sz:sz*(0.5+Math.random()),d:0.03+Math.random()*0.04});}}
+function spawnT(x,y,txt,col){floats.push({x,y,txt,col,life:1,vy:-1.6});}
+let vtimer=null;
+function showVein(amt,k){
+  const pop=document.getElementById('veinPop'),msgs=VMSGS[k]||VMSGS.super;
+  pop.style.borderColor=mineP.pt.c;
+  document.getElementById('veinTitle').textContent=msgs[Math.floor(Math.random()*msgs.length)];
+  document.getElementById('veinTitle').style.color=mineP.pt.c;
+  document.getElementById('veinAmt').textContent='+'+amt.toFixed(0)+' SAU';
+  pop.classList.add('show');if(vtimer)clearTimeout(vtimer);vtimer=setTimeout(()=>pop.classList.remove('show'),2200);
+}
+mc.addEventListener('click',e=>{
+  if(!mineOpen||energy<=0)return;
+  const r=mc.getBoundingClientRect(),cx=e.clientX-r.left,cy=e.clientY-r.top;
+  let hit=false;
+  rocks.forEach(rock=>{
+    if(!rock.hp)return;
+    if(Math.hypot(cx-rock.x,cy-rock.y)<rock.r+10){
+      hit=true;
+      const now=Date.now();combo=now-lastClick<800?combo+1:0;lastClick=now;
+      const cm=1+Math.min(combo*0.12,1.5);
+      rock.hp-=10+combo*2;rock.pulse=1;
+      rock.cracks.push({a:Math.random()*Math.PI*2,l:rock.r*(0.3+Math.random()*0.5)});
+      let gain=rock.sau*cm;
+      const cfg=MCFG[mineP.pt.k]||MCFG.super,vp=cfg.vc+(sessionSAU*0.0003);
+      if(!rock.isV&&Math.random()<vp){
+        const bonus=gain*cfg.vm*3;gain+=bonus;showVein(bonus,mineP.pt.k);
+        spawnP(rock.x,rock.y,'#FFD700',28,8,5);spawnT(rock.x,rock.y-24,'💎 +'+bonus.toFixed(0)+'!','#FFD700');
+      } else {
+        spawnP(rock.x,rock.y,rock.col,10,4,3);
+        spawnT(rock.x,rock.y-rock.r,combo>2?'⚡COMBO x'+(combo+1):'+'+gain.toFixed(1)+' SAU',combo>2?'#FF4500':rock.col);
+      }
+      sessionSAU+=gain;document.getElementById('mhSau').textContent='+'+sessionSAU.toFixed(0);
+      energy=Math.max(0,energy-cfg.ed);
+      const pct=Math.round(energy);document.getElementById('mhBar').style.width=pct+'%';document.getElementById('mhPct').textContent=pct+'%';
+      if(rock.hp<=0){rock.hp=0;spawnP(rock.x,rock.y,rock.col,22,6,4);spawnP(rock.x,rock.y,'rgba(255,255,255,0.9)',10,5,2);spawnT(rock.x,rock.y,'💥 파괴!','#fff');setTimeout(()=>respawnRock(rock),1800);}
+    }
+  });
+  if(!hit)spawnP(cx,cy,'rgba(255,215,0,0.3)',4,2,2);
+});
+function respawnRock(old){
+  if(!mineOpen)return;
+  const cfg=MCFG[mineP.pt.k]||MCFG.super,col=mineP.pt.c,isV=Math.random()<cfg.vc,r=isV?42+Math.random()*20:22+Math.random()*18;
+  let x,y,ok,t=0;const W2=mc.width,H2=mc.height;
+  do{x=80+Math.random()*(W2-160);y=60+Math.random()*(H2-120);ok=true;rocks.forEach(q=>{if(q!==old&&q.hp>0&&Math.hypot(x-q.x,y-q.y)<r+q.r+22)ok=false;});t++;}while(!ok&&t<80);
+  const hp=isV?80:30+Math.floor(Math.random()*30);
+  old.x=x;old.y=y;old.r=r;old.isV=isV;old.col=isV?'#B8860B':col;
+  old.hp=hp;old.mhp=hp;old.sau=isV?18*cfg.vm:3+Math.random()*5;old.cracks=[];old.pulse=0;old.sp=isV?Math.random()*Math.PI*2:0;
+  if(isV)feed('[탐사] ✨ 새 광맥!');
+}
+function mineDraw(){
+  if(!mineOpen)return;mineAF=requestAnimationFrame(mineDraw);
+  const W2=mc.width,H2=mc.height;if(!W2||!H2)return;
+  const cfg=MCFG[mineP.pt.k]||MCFG.super,col=mineP.pt.c;
+  mc2.fillStyle=cfg.bg;mc2.fillRect(0,0,W2,H2);
+  const bg2=mc2.createRadialGradient(W2/2,H2/2,0,W2/2,H2/2,Math.max(W2,H2)*0.7);
+  bg2.addColorStop(0,col+'0e');bg2.addColorStop(1,'rgba(0,0,0,0)');mc2.fillStyle=bg2;mc2.fillRect(0,0,W2,H2);
+  parts=parts.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.life-=p.d;if(p.life<=0)return false;
+    mc2.globalAlpha=p.life;mc2.beginPath();mc2.arc(p.x,p.y,p.sz,0,Math.PI*2);mc2.fillStyle=p.col;mc2.fill();mc2.globalAlpha=1;return true;
+  });
+  rocks.forEach(rock=>{
+    if(!rock.hp&&rock.pulse<=0)return;
+    const hr=rock.hp/rock.mhp;rock.pulse=Math.max(0,rock.pulse-0.07);
+    if(rock.isV){rock.sp+=0.07;const gl=mc2.createRadialGradient(rock.x,rock.y,rock.r*.5,rock.x,rock.y,rock.r*2.2);gl.addColorStop(0,'rgba(255,215,0,0.25)');gl.addColorStop(1,'rgba(0,0,0,0)');mc2.fillStyle=gl;mc2.beginPath();mc2.arc(rock.x,rock.y,rock.r*2.2,0,Math.PI*2);mc2.fill();}
+    if(rock.pulse>0){mc2.beginPath();mc2.arc(rock.x,rock.y,rock.r+rock.pulse*14,0,Math.PI*2);mc2.strokeStyle=col+'99';mc2.lineWidth=2;mc2.stroke();}
+    const rg=mc2.createRadialGradient(rock.x-rock.r*.3,rock.y-rock.r*.3,rock.r*.1,rock.x,rock.y,rock.r);
+    rg.addColorStop(0,'rgba(255,255,255,0.35)');rg.addColorStop(0.4,rock.col);rg.addColorStop(1,'rgba(0,0,0,0.75)');
+    mc2.beginPath();mc2.arc(rock.x,rock.y,rock.r,0,Math.PI*2);mc2.fillStyle=rg;mc2.fill();mc2.strokeStyle='rgba(255,255,255,0.08)';mc2.lineWidth=1;mc2.stroke();
+    const bw=rock.r*2,bx=rock.x-rock.r,by=rock.y+rock.r+5;
+    mc2.fillStyle='rgba(0,0,0,0.5)';mc2.fillRect(bx,by,bw,4);
+    mc2.fillStyle=hr>0.5?'#27AE60':hr>0.25?'#F5A623':'#e74c3c';mc2.fillRect(bx,by,bw*hr,4);
+    mc2.strokeStyle='rgba(0,0,0,0.65)';mc2.lineWidth=1.5;
+    rock.cracks.forEach(c=>{mc2.beginPath();mc2.moveTo(rock.x,rock.y);mc2.lineTo(rock.x+Math.cos(c.a)*c.l,rock.y+Math.sin(c.a)*c.l);mc2.stroke();});
+    if(rock.isV){for(let i=0;i<5;i++){const a=rock.sp+i*(Math.PI*2/5),d=rock.r*(0.4+Math.sin(rock.sp+i)*0.3);mc2.beginPath();mc2.arc(rock.x+Math.cos(a)*d,rock.y+Math.sin(a)*d,1.5,0,Math.PI*2);mc2.fillStyle='rgba(255,215,0,'+(0.5+Math.sin(rock.sp+i)*0.5)+')';mc2.fill();}}
+    mc2.font='bold 9px monospace';mc2.textAlign='center';mc2.fillStyle=rock.isV?'#FFD700':'rgba(255,255,255,0.4)';mc2.fillText(rock.isV?'✨광맥':'⛏',rock.x,rock.y-rock.r-6);
+    if(rock.isV){mc2.fillStyle='rgba(255,215,0,0.65)';mc2.fillText('+'+rock.sau.toFixed(0)+' SAU',rock.x,rock.y+rock.r+14);}
+  });
+  floats=floats.filter(t=>{
+    t.y+=t.vy;t.life-=0.022;if(t.life<=0)return false;
+    mc2.globalAlpha=t.life;mc2.font='bold 11px monospace';mc2.textAlign='center';mc2.fillStyle=t.col;mc2.fillText(t.txt,t.x,t.y);mc2.globalAlpha=1;return true;
+  });
+  if(energy<=0){mc2.fillStyle='rgba(231,76,60,0.12)';mc2.fillRect(0,0,W2,H2);mc2.font='bold 15px monospace';mc2.textAlign='center';mc2.fillStyle='rgba(231,76,60,0.75)';mc2.fillText('⚡ 에너지 소진 — 회복 중...',W2/2,H2/2);energy=Math.min(100,energy+0.18);const pct=Math.round(energy);document.getElementById('mhBar').style.width=pct+'%';document.getElementById('mhPct').textContent=pct+'%';}
+  if(combo>1){mc2.font='bold '+(13+combo*2)+'px monospace';mc2.textAlign='left';mc2.fillStyle='rgba(255,69,0,'+(0.5+combo*0.1)+')';mc2.fillText('⚡ COMBO ×'+(combo+1),14,H2-14);}
+  frame++;
+}
+function sw(t,el){curTab=t;document.querySelectorAll('.stab').forEach(e=>e.classList.remove('on'));el.classList.add('on');if(t==='info')renderInfo();else if(t==='list')renderList();else renderMinePanel();}
+function renderInfo(){
+  const p=selP,sb=document.getElementById('sbody');
+  if(!p){sb.innerHTML='<div style="text-align:center;margin-top:20px;color:rgba(255,255,255,0.3)">행성을 클릭하세요</div>';return;}
+  const cfg=MCFG[p.pt.k]||MCFG.super;
+  sb.innerHTML='<div style="font-size:13px;font-weight:500;color:'+p.pt.c+';margin-bottom:4px">'+p.name+'</div>'
+  +'<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:8px">'+p.pt.n+'</div>'
+  +'<div style="font-size:9px;padding:5px 7px;border-radius:5px;background:rgba(255,255,255,0.04);margin-bottom:8px;color:rgba(255,255,255,0.45)">'+cfg.lbl+'</div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">광맥 확률</span><span style="color:#FFD700">'+(cfg.vc*100).toFixed(0)+'%</span></div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">광맥 배율</span><span style="color:#F5A623">x'+cfg.vm+'</span></div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">누적 SAU</span><span style="color:#27AE60">'+p.totSAU.toFixed(1)+'</span></div>'
+  +'<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)"><span style="color:rgba(255,255,255,0.4)">그리드 주소</span><span style="color:#FFD700;font-family:monospace">'+(p.addr||p.dotLayer||'—')+'</span></div>'
+  +'<div onclick="openMine(selP)" style="margin-top:10px;padding:8px;background:rgba(39,174,96,0.15);border:1px solid #27AE60;border-radius:7px;text-align:center;cursor:pointer;font-size:12px;color:#27AE60;font-weight:bold">⛏ 채굴 미니게임 시작</div>'
+  +'<div style="font-size:9px;color:rgba(255,255,255,0.2);text-align:center;margin-top:5px">암석을 클릭해서 SAU 채취</div>';
+}
+function renderList(){
+  document.getElementById('sbody').innerHTML='<div style="display:flex;flex-direction:column;gap:3px">'+
+  planets.map((p,i)=>'<div onclick="selP=planets['+i+'];renderInfo();openMine(planets['+i+'])" style="padding:5px 7px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:5px;cursor:pointer"><div style="font-size:10px;font-weight:500;color:'+p.pt.c+'">'+p.name+'</div><div style="font-size:9px;color:rgba(255,255,255,0.35)">'+p.pt.n+' · 광맥'+((MCFG[p.pt.k]||MCFG.super).vc*100).toFixed(0)+'%</div></div>').join('')+'</div>';
+}
+function renderMinePanel(){
+  const list=planets.filter(p=>p.totSAU>0).sort((a,b)=>b.totSAU-a.totSAU);
+  document.getElementById('sbody').innerHTML='<div style="font-size:10px;color:rgba(255,215,0,0.6);margin-bottom:8px">전체 SAU: '+totalSAU.toFixed(1)+'</div>'
+  +list.map(p=>'<div style="margin-bottom:4px;padding:5px 7px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:5px"><div style="display:flex;justify-content:space-between"><span style="font-size:10px;color:'+p.pt.c+'">'+p.name+'</span><span style="font-size:10px;color:#FFD700">'+p.totSAU.toFixed(1)+'</span></div></div>').join('')
+  +(list.length===0?'<div style="color:rgba(255,255,255,0.3);font-size:10px;text-align:center;margin-top:20px">채굴을 시작하세요!</div>':'');
+}
+function addShip(){if(!planets.length)return;const p=planets[Math.floor(Math.random()*planets.length)];ships.push({x:W/2,y:H/2,tx:p.x,ty:p.y});feed('[탐사선] '+p.name+' 파견!');}
+function warp(){planets.forEach(p=>{p.x=60+Math.random()*(sp.width-120);p.y=60+Math.random()*(sp.height-120);});feed('[워프] 완료!');}
+function discover(){
+  const pt=PT[Math.floor(Math.random()*PT.length)];
+  const p={name:'Nova-'+Math.floor(Math.random()*999),star:'미상',pt,sau:Math.floor(Math.random()*40+5),dotLayer:'L∞',x:60+Math.random()*(W-280),y:60+Math.random()*(H-100),r:20+Math.random()*20,mining:false,prog:0,totSAU:0};
+  planets.push(p);fCnt++;document.getElementById('foundCnt').textContent=fCnt+'/992+';selP=p;renderInfo();feed('[발견] '+p.name+'!');
+}
+const fq=[];
+function feed(m){fq.unshift(m);if(fq.length>3)fq.pop();document.getElementById('feed').textContent='[ SPACE ] '+fq[0];}
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toTimeString().slice(0,8);},1000);
+setInterval(()=>{totalSAU=planets.reduce((s,p)=>s+p.totSAU,0);document.getElementById('sauBal').textContent=totalSAU.toFixed(1);},2000);
+resize();initStars();
+window.addEventListener('resize',()=>{resize();initStars();if(mineOpen){mc.width=mc.offsetWidth;mc.height=mc.offsetHeight;}});
+fetch('/dot/space/planets.json').then(r=>r.json()).then(data=>{
+  const sw2=Math.max(3000,W*2),sh2=Math.max(1500,H*1.5);
+  sp.width=sw2;sp.height=sh2;sp.style.width=sw2+'px';sp.style.height=sh2+'px';
+  data.forEach(p=>{
+    const ti=TM[p.type]||1;let px,py,ok,t=0;
+    do{px=60+Math.random()*(sw2-120);py=60+Math.random()*(sh2-120);ok=true;planets.forEach(q=>{if(Math.hypot(px-q.x,py-q.y)<120)ok=false;});t++;}while(!ok&&t<200);
+    planets.push({...p,pt:PT[ti],x:px,y:py,r:10+Math.random()*14,sau:p.dotAU||p.sau||10,mining:false,prog:0,totSAU:0});
+  });
+  fCnt=planets.length;document.getElementById('foundCnt').textContent=fCnt+'/992+';
+  feed('IAU 행성 '+fCnt+'개 — 행성 클릭 → 채굴 시작!');
+}).catch(()=>feed('행성 데이터 오류'));
+loop();
+</script>
+</body>
+</html>

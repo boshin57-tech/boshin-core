@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>순장바둑 강의 | tobmate.com</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#111;color:#eee;height:100vh;display:flex;flex-direction:column}
+#topbar{background:#1a1a1a;border-bottom:1px solid #333;padding:0 12px;height:46px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.logo{font-size:14px;font-weight:500}
+.mode-tabs{display:flex;gap:4px}
+.mtab{padding:4px 12px;border-radius:99px;font-size:11px;cursor:pointer;border:1px solid #333;background:#222;color:#888}
+.mtab.m-ai{background:#1565c0;color:#fff;border-color:#1565c0}
+.mtab.m-pro{background:#1b5e20;color:#fff;border-color:#1b5e20}
+.mtab.m-avatar{background:#4a148c;color:#fff;border-color:#4a148c}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px}
+.dot-g{background:#4caf50}.dot-r{background:#e53935}.dot-y{background:#ff9800}
+#app{display:flex;flex:1;overflow:hidden}
+#sidebar{width:140px;background:#1a1a1a;border-right:1px solid #2a2a2a;display:flex;flex-direction:column;flex-shrink:0}
+.sb-item{padding:10px 12px;cursor:pointer;font-size:12px;color:#777;border-left:2px solid transparent}
+.sb-item:hover{background:#222;color:#ccc}
+.sb-item.active{color:#fff;background:#222;border-left-color:#fff}
+#content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.panel{display:none;flex:1;overflow-y:auto}
+.panel.active{display:flex;flex-direction:column}
+.lg{display:grid;grid-template-columns:1fr 250px;flex:1;overflow:hidden}
+.va{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid #2a2a2a}
+#local-video{width:100%;max-height:200px;background:#000;display:block;object-fit:cover}
+#avatar-wrap{width:100%;height:200px;background:#0a0a1a;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#555;font-size:12px}
+.vid-ctrl{background:#111;padding:6px 10px;display:flex;align-items:center;gap:6px;border-top:1px solid #2a2a2a;flex-shrink:0}
+.vbtn{width:28px;height:28px;border-radius:50%;background:#2a2a2a;border:none;color:#ccc;cursor:pointer;font-size:14px}
+.vbtn.red{background:#c62828}
+.vspacer{flex:1}
+.timer{font-size:11px;color:#666}
+.stu-row{display:flex;gap:4px;padding:6px;background:#161616;overflow-x:auto;flex-shrink:0;border-top:1px solid #2a2a2a;min-height:66px}
+.sv{width:68px;height:52px;background:#1a1a1a;border-radius:4px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center;font-size:10px;color:#555;border:1px solid #2a2a2a}
+.sl{position:absolute;bottom:2px;left:3px;font-size:9px;color:#fff;background:rgba(0,0,0,.6);padding:1px 3px;border-radius:2px}
+.sd{position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%}
+.rc{display:flex;flex-direction:column;background:#161616;overflow:hidden}
+.sr{display:flex;border-bottom:1px solid #2a2a2a;flex-shrink:0}
+.sb{flex:1;padding:8px;text-align:center;border-right:1px solid #2a2a2a}
+.sb:last-child{border-right:none}
+.sn{font-size:16px;font-weight:500;color:#fff}
+.sl2{font-size:10px;color:#555;margin-top:1px}
+.cw{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ch{padding:7px 10px;border-bottom:1px solid #2a2a2a;font-size:11px;color:#666;flex-shrink:0}
+.cm{flex:1;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:6px;max-height:260px}
+.msg{display:flex;gap:5px}
+.msg-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;flex-shrink:0}
+.msg.pro .msg-av{background:#1b5e20;color:#fff}
+.msg.ai .msg-av{background:#1565c0;color:#fff}
+.msg.avatar .msg-av{background:#4a148c;color:#fff}
+.msg.stu .msg-av{background:#333;color:#fff}
+.mn{font-size:10px;color:#555;margin-bottom:1px}
+.mt{font-size:11px;color:#ccc;line-height:1.4}
+.ci{padding:6px;border-top:1px solid #2a2a2a;display:flex;gap:5px;flex-shrink:0}
+.ci input{flex:1;background:#222;border:1px solid #333;border-radius:4px;padding:5px 7px;color:#eee;font-size:11px;outline:none}
+.ci button{width:26px;height:26px;border-radius:4px;background:#1565c0;color:#fff;border:none;cursor:pointer}
+.bp{padding:10px;display:flex;gap:10px;flex:1}
+.bm{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0;align-items:center}
+.szbar{display:flex;align-items:center;gap:5px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:5px;padding:6px 10px;width:100%;max-width:520px}
+.szl{font-size:10px;color:#555;margin-right:3px}
+.szb{padding:4px 11px;font-size:11px;border-radius:4px;border:1px solid #333;background:#222;color:#777;cursor:pointer}
+.szb.active{background:#fff;color:#111;border-color:#fff;font-weight:500}
+.szdiv{width:1px;height:15px;background:#333}
+.tp{padding:2px 8px;border-radius:99px;font-size:10px;font-weight:500}
+.tb{background:#111;color:#fff;border:1px solid #444}
+.tw{background:#eee;color:#111}
+.bc{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;max-width:520px}
+canvas#goban{display:block;cursor:crosshair}
+.bcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.bct{padding:4px 9px;font-size:11px;border:1px solid #333;border-radius:4px;background:#222;color:#777;cursor:pointer}
+.bct:hover{background:#2a2a2a;color:#ccc}
+.bct.pr{background:#fff;color:#111;border-color:#fff;font-weight:500}
+.bs{width:185px;display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+.bcard{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:5px;padding:9px}
+.bct2{font-size:10px;color:#555;margin-bottom:5px}
+.bcn{font-size:11px;font-weight:500;color:#ccc}
+.bcs2{font-size:10px;color:#444;margin-top:2px}
+.pw{background:#222;border-radius:99px;height:3px;overflow:hidden;margin-top:4px}
+.pf{height:100%;border-radius:99px;background:#fff;transition:width .2s}
+.pl{display:flex;justify-content:space-between;font-size:10px;color:#444;margin-top:4px}
+.ms{display:flex;flex-wrap:wrap;gap:3px;max-height:130px;overflow-y:auto;margin-top:5px}
+.mv{font-size:10px;padding:2px 4px;border-radius:3px;background:#222;color:#555;cursor:pointer}
+.mv.cur{background:#fff;color:#111}
+.cr{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:4px}
+.cn{font-size:13px;font-weight:500;color:#ccc}
+#ai-box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:5px;padding:8px;font-size:11px;color:#999;line-height:1.5;min-height:40px;width:100%;max-width:520px}
+.mi{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:5px;padding:7px;font-size:11px;color:#777;width:100%;max-width:520px;text-align:center}
+.pi{padding:10px}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.ph h2{font-size:13px;font-weight:500;color:#ccc}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:7px}
+.sc{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:5px;padding:9px}
+.sch{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.sca{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500}
+.scn{font-size:12px;font-weight:500;color:#ccc}
+.scg{font-size:10px;color:#444}
+.pill{font-size:10px;padding:2px 6px;border-radius:99px;font-weight:500;margin-left:auto}
+.pon{background:#1b5e20;color:#a5d6a7}
+.paw{background:#e65100;color:#ffcc80}
+.pof{background:#222;color:#444}
+.scl{display:flex;flex-direction:column;gap:6px}
+.si{background:#1a1a1a;border:1px solid #2a2a2a;border-left:2px solid #333;border-radius:0 5px 5px 0;padding:8px 11px;display:flex;align-items:center;gap:9px}
+.si.td{border-left-color:#fff}
+.st{min-width:52px;font-size:11px;color:#444}
+.kl{display:flex;flex-direction:column;gap:6px}
+.ki{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:5px;padding:8px 11px;display:flex;align-items:center;gap:8px}
+.kico{width:30px;height:30px;border-radius:4px;background:#222;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.knm{font-size:12px;font-weight:500;color:#ccc}
+.ksb{font-size:10px;color:#444;margin-top:2px}
+.kb{margin-left:auto;padding:3px 8px;font-size:11px;border:1px solid #333;border-radius:4px;background:#222;color:#777;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="logo">⬤ 순장바둑 아카데미 <span style="font-size:10px;color:#444">tobmate.com</span></div>
+  <div class="mode-tabs">
+    <div class="mtab m-ai" id="mt-ai" onclick="setMode('ai')">🤖 AI강의</div>
+    <div class="mtab" id="mt-pro" onclick="setMode('pro')">📹 프로기사</div>
+    <div class="mtab" id="mt-avatar" onclick="setMode('avatar')">🧑‍🏫 AI아바타</div>
+  </div>
+  <span id="cs"><span class="dot dot-y"></span>연결중...</span>
+</div>
+<div id="app">
+  <nav id="sidebar">
+    <div class="sb-item active" data-tab="lecture" onclick="goTab('lecture')">📹 강의</div>
+    <div class="sb-item" data-tab="board" onclick="goTab('board')">⊞ 바둑판</div>
+    <div class="sb-item" data-tab="students" onclick="goTab('students')">👥 수강생</div>
+    <div class="sb-item" data-tab="schedule" onclick="goTab('schedule')">📅 일정</div>
+    <div class="sb-item" data-tab="kifu" onclick="goTab('kifu')">📄 기보</div>
+  </nav>
+  <div id="content">
+    <div class="panel active" id="panel-lecture">
+      <div class="lg">
+        <div class="va">
+          <div style="position:relative;flex-shrink:0">
+            <video id="local-video" autoplay muted playsinline style="width:100%;max-height:200px;background:#000;display:block;object-fit:cover"></video>
+            <div id="avatar-wrap" style="width:100%;height:200px;background:#0a0a1a;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#555;font-size:12px">
+              <div style="font-size:48px">🧑‍🏫</div>
+              <div id="av-status">AI 아바타 대기중...</div>
+            </div>
+            <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 7px;border-radius:4px;display:flex;align-items:center;gap:4px"><span class="dot dot-g"></span><span id="pro-label">강사</span></div>
+          </div>
+          <div class="vid-ctrl">
+            <button class="vbtn" onclick="toggleMic()">🎤</button>
+            <button class="vbtn" onclick="toggleCam()">📷</button>
+            <button class="vbtn" onclick="startScreen()" id="btn-scr">🖥</button>
+            <button class="vbtn" onclick="goTab('board')">⊞</button>
+            <div class="vspacer"></div>
+            <span class="timer" id="timer">00:00:00</span>
+            <button class="vbtn red" onclick="endLecture()">📵</button>
+          </div>
+          <div class="stu-row" id="stu-row"></div>
+        </div>
+        <div class="rc">
+          <div class="sr">
+            <div class="sb"><div class="sn" id="s-stu">0</div><div class="sl2">수강생</div></div>
+            <div class="sb"><div class="sn" id="s-mode">AI</div><div class="sl2">강의모드</div></div>
+            <div class="sb"><div class="sn">★4.9</div><div class="sl2">평점</div></div>
+          </div>
+          <div class="cw">
+            <div class="ch" id="chat-hdr">💬 실시간 채팅</div>
+            <div class="cm" id="chat-msgs"></div>
+            <div class="ci">
+              <input id="chat-in" placeholder="메시지 입력 (Enter)" onkeydown="if(event.key==='Enter')sendChat()">
+              <button onclick="sendChat()">↑</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="panel-board">
+      <div class="bp">
+        <div class="bm">
+          <div class="szbar">
+            <span class="szl">판 크기</span>
+            <button class="szb active" id="btn9" onclick="setSize(9)">9로(순장)</button>
+            <div class="szdiv"></div>
+            <button class="szb" id="btn13" onclick="setSize(13)">13로</button>
+            <div class="szdiv"></div>
+            <button class="szb" id="btn19" onclick="setSize(19)">19로</button>
+            <div style="flex:1"></div>
+            <span class="tp tb" id="turn-badge">흑 차례</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;width:100%;max-width:520px;margin-bottom:4px"><span style="font-size:11px;color:#666">음성:</span><button id="voice-m" onclick="setVoiceGender('male')" style="padding:4px 12px;font-size:11px;border-radius:4px;background:#fff;color:#111;border:1px solid #fff;cursor:pointer">남성</button><button id="voice-f" onclick="setVoiceGender('female')" style="padding:4px 12px;font-size:11px;border-radius:4px;background:#222;color:#888;border:1px solid #333;cursor:pointer">여성</button></div>
+<div class="mi" id="mode-info">🤖 AI강의 — 착수하면 Claude가 자동 해설합니다</div>
+          <div class="bc">
+            <canvas id="goban" onclick="handleClick(event)"></canvas>
+            <div class="bcs">
+              <button class="bct" onclick="prevMove()">◀ 이전</button>
+              <button class="bct" onclick="nextMove()">다음 ▶</button>
+              <button class="bct" onclick="resetBoard()">↺ 초기화</button>
+              <button class="bct" onclick="loadFromGoRoom()">🔄 실시간</button>
+              <button class="bct pr" onclick="shareBoard()">📡 공유</button>
+            </div>
+          </div>
+          <div id="ai-box">AI 해설이 여기에 표시됩니다.</div>
+        </div>
+        <div class="bs">
+          <div class="bcard">
+            <div class="bct2">기보 정보</div>
+            <div class="bcn" id="kifu-title">순장바둑 9로</div>
+            <div class="bcs2" id="kifu-sub">이창호 9단 해설</div>
+            <div class="pw"><div class="pf" id="prog-bar" style="width:0%"></div></div>
+            <div class="pl"><span>진행</span><span id="prog-txt">0/0수</span></div>
+          </div>
+          <div class="bcard" style="flex:1"><div class="bct2">수순 목록</div><div class="ms" id="move-list"></div></div>
+          <div class="bcard">
+            <div class="bct2">사석</div>
+            <div class="cr"><span>● 흑</span><span class="cn" id="cap-b">0</span></div>
+            <div class="cr"><span>○ 백</span><span class="cn" id="cap-w">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="panel-students"><div class="pi">
+      <div class="ph"><h2>수강생 관리</h2><button class="bct pr">+ 초대</button></div>
+      <div class="sg" id="stu-cards"></div>
+    </div></div>
+    <div class="panel" id="panel-schedule"><div class="pi">
+      <div class="ph"><h2>강의 일정</h2><button class="bct pr">+ 추가</button></div>
+      <div class="scl" id="sched-list"></div>
+    </div></div>
+    <div class="panel" id="panel-kifu"><div class="pi">
+      <div class="ph"><h2>기보 자료실</h2>
+        <div style="display:flex;gap:4px">
+          <button class="bct" onclick="filterKifu('all')">전체</button>
+          <button class="bct" onclick="filterKifu(9)">9로</button>
+          <button class="bct" onclick="filterKifu(13)">13로</button>
+          <button class="bct" onclick="filterKifu(19)">19로</button>
+        </div>
+      </div>
+      <div class="kl" id="kifu-list"></div>
+    </div></div>
+  </div>
+</div>
+<script>
+const P=new URLSearchParams(location.search);
+const ROOM_ID=P.get('room')||'pro-room-1';
+const USER_ID=P.get('user')||'수강생';
+const ROLE=P.get('role')||'student';
+let MODE=P.get('mode')||'ai';
+
+function setMode(m){
+  MODE=m;
+  ['ai','pro','avatar'].forEach(x=>{
+    const t=document.getElementById('mt-'+x);
+    t.className='mtab'+(x===m?' m-'+m:'');
+  });
+  const labels={ai:'🤖 AI강의',pro:'📹 프로기사',avatar:'🧑‍🏫 AI아바타'};
+  const infos={ai:'🤖 AI강의 — 착수하면 Claude가 자동 해설합니다',pro:'📹 프로기사 강의 — 실시간 WebRTC 화상강의',avatar:'🧑‍🏫 AI아바타 강의 — AI가 음성으로 강의합니다'};
+  document.getElementById('s-mode').textContent=m.toUpperCase();
+  const mi=document.getElementById('mode-info');if(mi)mi.textContent=infos[m]||'';
+  document.getElementById('pro-label').textContent=m==='avatar'?'AI아바타 강사':m==='pro'?'프로기사':'AI강사';
+  const lv=document.getElementById('local-video');
+  const av=document.getElementById('avatar-wrap');
+  if(m==='avatar'){lv.style.display='none';av.style.display='flex';}
+  else{lv.style.display='block';av.style.display='none';}
+  if(m==='pro'&&!localStream)startCam();
+}
+
+function goTab(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(s=>s.classList.remove('active'));
+  const p=document.getElementById('panel-'+n),s=document.querySelector(`.sb-item[data-tab="${n}"]`);
+  if(p)p.classList.add('active');if(s)s.classList.add('active');
+  if(n==='board')setTimeout(drawBoard,30);
+}
+
+let socket;
+function connectSocket(){
+  socket=io('https://tobmate.com',{path:'/lecture/socket.io/'});
+  socket.on('connect',()=>{
+    document.getElementById('cs').innerHTML='<span class="dot dot-g"></span>연결됨';
+    socket.emit('join-room',{roomId:ROOM_ID,userId:USER_ID,role:ROLE,boardSize:boardSize});
+  });
+  socket.on('disconnect',()=>{document.getElementById('cs').innerHTML='<span class="dot dot-r"></span>끊김';});
+  socket.on('room-update',d=>{document.getElementById('s-stu').textContent=d.memberCount;});
+  socket.on('chat',d=>appendChat(d.userId,d.text,d.role||'stu'));
+  socket.on('board-move',d=>{stones.push(d.stone);currentMove++;if(d.boardSize&&d.boardSize!==boardSize)boardSize=d.boardSize;drawBoard();updateUI();});
+  socket.on('board-reset',d=>{stones=[];moveHistory=[];currentMove=0;if(d.boardSize)boardSize=d.boardSize;drawBoard();updateUI();});
+  socket.on('board-sync',d=>{stones=d.stones||[];currentMove=d.move||0;if(d.size)boardSize=d.size;drawBoard();updateUI();});
+}
+
+let localStream=null;
+async function startCam(){
+  try{localStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});document.getElementById('local-video').srcObject=localStream;}catch(e){console.warn(e);}
+}
+async function toggleMic(){if(!localStream)await startCam();const t=localStream?.getAudioTracks()[0];if(t)t.enabled=!t.enabled;}
+async function toggleCam(){if(!localStream)await startCam();const t=localStream?.getVideoTracks()[0];if(t)t.enabled=!t.enabled;}
+async function startScreen(){try{const s=await navigator.mediaDevices.getDisplayMedia({video:true});document.getElementById('local-video').srcObject=s;}catch(e){}}
+function endLecture(){if(localStream)localStream.getTracks().forEach(t=>t.stop());if(socket)socket.disconnect();clearInterval(timerInterval);}
+
+let timerSec=0,timerInterval;
+function startTimer(){timerInterval=setInterval(()=>{timerSec++;const h=Math.floor(timerSec/3600),m=Math.floor((timerSec%3600)/60),s=timerSec%60;document.getElementById('timer').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;},1000);}
+
+function appendChat(user,text,type='stu'){
+  const box=document.getElementById('chat-msgs');
+  const d=document.createElement('div');d.className='msg '+type;
+  d.innerHTML=`<div class="msg-av">${user.charAt(0)}</div><div><div class="mn">${user}</div><div class="mt">${text}</div></div>`;
+  box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+function sendChat(){
+  const inp=document.getElementById('chat-in');const t=inp.value.trim();if(!t)return;
+  if(socket)socket.emit('chat',{roomId:ROOM_ID,userId:USER_ID,text:t,role:ROLE});
+  appendChat(USER_ID,t,ROLE==='pro'?'pro':'stu');inp.value='';
+}
+
+let boardSize=9,stones=[],moveHistory=[],currentMove=0,turnBlack=true;
+const STARS={9:[[2,2],[2,6],[4,4],[6,2],[6,6]],13:[[3,3],[3,9],[6,6],[9,3],[9,9],[3,6],[6,3],[6,9],[9,6]],19:[[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]]};
+const KNAMES={9:'순장바둑 9로 — 포석 기초',13:'순장바둑 13로 — 중반 전략',19:'순장바둑 19로 — 실전 포석'};
+const DEMO={9:[{r:4,c:4,b:true},{r:2,c:2,b:false},{r:6,c:6,b:true},{r:2,c:6,b:false},{r:6,c:2,b:true},{r:4,c:2,b:false}],13:[{r:3,c:3,b:true},{r:9,c:9,b:false},{r:3,c:9,b:true},{r:9,c:3,b:false},{r:6,c:6,b:true},{r:3,c:6,b:false}],19:[{r:3,c:3,b:true},{r:15,c:15,b:false},{r:3,c:15,b:true},{r:15,c:3,b:false},{r:9,c:9,b:true},{r:3,c:9,b:false}]};
+function getCS(n){return n===9?{cs:300,pad:20}:n===13?{cs:340,pad:18}:{cs:420,pad:20};}
+
+function drawBoard(){
+  const cv=document.getElementById('goban');if(!cv)return;
+  const{cs,pad}=getCS(boardSize);cv.width=cs;cv.height=cs;
+  const ctx=cv.getContext('2d'),n=boardSize,cell=(cs-pad*2)/(n-1);
+  ctx.fillStyle='#c8922a';ctx.fillRect(0,0,cs,cs);
+  ctx.strokeStyle='#000';ctx.lineWidth=2.5;
+  for(let i=0;i<n;i++){
+    ctx.beginPath();ctx.moveTo(pad+i*cell,pad);ctx.lineTo(pad+i*cell,cs-pad);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pad,pad+i*cell);ctx.lineTo(cs-pad,pad+i*cell);ctx.stroke();
+  }
+  (STARS[n]||[]).forEach(([r,c])=>{ctx.beginPath();ctx.arc(pad+c*cell,pad+r*cell,n===19?4:3.5,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();});
+  const rad=cell*0.46;
+  stones.forEach((s,idx)=>{
+    const px=pad+s.c*cell,py=pad+s.r*cell;
+    ctx.beginPath();ctx.arc(px,py,rad,0,Math.PI*2);
+    if(s.b){ctx.fillStyle='#111';ctx.fill();}
+    else{ctx.fillStyle='#f5f5f5';ctx.fill();ctx.strokeStyle='#999';ctx.lineWidth=0.8;ctx.stroke();}
+    if(idx===stones.length-1){ctx.beginPath();ctx.arc(px,py,rad*0.38,0,Math.PI*2);ctx.fillStyle=s.b?'#fff':'#333';ctx.fill();}
+  });
+}
+
+function handleClick(e){
+  const cv=document.getElementById('goban');
+  const rect=cv.getBoundingClientRect();
+  const{cs,pad}=getCS(boardSize);
+  const mx=(e.clientX-rect.left)*(cs/rect.width),my=(e.clientY-rect.top)*(cs/rect.height);
+  const cell=(cs-pad*2)/(boardSize-1);
+  const c=Math.round((mx-pad)/cell),r=Math.round((my-pad)/cell);
+  if(c<0||c>=boardSize||r<0||r>=boardSize)return;
+  if(stones.find(s=>s.r===r&&s.c===c))return;
+  const stone={r,c,b:turnBlack};
+  stones.push(stone);moveHistory=moveHistory.slice(0,currentMove);moveHistory.push(stone);currentMove++;
+  turnBlack=!turnBlack;
+  if(socket)socket.emit('board-move',{roomId:ROOM_ID,stone,move:currentMove,boardSize});
+  drawBoard();updateUI();
+  if(MODE==='ai'||MODE==='pro'){fetchAI(stone);}
+  else if(MODE==='avatar')fetchAvatar(stone);
+}
+
+function setSize(n){
+  boardSize=n;stones=[];moveHistory=[];currentMove=0;turnBlack=true;
+  ['9','13','19'].forEach(s=>document.getElementById('btn'+s).classList.remove('active'));
+  document.getElementById('btn'+n).classList.add('active');
+  document.getElementById('kifu-title').textContent=KNAMES[n];
+  if(socket)socket.emit('board-reset',{roomId:ROOM_ID,boardSize:n});
+  updateUI();setTimeout(drawBoard,10);
+}
+function prevMove(){if(currentMove<=0)return;currentMove--;stones=moveHistory.slice(0,currentMove);turnBlack=currentMove%2===0;drawBoard();updateUI();}
+function nextMove(){
+  const demo=DEMO[boardSize]||[];
+  if(currentMove<moveHistory.length){stones=moveHistory.slice(0,currentMove+1);currentMove++;}
+  else if(currentMove<demo.length){const m=demo[currentMove];if(!stones.find(s=>s.r===m.r&&s.c===m.c)){stones.push(m);moveHistory.push(m);currentMove++;}}
+  turnBlack=currentMove%2===0;drawBoard();updateUI();
+}
+function resetBoard(){stones=[];moveHistory=[];currentMove=0;turnBlack=true;if(socket)socket.emit('board-reset',{roomId:ROOM_ID,boardSize});drawBoard();updateUI();}
+function shareBoard(){if(socket){socket.emit('board-sync-request',{roomId:ROOM_ID});alert('수강생에게 바둑판이 공유됩니다.');}}
+
+function loadFromGoRoom(){
+  fetch('/api/goroom-latest')
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.moves&&d.moves.length>0){
+        stones=d.moves;moveHistory=d.moves;currentMove=d.moves.length;
+        if(d.boardSize)boardSize=d.boardSize;
+        drawBoard();updateUI();
+        appendChat('시스템','실시간 대국 기보를 불러왔습니다.','ai');
+      }else{appendChat('시스템','현재 진행 중인 대국이 없습니다.','ai');}
+    }).catch(()=>appendChat('시스템','기보 불러오기 실패. 데모 기보를 사용합니다.','ai'));
+}
+
+function updateUI(){
+  const total=(DEMO[boardSize]||[]).length;
+  const pct=total>0?Math.round(currentMove/total*100):0;
+  document.getElementById('prog-txt').textContent=`${currentMove}/${total}수`;
+  document.getElementById('prog-bar').style.width=pct+'%';
+  document.getElementById('turn-badge').textContent=turnBlack?'흑 차례':'백 차례';
+  document.getElementById('turn-badge').className='tp '+(turnBlack?'tb':'tw');
+  document.getElementById('move-list').innerHTML=moveHistory.map((m,i)=>`<span class="mv${i===currentMove-1?' cur':''}" onclick="jumpMove(${i+1})">${i+1}</span>`).join('');
+}
+function jumpMove(n){currentMove=n;stones=moveHistory.slice(0,n);turnBlack=n%2===0;drawBoard();updateUI();}
+
+</script>
+</body>
+</html>
+<script>
+const peers={};
+const RTC_CFG={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+
+async function p2pInit(){
+  if(!socket)return;
+  socket.emit('p2p-join',{roomId:ROOM_ID,userId:USER_ID,role:ROLE});
+
+  socket.on('p2p-user-joined',async({userId,socketId,role})=>{
+    appendChat('시스템',`${userId} 입장`,role==='pro'?'pro':'stu');
+    if(ROLE==='pro'||MODE==='pro'){
+      const pc=createPC(socketId);
+      if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+      const offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit('p2p-offer',{to:socketId,offer,roomId:ROOM_ID});
+    }
+  });
+
+  socket.on('p2p-offer',async({from,offer})=>{
+    const pc=createPC(from);
+    if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer=await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('p2p-answer',{to:from,answer,roomId:ROOM_ID});
+  });
+
+  socket.on('p2p-answer',async({from,answer})=>{
+    if(peers[from])await peers[from].setRemoteDescription(new RTCSessionDescription(answer));
+  });
+
+  socket.on('p2p-ice',async({from,candidate})=>{
+    if(peers[from])try{await peers[from].addIceCandidate(new RTCIceCandidate(candidate));}catch(e){}
+  });
+
+  socket.on('p2p-user-left',({socketId})=>{
+    if(peers[socketId]){peers[socketId].close();delete peers[socketId];}
+    const v=document.getElementById('v-'+socketId);
+    if(v)v.remove();
+    appendChat('시스템','수강생이 나갔습니다.','ai');
+  });
+}
+
+function createPC(socketId){
+  const pc=new RTCPeerConnection(RTC_CFG);
+  peers[socketId]=pc;
+  pc.onicecandidate=e=>{if(e.candidate)socket.emit('p2p-ice',{to:socketId,candidate:e.candidate,roomId:ROOM_ID});};
+  pc.ontrack=e=>{
+    let v=document.getElementById('v-'+socketId);
+    if(!v){
+      const wrap=document.createElement('div');wrap.className='sv';wrap.id='w-'+socketId;
+      v=document.createElement('video');v.id='v-'+socketId;
+      v.autoplay=true;v.playsinline=true;v.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:4px';
+      wrap.appendChild(v);
+      document.getElementById('stu-row').appendChild(wrap);
+    }
+    v.srcObject=e.streams[0];
+  };
+  pc.onconnectionstatechange=()=>{
+    if(pc.connectionState==='disconnected'||pc.connectionState==='failed'){
+      pc.close();delete peers[socketId];
+      const w=document.getElementById('w-'+socketId);if(w)w.remove();
+    }
+  };
+  return pc;
+}
+
+// 기존 connectSocket 완료 후 P2P 초기화
+const _origConnect=connectSocket;
+connectSocket=function(){
+  _origConnect();
+  setTimeout(p2pInit,500);
+};
+
+// AI 아바타 모드 — 음성합성 강화
+async function fetchAI(stone){
+  const coord=String.fromCharCode(65+stone.c)+(boardSize-stone.r);
+  document.getElementById('ai-box').textContent='해설 생성 중...';
+  try{
+    const r=await fetch(`https://tobmate.com/api/lecture?lang=ko&playerTPI=500&lastMove=${coord}&turn=${stone.b?0:1}&winrate=0.5`);
+    const d=await r.json();
+    const txt=d.comment||d.text||d.message||`${stone.b?'흑':'백'} ${coord} 착수`;
+    document.getElementById('ai-box').textContent=txt;
+    elevenLabsSpeak(txt);
+    appendChat('🤖 AI강사',txt,'ai');
+    if(socket)socket.emit('chat',{roomId:ROOM_ID,userId:'AI강사',text:txt,role:'ai'});
+  }catch(e){document.getElementById('ai-box').textContent='오류:'+e.message;console.error('[fetchAI]',e);}
+}
+</script>
+<script>
+// 녹화 기능
+let isRecording=false, recordStart=0, mediaRecorder=null, recordChunks=[];
+
+function toggleRecord(){
+  if(!isRecording) startRecord(); else stopRecord();
+}
+
+async function startRecord(){
+  try{
+    const streams=[];
+    if(localStream)streams.push(localStream);
+    const canvas=document.getElementById('goban');
+    if(canvas){const cs=canvas.captureStream(30);streams.push(cs);}
+    if(streams.length===0){alert('녹화할 스트림이 없습니다.');return;}
+    const combined=streams.length>1?streams[0]:streams[0];
+    mediaRecorder=new MediaRecorder(combined,{mimeType:'video/webm;codecs=vp9'});
+    recordChunks=[];
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordChunks.push(e.data);};
+    mediaRecorder.onstop=saveRecord;
+    mediaRecorder.start(1000);
+    isRecording=true; recordStart=Date.now();
+    if(socket)socket.emit('recording-start',{roomId:ROOM_ID,userId:USER_ID});
+    document.getElementById('rec-btn').style.background='#e53935';
+    document.getElementById('rec-btn').textContent='⏹ 녹화 중지';
+    appendChat('시스템','녹화를 시작했습니다.','ai');
+  }catch(e){alert('녹화 오류: '+e.message);}
+}
+
+function stopRecord(){
+  if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+  isRecording=false;
+  const dur=Math.round((Date.now()-recordStart)/1000);
+  if(socket)socket.emit('recording-stop',{roomId:ROOM_ID,userId:USER_ID,duration:dur});
+  document.getElementById('rec-btn').style.background='';
+  document.getElementById('rec-btn').textContent='⏺ 녹화 시작';
+  appendChat('시스템',`녹화 완료 (${dur}초)`, 'ai');
+}
+
+function saveRecord(){
+  const blob=new Blob(recordChunks,{type:'video/webm'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`lecture_${ROOM_ID}_${new Date().toISOString().slice(0,19)}.webm`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// D-ID 아바타 (TTS 강화 버전 — D-ID API 키 추가 시 영상 생성)
+const AVATAR_VOICES=['ko-KR-SunHiNeural','ko-KR-InJoonNeural'];
+let avatarVoiceIdx=0;
+
+function avatarSpeak(text){
+  if(!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ko-KR'; u.rate=0.88; u.pitch=1.05;
+  const voices=speechSynthesis.getVoices().filter(v=>v.lang.includes('ko'));
+  if(voices.length>0)u.voice=voices[avatarVoiceIdx%voices.length];
+  u.onstart=()=>{
+    const av=document.getElementById('av-status');
+    if(av){av.textContent='🎙 강의 중...';av.style.color='#ce93d8';}
+    document.getElementById('avatar-wrap').style.border='2px solid #ce93d8';
+  };
+  u.onend=()=>{
+    const av=document.getElementById('av-status');
+    if(av){av.textContent='대기 중...';av.style.color='#555';}
+    document.getElementById('avatar-wrap').style.border='none';
+  };
+  speechSynthesis.speak(u);
+  if(socket)socket.emit('avatar-speak',{roomId:ROOM_ID,text,lang:'ko-KR'});
+}
+
+// 강의 이력 불러오기
+async function loadHistory(){
+  try{
+    const r=await fetch(`/lecture-ws/lecture-history?user_id=${USER_ID}`);
+    const d=await r.json();
+    if(d.length>0){
+      appendChat('시스템',`강의 이력 ${d.length}개 불러옴`,'ai');
+    }
+  }catch(e){console.log('이력 조회 실패');}
+}
+
+// 소켓 이벤트 추가
+setTimeout(()=>{
+  if(!socket)return;
+  socket.on('recording-status',d=>{
+    appendChat('시스템',d.recording?'🔴 녹화 중...':'⏹ 녹화 종료','ai');
+  });
+  socket.on('avatar-speaking',d=>{
+    appendChat('🧑‍🏫 AI아바타',d.text,'avatar');
+    
+  });
+},1500);
+
+// 녹화 버튼 추가
+setTimeout(()=>{
+  const ctrl=document.querySelector('.vid-ctrl');
+  if(ctrl&&!document.getElementById('rec-btn')){
+    const btn=document.createElement('button');
+    btn.id='rec-btn'; btn.className='vbtn';
+    btn.textContent='⏺'; btn.title='녹화';
+    btn.style.cssText='font-size:11px;width:36px';
+    btn.onclick=toggleRecord;
+    ctrl.insertBefore(btn, ctrl.querySelector('.vspacer'));
+  }
+},500);
+</script>
+<script>
+async function didAvatarSpeak(text, lang) {
+  lang = lang || 'ko-KR';
+  const av = document.getElementById('av-status');
+  if(av) av.textContent = '🎬 영상 생성 중...';
+  document.getElementById('ai-box').textContent = text;
+
+  try {
+    const r = await fetch('/avatar/speak', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text, lang})
+    });
+    const d = await r.json();
+    if(!d.id){ throw new Error(d.error||'생성 실패'); }
+    console.log('[D-ID] talk id:', d.id);
+    if(av) av.textContent = '⏳ 영상 렌더링 중...';
+    pollTalkStatus(d.id, text);
+  } catch(e) {
+    console.warn('[D-ID] 오류:', e.message);
+  }
+}
+
+async function pollTalkStatus(talkId, text) {
+  const av = document.getElementById('av-status');
+  let tries = 0;
+  const interval = setInterval(async () => {
+    tries++;
+    if(tries > 30){ clearInterval(interval); return; }
+    try {
+      const r = await fetch('/avatar/status/' + talkId);
+      const d = await r.json();
+      if(d.status === 'done' && d.result_url) {
+        clearInterval(interval);
+        playAvatarVideo(d.result_url, text);
+      } else if(d.status === 'error') {
+        clearInterval(interval);
+      }
+    } catch(e){ clearInterval(interval); }
+  }, 2000);
+}
+
+function playAvatarVideo(url, text) {
+  const av = document.getElementById('av-status');
+  const wrap = document.getElementById('avatar-wrap');
+  if(!wrap) return;
+
+  let vid = document.getElementById('avatar-video');
+  if(!vid) {
+    vid = document.createElement('video');
+    vid.id = 'avatar-video';
+    vid.autoplay = true;
+    vid.playsinline = true;
+    vid.style.cssText = 'width:100%;max-height:200px;object-fit:cover;border-radius:4px';
+    vid.onended = () => {
+      if(av) av.textContent = '대기 중...';
+      wrap.style.border = 'none';
+    };
+    wrap.appendChild(vid);
+  }
+
+  vid.src = url;
+  vid.style.display = 'block';
+  if(av) av.textContent = '🎙 강의 중...';
+  wrap.style.border = '2px solid #ce93d8';
+  vid.play().catch(()=>{});
+
+  appendChat('🧑‍🏫 AI아바타', text, 'avatar');
+  if(socket) socket.emit('chat', {roomId:ROOM_ID, userId:'AI아바타강사', text, role:'avatar'});
+}
+
+</script>
+<script>
+async function fetchAvatar(stone) {
+  const coord = String.fromCharCode(65+stone.c)+(boardSize-stone.r);
+  const avStatus = document.getElementById('av-status');
+  if(avStatus) avStatus.textContent = '해설 생성 중...';
+  document.getElementById('ai-box').textContent = '해설 생성 중...';
+  try {
+    const r = await fetch(`https://tobmate.com/api/lecture?lang=ko&playerTPI=500&lastMove=${coord}&turn=${stone.b?0:1}&winrate=0.5`);
+    const d = await r.json();
+    const txt = d.comment||d.text||d.message||`${stone.b?'흑':'백'}이 ${coord}에 착수했습니다.`;
+    document.getElementById('ai-box').textContent = txt;
+    appendChat('🧑‍🏫 AI아바타', txt, 'avatar');
+    if(socket) socket.emit('chat', {roomId:ROOM_ID, userId:'AI아바타강사', text:txt, role:'avatar'});
+    if(MODE==='avatar') {
+      await elevenLabsSpeak(txt, 'male');
+      await didAvatarSpeak(txt, 'ko-KR');
+    }
+  } catch(e) {
+    if(avStatus) avStatus.textContent = '오류';
+    document.getElementById('ai-box').textContent = '해설 생성 실패';
+  }
+}
+</script>
+<script>
+let voiceGender = 'male';
+function setVoiceGender(g) {
+  voiceGender = g;
+  document.getElementById('voice-m').style.background = g==='male' ? '#fff' : '#222';
+  document.getElementById('voice-m').style.color = g==='male' ? '#111' : '#888';
+  document.getElementById('voice-m').style.borderColor = g==='male' ? '#fff' : '#333';
+  document.getElementById('voice-f').style.background = g==='female' ? '#ce93d8' : '#222';
+  document.getElementById('voice-f').style.color = g==='female' ? '#111' : '#888';
+  document.getElementById('voice-f').style.borderColor = g==='female' ? '#ce93d8' : '#333';
+  appendChat('시스템', `음성: ${g==='male'?'남성 (George)':'여성 (Sarah)'}`, 'ai');
+}
+
+</script>
+<script>
+let _elevenBusy = false;
+async function elevenLabsSpeak(text, gender) {
+  if(_elevenBusy){ console.log("[ELEVEN] 스킵"); return false; }
+  _elevenBusy = true;
+  try {
+    const r = await fetch('/avatar/eleven/speak', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text, gender: voiceGender||gender||'male'})
+    });
+    const d = await r.json();
+    if(!d.audio_base64) throw new Error('no audio');
+    const audio = new Audio('data:audio/mpeg;base64,' + d.audio_base64);
+    const av = document.getElementById('av-status');
+    if(av){ av.textContent='🎙 강의 중...'; av.style.color='#ce93d8'; }
+    audio.onended = () => {
+      if(av){ av.textContent='대기 중...'; av.style.color='#555'; }
+      _elevenBusy = false;
+    };
+    audio.play();
+    return true;
+  } catch(e) {
+    console.warn('[ElevenLabs] 오류:', e.message);
+    _elevenBusy = false;
+    return false;
+  }
+}
+</script>

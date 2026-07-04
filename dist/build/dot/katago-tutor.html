@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AI 바둑 선생님 — KataGo Tutor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace;touch-action:none;-webkit-user-select:none;user-select:none}
+#wrap{width:100vw;height:100vh;position:relative;background:#020014;display:flex;flex-direction:column}
+.hud{height:38px;background:rgba(0,2,12,0.95);border-bottom:1px solid rgba(39,174,96,0.3);display:flex;align-items:center;justify-content:space-between;padding:0 14px;flex-shrink:0;font-size:11px;color:#27AE60}
+.back{font-size:9px;color:rgba(39,174,96,0.7);padding:3px 8px;border:1px solid rgba(39,174,96,0.3);border-radius:5px;cursor:pointer;text-decoration:none}
+.back:hover{color:#27AE60;border-color:#27AE60}
+#mainArea{flex:1;display:flex;min-height:0;overflow:hidden}
+#boardPane{width:46%;min-width:280px;display:flex;align-items:center;justify-content:center;padding:14px;border-right:1px solid rgba(39,174,96,0.12)}
+#boardCanvas{max-width:100%;max-height:100%}
+#rightPane{flex:1;display:flex;flex-direction:column;padding:14px 18px;overflow-y:auto;min-height:0}
+#avatarRow{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-shrink:0}
+#avatarCanvas{width:90px;height:110px;flex-shrink:0}
+#avatarInfo{flex:1}
+#avatarLabel{font-size:14px;color:#27AE60;font-weight:bold}
+#avatarSub{font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px}
+#bubble{flex-shrink:0;background:rgba(10,20,16,0.97);border:1px solid #27AE60;border-radius:12px;padding:14px 16px;margin-bottom:14px}
+#bubbleHead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:#27AE60}
+#bubbleLevel{font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(39,174,96,0.15);color:#27AE60}
+#bubbleText{font-size:13px;line-height:1.8;color:rgba(255,255,255,0.92)}
+.botbar{height:56px;background:rgba(0,2,12,0.95);border-top:1px solid rgba(39,174,96,0.15);display:flex;align-items:center;justify-content:center;gap:10px;padding:0 14px;flex-shrink:0}
+.abtn{padding:9px 18px;border-radius:9px;border:1px solid rgba(39,174,96,0.4);color:rgba(39,174,96,0.9);font-size:12px;font-weight:500;cursor:pointer;background:none;font-family:monospace}
+.abtn:hover{border-color:#27AE60;color:#27AE60;background:rgba(39,174,96,0.08)}
+.abtn.primary{background:rgba(39,174,96,0.18);border-color:#27AE60;color:#27AE60}
+@media (max-width:680px){
+  #mainArea{flex-direction:column}
+  #boardPane{width:100%;border-right:none;border-bottom:1px solid rgba(39,174,96,0.12);flex-shrink:0;max-height:48vh}
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+<div class="hud">
+  <span>🧑‍🏫 AI 바둑 선생님 — KataGo Tutor</span>
+  <a class="back" href="/dot.html">← 지도</a>
+</div>
+<div id="mainArea">
+  <div id="boardPane"><canvas id="boardCanvas"></canvas></div>
+  <div id="rightPane">
+    <div id="avatarRow">
+      <canvas id="avatarCanvas"></canvas>
+      <div id="avatarInfo">
+        <div id="avatarLabel">KataGo 선생님</div>
+        <div id="avatarSub">클릭해서 오늘의 강의를 들어보세요</div>
+      </div>
+    </div>
+    <div id="bubble">
+      <div id="bubbleHead">
+        <span>💬 선생님 코멘트</span>
+        <span id="bubbleLevel">-</span>
+      </div>
+      <div id="bubbleText">"강의 듣기" 버튼을 눌러보세요. 바둑판 위에 착수 위치가 표시되고, 그 수에 대한 해설을 들려드릴게요.</div>
+    </div>
+  </div>
+</div>
+<div class="botbar">
+  <button class="abtn primary" onclick="askLecture()">📖 강의 듣기</button>
+  <button class="abtn" onclick="askLecture(true)">🔄 다음 수 강의</button>
+</div>
+</div>
+<script src="/dot/space-engine.js"></script>
+<script>
+// ── 바둑판 렌더링 ──
+const bc = document.getElementById('boardCanvas');
+const bx = bc.getContext('2d');
+const BOARD_SIZE = 19;
+let boardStones = []; // {x,y,color} x,y는 0~18
+let lastMovePos = null; // {x,y}
+let lastMoveColor = 1; // 1=흑 2=백
+
+const STARS={9:[[2,2],[2,6],[4,4],[6,2],[6,6]],13:[[3,3],[3,9],[6,6],[9,3],[9,9],[3,6],[6,3],[6,9],[9,6]],19:[[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]]};
+let boardImg = new Image();
+boardImg.src = '/assets/img/board.jpg';
+boardImg.onload = ()=>{ drawBoardOnce(); };
+
+function resizeBoard(){
+  const pane = document.getElementById('boardPane');
+  const size = Math.min(pane.clientWidth - 28, pane.clientHeight - 28, 480);
+  bc.width = size; bc.height = size;
+  drawBoardOnce();
+}
+
+function coordToGrid(coord){
+  const cols = 'ABCDEFGHJKLMNOPQRST';
+  const colChar = coord[0].toUpperCase();
+  const rowNum = parseInt(coord.slice(1));
+  const c = cols.indexOf(colChar);
+  const r = BOARD_SIZE - rowNum;
+  return {x:c, y:r};
+}
+
+function drawBoardOnce(){
+  const cs = bc.width, pad = cs*0.05, n = BOARD_SIZE;
+  const cell = (cs - pad*2) / (n-1);
+
+  if(boardImg.complete && boardImg.naturalWidth > 0){
+    bx.drawImage(boardImg, 0, 0, cs, cs);
+  } else {
+    bx.fillStyle = '#c8922a';
+    bx.fillRect(0,0,cs,cs);
+  }
+
+  bx.strokeStyle = 'rgba(0,0,0,0.65)';
+  bx.lineWidth = 1.6;
+  for(let i=0;i<n;i++){
+    bx.beginPath(); bx.moveTo(pad+i*cell, pad); bx.lineTo(pad+i*cell, cs-pad); bx.stroke();
+    bx.beginPath(); bx.moveTo(pad, pad+i*cell); bx.lineTo(cs-pad, pad+i*cell); bx.stroke();
+  }
+  (STARS[n]||[]).forEach(([r,c])=>{
+    bx.beginPath(); bx.arc(pad+c*cell, pad+r*cell, n===19?3.2:2.8, 0, Math.PI*2);
+    bx.fillStyle='#000'; bx.fill();
+  });
+
+  const rad = cell*0.46;
+  boardStones.forEach((s,idx)=>{
+    const px = pad+s.x*cell, py = pad+s.y*cell;
+    bx.beginPath(); bx.arc(px,py,rad,0,Math.PI*2);
+    if(s.color===1){ bx.fillStyle='#111'; bx.fill(); }
+    else { bx.fillStyle='#f5f5f5'; bx.fill(); bx.strokeStyle='#999'; bx.lineWidth=0.8; bx.stroke(); }
+  });
+
+  if(lastMovePos){
+    const px = pad+lastMovePos.x*cell, py = pad+lastMovePos.y*cell;
+    bx.beginPath(); bx.arc(px,py,rad*0.4,0,Math.PI*2);
+    bx.fillStyle = lastMoveColor===1 ? '#fff' : '#333';
+    bx.fill();
+    bx.beginPath(); bx.arc(px,py,rad+3,0,Math.PI*2);
+    bx.strokeStyle = '#27AE60'; bx.lineWidth=2; bx.stroke();
+  }
+}
+
+function drawBoard(){
+  drawBoardOnce();
+  requestAnimationFrame(drawBoard);
+}
+
+// ── 캐릭터 형상 아바타 (머리+몸+바둑판 무늬 옷) ──
+const cv = document.getElementById('avatarCanvas');
+const ctx = cv.getContext('2d');
+let pulsePhase = 0, talking = false, talkPhase = 0;
+
+function resizeAvatar(){ cv.width=90; cv.height=110; }
+resizeAvatar();
+
+function drawAvatar(){
+  ctx.clearRect(0,0,90,110);
+  const cx=45;
+  pulsePhase += 0.03;
+  const breathe = 1 + Math.sin(pulsePhase)*0.015;
+  const talkBounce = talking ? Math.sin(talkPhase)*1.5 : 0;
+  talkPhase += 0.3;
+
+  // 몸 (사다리꼴 — 도복/한복 느낌)
+  const bodyTop = 58, bodyBot = 105, bodyTopW = 26, bodyBotW = 40;
+  ctx.beginPath();
+  ctx.moveTo(cx-bodyTopW/2, bodyTop);
+  ctx.lineTo(cx+bodyTopW/2, bodyTop);
+  ctx.lineTo(cx+bodyBotW/2, bodyBot);
+  ctx.lineTo(cx-bodyBotW/2, bodyBot);
+  ctx.closePath();
+  const bodyGrad = ctx.createLinearGradient(0,bodyTop,0,bodyBot);
+  bodyGrad.addColorStop(0,'#1b4d2e'); bodyGrad.addColorStop(1,'#0d2818');
+  ctx.fillStyle = bodyGrad; ctx.fill();
+  ctx.strokeStyle = '#27AE60'; ctx.lineWidth=1; ctx.stroke();
+
+  // 옷깃에 작은 바둑판 격자 패턴 (정체성)
+  ctx.strokeStyle = 'rgba(39,174,96,0.5)'; ctx.lineWidth=0.6;
+  for(let i=0;i<3;i++){
+    ctx.beginPath();
+    ctx.moveTo(cx-10+i*10, bodyTop+10);
+    ctx.lineTo(cx-10+i*10, bodyBot-8);
+    ctx.stroke();
+  }
+
+  // 목
+  ctx.fillStyle = '#e8c39e';
+  ctx.fillRect(cx-6, 50, 12, 12);
+
+  // 머리 (원)
+  const headY = 35 + talkBounce*0.3;
+  const headR = 22 * breathe;
+  const hg = ctx.createRadialGradient(cx-headR*.3,headY-headR*.3,headR*.1,cx,headY,headR);
+  hg.addColorStop(0,'#f5dcb8'); hg.addColorStop(1,'#d9b285');
+  ctx.beginPath(); ctx.arc(cx,headY,headR,0,Math.PI*2); ctx.fillStyle=hg; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=0.5; ctx.stroke();
+
+  // 머리카락 (짧은 상투/단발 느낌 — 윗부분 어둡게)
+  ctx.beginPath();
+  ctx.arc(cx,headY,headR,Math.PI*1.05,Math.PI*1.95);
+  ctx.lineTo(cx+headR*0.95,headY-2);
+  ctx.closePath();
+  ctx.fillStyle = '#2b1d12'; ctx.fill();
+
+  // 눈 (말할 때 살짝 깜빡임 느낌)
+  const eyeOpen = talking ? (0.5+Math.sin(talkPhase*2)*0.5) : 1;
+  ctx.fillStyle = '#2b1d12';
+  ctx.beginPath(); ctx.ellipse(cx-7,headY+2,2.2,2.2*eyeOpen,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+7,headY+2,2.2,2.2*eyeOpen,0,0,Math.PI*2); ctx.fill();
+
+  // 입 (말하는 중엔 더 크게 벌어짐)
+  const mouthH = talking ? (2+Math.abs(Math.sin(talkPhase*1.5))*4) : 1.5;
+  ctx.beginPath();
+  ctx.ellipse(cx,headY+10,5,mouthH,0,0,Math.PI*2);
+  ctx.fillStyle = '#8a4030'; ctx.fill();
+
+  // 은은한 글로우 (선생님다운 아우라)
+  const glowR = headR*2.2;
+  const glow = ctx.createRadialGradient(cx,headY,headR,cx,headY,glowR);
+  glow.addColorStop(0,'rgba(39,174,96,'+(talking?0.18:0.08)+')');
+  glow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx,headY,glowR,0,Math.PI*2); ctx.fill();
+
+  requestAnimationFrame(drawAvatar);
+}
+</script>
+<script>
+resizeBoard();
+drawAvatar();
+
+let lastTurn = 5, lastWinrate = 0.5;
+
+function placeRandomStones(targetCoord, color, count){
+  // 시뮬레이션용 — 실제 기보가 아니라 분위기를 위한 배치
+  boardStones = [];
+  const used = new Set();
+  const target = coordToGrid(targetCoord);
+  used.add(target.x+','+target.y);
+  boardStones.push({x:target.x, y:target.y, color});
+  lastMovePos = target;
+  lastMoveColor = color;
+
+  let placed = 1;
+  let tries = 0;
+  while(placed < count && tries < 200){
+    tries++;
+    const dx = Math.floor(Math.random()*8)-4;
+    const dy = Math.floor(Math.random()*8)-4;
+    const x = Math.max(0,Math.min(18, target.x+dx));
+    const y = Math.max(0,Math.min(18, target.y+dy));
+    const key = x+','+y;
+    if(used.has(key)) continue;
+    used.add(key);
+    boardStones.push({x,y,color: Math.random()<0.5?1:2});
+    placed++;
+  }
+}
+
+async function askLecture(advance){
+  talking = true;
+  const bubble = document.getElementById('bubbleText');
+  bubble.textContent = '강의를 준비하는 중...';
+
+  if(advance){
+    lastTurn += 1 + Math.floor(Math.random()*3);
+    lastWinrate = Math.max(0.05, Math.min(0.95, lastWinrate + (Math.random()-0.5)*0.18));
+  }
+  const prevWinrate = lastWinrate;
+  const coords = ['Q16','D4','C3','R17','K10','F3','Q4','D16','O3','C14','Q14','D3'];
+  const coord = coords[Math.floor(Math.random()*coords.length)];
+  const moveColor = lastTurn % 2 === 0 ? 1 : 2;
+
+  // 바둑판에 먼저 반영 (응답 기다리는 동안에도 시각적 변화)
+  placeRandomStones(coord, moveColor, Math.min(6+Math.floor(lastTurn/3), 30));
+
+  try {
+    const bal = await SpaceEngine.loadSauBalance();
+    const tpi = bal ? Math.min(2000, 800 + bal.total) : 1000;
+
+    const url = '/api/lecture?lastMove='+coord+'&playerTPI='+Math.round(tpi)+
+      '&winrate='+lastWinrate.toFixed(2)+'&prevWinrate='+prevWinrate.toFixed(2)+
+      '&turn='+lastTurn+'&lang=ko';
+    const r = await fetch(url);
+    const d = await r.json();
+
+    if(d.ok){
+      bubble.textContent = d.text;
+      document.getElementById('bubbleLevel').textContent = d.level + ' · ' + d.phase + (d.isKeyMove?' · 핵심 수':'');
+      document.getElementById('avatarLabel').textContent = d.coord + ' (' + d.color + ') 강의 완료';
+      document.getElementById('avatarSub').textContent = lastTurn+'수째 · 형세 '+(d.color==='흑'?'흑':'백')+' 우세 추정';
+    } else {
+      bubble.textContent = '강의 생성에 실패했습니다. 다시 시도해주세요.';
+    }
+  } catch(e) {
+    bubble.textContent = '선생님과 연결할 수 없습니다.';
+    console.error(e);
+  }
+  setTimeout(()=>{ talking = false; }, 1800);
+}
+
+window.addEventListener('resize', ()=>{ resizeBoard(); });
+</script>
+</body>
+</html>

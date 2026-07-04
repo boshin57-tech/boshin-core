@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>중력 슬링샷 — Dot Space L2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace;touch-action:none;-webkit-user-select:none;user-select:none}
+#wrap{width:100vw;height:100vh;position:relative;background:#010108}
+canvas#gc{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.hud{position:absolute;top:0;left:0;right:0;height:38px;background:rgba(0,2,12,1.0);border-bottom:1px solid rgba(123,104,238,0.6);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:10;font-size:11px;color:#7B68EE}
+.hud-stat{font-size:10px;color:rgba(123,104,238,0.95)}
+.hud-stat b{color:#7B68EE}
+.back{font-size:9px;color:rgba(123,104,238,0.85);padding:3px 8px;border:1px solid rgba(123,104,238,0.55);border-radius:5px;cursor:pointer;text-decoration:none}
+.back:hover{color:#7B68EE;border-color:#7B68EE}
+#statusMsg{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);font-size:12px;color:rgba(255,255,255,0.85);text-align:center;width:400px;z-index:8}
+.botbar{position:absolute;bottom:0;left:0;right:0;height:42px;background:rgba(0,2,12,1.0);border-top:1px solid rgba(123,104,238,0.5);display:flex;align-items:center;gap:8px;padding:0 12px;z-index:10}
+.abtn{padding:4px 12px;border-radius:8px;border:1px solid rgba(123,104,238,0.65);color:rgba(123,104,238,1.0);font-size:9px;cursor:pointer;background:none;font-family:monospace}
+.abtn:hover{border-color:#7B68EE;color:#7B68EE}
+.feed{flex:1;font-size:9px;color:rgba(123,104,238,0.7);overflow:hidden;white-space:nowrap}
+#resultPop{display:none;position:absolute;left:50%;top:18%;transform:translate(-50%,-50%);background:rgba(0,2,12,1.0);border:1px solid #7B68EE;border-radius:12px;padding:14px 28px;text-align:center;z-index:20;min-width:200px}
+#resultPop.show{display:block;animation:popIn .25s ease}
+@keyframes popIn{from{transform:translate(-50%,-50%) scale(0.75);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#rTitle{font-size:14px;font-weight:bold;color:#7B68EE;margin-bottom:4px}
+#rAmt{font-size:20px;font-weight:bold;color:#FFD700;margin:4px 0}
+#rSub{font-size:10px;color:rgba(255,255,255,0.75)}
+.layer-badge{position:absolute;top:46px;right:12px;font-size:9px;color:rgba(123,104,238,0.75);z-index:8}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="gc"></canvas>
+<div class="hud">
+  <span>🌀 중력 슬링샷 — Layer 2</span>
+  <span class="hud-stat">시도 <b id="tryDisp">0</b></span>
+  <span class="hud-stat">SAU <b id="sauDisp">0</b></span>
+  <a class="back" href="/dot.html">← 지도</a>
+</div>
+<div class="layer-badge">⬡ L2 전용 — 물리 궤도 게임</div>
+<div id="statusMsg">드래그해서 발사 각도와 힘을 조준하고 놓으면 발사!</div>
+<div id="resultPop"><div id="rTitle">🌀 명중!</div><div id="rAmt">+0 SAU</div><div id="rSub"></div></div>
+<div class="botbar">
+  <button class="abtn" onclick="newTarget()">🎯 새 목표</button>
+  <button class="abtn" onclick="resetGame()">🔄 리셋</button>
+  <div class="feed" id="feed">[ GRAVITY ] 드래그하여 탐사선을 발사하세요</div>
+</div>
+</div>
+<script src="/dot/space-engine.js"></script>
+<script>
+const gc=document.getElementById('gc');
+const ctx=gc.getContext('2d');
+let W=0,H=0,frame=0;
+function resize(){W=gc.offsetWidth;H=gc.offsetHeight;gc.width=W;gc.height=H;}
+
+let star={x:0,y:0,r:0,mass:8000};
+let target={x:0,y:0,r:18,col:'#27AE60',sau:0};
+let ship=null,trail=[];
+let dragging=false,dragStart=null,dragCur=null;
+let tryCount=0,totalSAU=0,launched=false;
+const _userId=SpaceEngine.userId;
+async function loadSauBalance(){
+  const bal=await SpaceEngine.loadSauBalance();
+  if(bal)feed('[로드] 보유 SAU '+bal.total.toFixed(1)+' (서버 누적)');
+}
+async function reportSAU(game,sessionSau,seconds){
+  return SpaceEngine.reportSAU(game,sessionSau,seconds,msg=>feed('[알림] '+msg));
+}
+let resultTimer=null;
+let starPulse=0;
+
+function setupStar(){
+  star.x=W/2;star.y=H/2;star.r=Math.min(W,H)*0.06;
+}
+function newTarget(){
+  const a=Math.random()*Math.PI*2;
+  const dist=Math.min(W,H)*(0.3+Math.random()*0.15);
+  target.x=W/2+Math.cos(a)*dist;
+  target.y=H/2+Math.sin(a)*dist;
+  target.sau=Math.floor(40+dist*0.15);
+  ship=null;trail=[];launched=false;
+  document.getElementById('statusMsg').textContent='드래그해서 발사 각도와 힘을 조준하고 놓으면 발사! (보상 '+target.sau+' SAU)';
+  feed('[목표] 새 목표 행성 설정 — 거리 '+Math.round(dist)+'px');
+}
+function resetGame(){
+  tryCount=0;totalSAU=0;
+  document.getElementById('tryDisp').textContent='0';
+  document.getElementById('sauDisp').textContent='0';
+  newTarget();
+  feed('[리셋] 게임 초기화');
+}
+
+function launchShip(vx,vy){
+  ship={
+    x:W/2-Math.min(W,H)*0.22,y:H/2,
+    vx,vy,r:5,alive:true
+  };
+  trail=[];
+  launched=true;
+  tryCount++;
+  document.getElementById('tryDisp').textContent=tryCount;
+  feed('[발사] 탐사선 발사! 시도 '+tryCount);
+}
+
+function physicsStep(){
+  if(!ship||!ship.alive)return;
+  const dx=star.x-ship.x,dy=star.y-ship.y;
+  const distSq=dx*dx+dy*dy;
+  const dist=Math.sqrt(distSq);
+
+  if(dist<star.r+ship.r){
+    ship.alive=false;
+    feed('[충돌] 항성에 흡수됨! 다시 시도하세요');
+    showResult(false,0,'항성과 충돌');
+    setTimeout(()=>{ship=null;trail=[];launched=false;},1000);
+    return;
+  }
+
+  const force=star.mass/Math.max(distSq,400);
+  const ax=(dx/dist)*force,ay=(dy/dist)*force;
+  ship.vx+=ax;ship.vy+=ay;
+  ship.x+=ship.vx;ship.y+=ship.vy;
+
+  trail.push({x:ship.x,y:ship.y});
+  if(trail.length>120)trail.shift();
+
+  const td=Math.hypot(ship.x-target.x,ship.y-target.y);
+  if(td<target.r+ship.r){
+    ship.alive=false;
+    reportSAU('gravity',target.sau,10).then(granted=>{
+      totalSAU+=granted;
+      document.getElementById('sauDisp').textContent=totalSAU.toFixed(0);
+      showResult(true,granted,'목표 행성 명중!');
+      feed('[명중] 목표 도달! +'+granted.toFixed(1)+' SAU');
+    });
+    setTimeout(newTarget,1500);
+    return;
+  }
+
+  if(ship.x<-50||ship.x>W+50||ship.y<-50||ship.y>H+50){
+    ship.alive=false;
+    feed('[이탈] 탐사선이 화면 밖으로 이탈');
+    showResult(false,0,'궤도 이탈 — 각도를 조정해보세요');
+    setTimeout(()=>{ship=null;trail=[];launched=false;},1000);
+  }
+}
+function showResult(ok,gain,msg){
+  const pop=document.getElementById('resultPop');
+  if(ok){
+    document.getElementById('rTitle').textContent='🌀 명중!';
+    document.getElementById('rTitle').style.color='#27AE60';
+    document.getElementById('rAmt').textContent='+'+gain+' SAU';
+    pop.style.borderColor='#27AE60';
+  } else {
+    document.getElementById('rTitle').textContent='💥 실패';
+    document.getElementById('rTitle').style.color='#e74c3c';
+    document.getElementById('rAmt').textContent='재발사 필요';
+    pop.style.borderColor='#e74c3c';
+  }
+  document.getElementById('rSub').textContent=msg;
+  pop.classList.add('show');
+  if(resultTimer)clearTimeout(resultTimer);
+  resultTimer=setTimeout(()=>pop.classList.remove('show'),1400);
+}
+const fq=[];
+function feed(m){fq.unshift(m);if(fq.length>3)fq.pop();document.getElementById('feed').textContent='[ GRAVITY ] '+fq[0];}
+
+const shipOrigin=()=>({x:W/2-Math.min(W,H)*0.22,y:H/2});
+
+SpaceEngine.bindDrag(gc, {
+  onStart(pt){
+    if(launched&&ship&&ship.alive)return false;
+    const orig=shipOrigin();
+    const hitR=SpaceEngine.isTouchDevice()?90:60;
+    if(Math.hypot(pt.x-orig.x,pt.y-orig.y)<hitR){
+      dragging=true;dragStart={x:orig.x,y:orig.y};dragCur={x:pt.x,y:pt.y};
+      return true;
+    }
+    return false;
+  },
+  onMove(pt){
+    dragCur={x:pt.x,y:pt.y};
+  },
+  onEnd(){
+    dragging=false;
+    const dx=dragStart.x-dragCur.x,dy=dragStart.y-dragCur.y;
+    const power=Math.min(Math.hypot(dx,dy)*0.05,12);
+    const angle=Math.atan2(dy,dx);
+    launchShip(Math.cos(angle)*power,Math.sin(angle)*power);
+  }
+});
+</script>
+<script>
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.8);
+  bg.addColorStop(0,'#080510');bg.addColorStop(1,'#000000');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  if(frame%3===0){for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H,0.5,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.55)';ctx.fill();}}
+
+  starPulse+=0.025;
+  const pulse=0.92+Math.sin(starPulse)*0.08;
+
+  // 항성 글로우
+  const glowR=star.r*pulse*3.5;
+  const g=ctx.createRadialGradient(star.x,star.y,star.r*0.4,star.x,star.y,glowR);
+  g.addColorStop(0,'#7B68EE'+'AA');
+  g.addColorStop(0.5,'#7B68EE'+'30');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(star.x,star.y,glowR,0,Math.PI*2);ctx.fill();
+
+  // 중력장 표시 (희미한 동심원)
+  for(let i=1;i<=3;i++){
+    ctx.beginPath();ctx.arc(star.x,star.y,star.r*pulse+i*40,0,Math.PI*2);
+    ctx.strokeStyle='rgba(123,104,238,'+(0.08-i*0.02)+')';ctx.lineWidth=1;ctx.stroke();
+  }
+
+  // 항성 본체
+  const sg=ctx.createRadialGradient(star.x-star.r*.3,star.y-star.r*.3,star.r*.05,star.x,star.y,star.r*pulse);
+  sg.addColorStop(0,'rgba(255,255,255,1.0)');
+  sg.addColorStop(0.3,'#C9A0FF');
+  sg.addColorStop(0.7,'#7B68EE');
+  sg.addColorStop(1,'rgba(40,20,80,1.0)');
+  ctx.beginPath();ctx.arc(star.x,star.y,star.r*pulse,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();
+  ctx.beginPath();ctx.arc(star.x,star.y,star.r*pulse,0,Math.PI*2);ctx.strokeStyle='#C9A0FFAA';ctx.lineWidth=1;ctx.stroke();
+
+  // 목표 행성
+  const tg=ctx.createRadialGradient(target.x,target.y,0,target.x,target.y,target.r*2.5);
+  tg.addColorStop(0,target.col+'AA');tg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=tg;ctx.beginPath();ctx.arc(target.x,target.y,target.r*2.5,0,Math.PI*2);ctx.fill();
+  const tsg=ctx.createRadialGradient(target.x-target.r*.3,target.y-target.r*.3,target.r*.05,target.x,target.y,target.r);
+  tsg.addColorStop(0,'rgba(255,255,255,1.0)');tsg.addColorStop(0.5,target.col);tsg.addColorStop(1,'rgba(0,0,0,0.95)');
+  ctx.beginPath();ctx.arc(target.x,target.y,target.r,0,Math.PI*2);ctx.fillStyle=tsg;ctx.fill();
+  ctx.strokeStyle=target.col+'AA';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.arc(target.x,target.y,target.r+8,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  ctx.font='9px monospace';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.95)';
+  ctx.fillText('목표 +'+target.sau+' SAU',target.x,target.y+target.r+22);
+
+  // 발사 위치 (탐사선 출발점)
+  const orig=shipOrigin();
+  if(!ship||!ship.alive){
+    ctx.beginPath();ctx.arc(orig.x,orig.y,8,0,Math.PI*2);
+    ctx.strokeStyle='rgba(123,104,238,0.95)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.font='8px monospace';ctx.fillStyle='rgba(123,104,238,0.85)';
+    ctx.fillText('발사대',orig.x,orig.y+22);
+  }
+
+  // 드래그 조준선
+  if(dragging&&dragCur){
+    ctx.beginPath();ctx.moveTo(dragStart.x,dragStart.y);ctx.lineTo(dragCur.x,dragCur.y);
+    ctx.strokeStyle='rgba(123,104,238,1.0)';ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+    const dx=dragStart.x-dragCur.x,dy=dragStart.y-dragCur.y;
+    const power=Math.min(Math.hypot(dx,dy)*0.05,12);
+    ctx.font='10px monospace';ctx.fillStyle='#7B68EE';
+    ctx.fillText('힘 '+power.toFixed(1),dragCur.x,dragCur.y-12);
+  }
+
+  // 궤적 트레일
+  if(trail.length>1){
+    ctx.beginPath();
+    trail.forEach((t,i)=>{if(i===0)ctx.moveTo(t.x,t.y);else ctx.lineTo(t.x,t.y);});
+    ctx.strokeStyle='rgba(123,104,238,0.95)';ctx.lineWidth=2;ctx.stroke();
+  }
+
+  // 탐사선
+  if(ship&&ship.alive){
+    physicsStep();
+    if(ship){
+      const a=Math.atan2(ship.vy,ship.vx);
+      ctx.save();ctx.translate(ship.x,ship.y);ctx.rotate(a);
+      ctx.fillStyle='#FFD700';
+      ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-5,4);ctx.lineTo(-5,-4);ctx.closePath();ctx.fill();
+      ctx.restore();
+      const sg2=ctx.createRadialGradient(ship.x,ship.y,0,ship.x,ship.y,10);
+      sg2.addColorStop(0,'#FFD70066');sg2.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=sg2;ctx.beginPath();ctx.arc(ship.x,ship.y,10,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  // 반짝이는 배경 입자
+  if(!window._gravSparkles){
+    window._gravSparkles=Array.from({length:8},()=>({
+      x:Math.random()*W,y:Math.random()*H,
+      phase:Math.random()*Math.PI*2,speed:0.02+Math.random()*0.03,
+      col:['#7B68EE','#C9A0FF','#FFD700'][Math.floor(Math.random()*3)]
+    }));
+  }
+  window._gravSparkles.forEach(sp=>{
+    sp.phase+=sp.speed;
+    const tw=0.2+Math.sin(sp.phase)*0.6;
+    if(tw<0.1)return;
+    ctx.beginPath();ctx.arc(sp.x,sp.y,1+tw*1.5,0,Math.PI*2);
+    ctx.fillStyle=sp.col;ctx.globalAlpha=tw*0.5;ctx.fill();ctx.globalAlpha=1;
+  });
+
+  frame++;requestAnimationFrame(loop);
+}
+resize();setupStar();newTarget();
+window.addEventListener('resize',()=>{resize();setupStar();});
+feed('[GRAVITY] 발사대를 드래그해서 탐사선을 발사하세요');
+loadSauBalance();
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>항성 항법 — Dot Space L2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace;touch-action:none;-webkit-user-select:none;user-select:none}
+#wrap{width:100vw;height:100vh;position:relative;background:#010108}
+canvas#gc{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.hud{position:absolute;top:0;left:0;right:0;height:38px;background:rgba(0,2,12,1.0);border-bottom:1px solid rgba(55,138,221,0.6);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:10;font-size:11px;color:#378add}
+.hud-stat{font-size:10px;color:rgba(55,138,221,0.95)}
+.hud-stat b{color:#378add}
+.back{font-size:9px;color:rgba(55,138,221,0.85);padding:3px 8px;border:1px solid rgba(55,138,221,0.55);border-radius:5px;cursor:pointer;text-decoration:none}
+.back:hover{color:#378add;border-color:#378add}
+#goalBar{position:absolute;left:50%;top:48px;transform:translateX(-50%);background:rgba(0,2,12,1.0);border:1px solid rgba(55,138,221,0.65);border-radius:8px;padding:6px 16px;font-size:11px;color:#378add;z-index:8;text-align:center}
+#statusMsg{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);font-size:12px;color:rgba(255,255,255,0.85);text-align:center;width:380px;z-index:8}
+.botbar{position:absolute;bottom:0;left:0;right:0;height:42px;background:rgba(0,2,12,1.0);border-top:1px solid rgba(55,138,221,0.5);display:flex;align-items:center;gap:8px;padding:0 12px;z-index:10}
+.abtn{padding:4px 12px;border-radius:8px;border:1px solid rgba(55,138,221,0.65);color:rgba(55,138,221,1.0);font-size:9px;cursor:pointer;background:none;font-family:monospace}
+.abtn:hover{border-color:#378add;color:#378add}
+.feed{flex:1;font-size:9px;color:rgba(55,138,221,0.7);overflow:hidden;white-space:nowrap}
+#resultPop{display:none;position:absolute;left:50%;top:18%;transform:translate(-50%,-50%);background:rgba(0,2,12,1.0);border:1px solid #378add;border-radius:12px;padding:14px 28px;text-align:center;z-index:20;min-width:200px}
+#resultPop.show{display:block;animation:popIn .25s ease}
+@keyframes popIn{from{transform:translate(-50%,-50%) scale(0.75);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#rTitle{font-size:14px;font-weight:bold;color:#378add;margin-bottom:4px}
+#rAmt{font-size:20px;font-weight:bold;color:#FFD700;margin:4px 0}
+#rSub{font-size:10px;color:rgba(255,255,255,0.75)}
+.layer-badge{position:absolute;top:46px;right:12px;font-size:9px;color:rgba(55,138,221,0.75);z-index:8}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="gc"></canvas>
+<div class="hud">
+  <span>🌟 항성 항법 — Layer 2</span>
+  <span class="hud-stat">진행 <b id="progDisp">0</b>/<b id="totalDisp">0</b></span>
+  <span class="hud-stat">SAU <b id="sauDisp">0</b></span>
+  <a class="back" href="/dot.html">← 지도</a>
+</div>
+<div class="layer-badge">⬡ L2 전용 — 별자리 연결 게임</div>
+<div id="goalBar">경로: <span id="goalPath">—</span></div>
+<div id="statusMsg">항성을 순서대로 클릭해서 항법 경로를 완성하세요</div>
+<div id="resultPop"><div id="rTitle">🌟 경로 완성!</div><div id="rAmt">+0 SAU</div><div id="rSub"></div></div>
+<div class="botbar">
+  <button class="abtn" onclick="startGame()">▶ 게임 시작</button>
+  <button class="abtn" onclick="resetGame()">🔄 리셋</button>
+  <div class="feed" id="feed">[ NAV ] 게임 시작을 눌러주세요</div>
+</div>
+</div>
+<script src="/dot/space-engine.js"></script>
+<script>
+const gc=document.getElementById('gc');
+const ctx=gc.getContext('2d');
+let W=0,H=0,frame=0;
+function resize(){W=gc.offsetWidth;H=gc.offsetHeight;gc.width=W;gc.height=H;}
+
+const STAR_NAMES=['Sirius','Vega','Altair','Rigel','Capella','Procyon','Antares','Deneb','Spica','Polaris'];
+const STAR_COLORS=['#B0E0FF','#E8F4FF','#FFE4B5','#4488FF','#FFFACD','#FFD9B3','#FF6B6B','#9FC5FF','#C9A0FF','#FFFFFF'];
+let stars=[],path=[],userPath=[],level=1,totalSAU=0,gameActive=false,connecting=false;
+const _userId=SpaceEngine.userId;
+async function loadSauBalance(){
+  const bal=await SpaceEngine.loadSauBalance();
+  if(bal)feed('[로드] 보유 SAU '+bal.total.toFixed(1)+' (서버 누적)');
+}
+async function reportSAU(game,sessionSau,seconds){
+  return SpaceEngine.reportSAU(game,sessionSau,seconds,msg=>feed('[알림] '+msg));
+}
+let resultTimer=null,mistakeCount=0;
+
+function buildStars(n){
+  stars=[];
+  const cx=W/2,cy=H/2,R=Math.min(W,H)*0.32;
+  for(let i=0;i<n;i++){
+    const a=(i/n)*Math.PI*2+Math.random()*0.3;
+    const rr=R*(0.65+Math.random()*0.35);
+    stars.push({
+      idx:i,name:STAR_NAMES[i%STAR_NAMES.length],
+      x:cx+Math.cos(a)*rr,y:cy+Math.sin(a)*rr*0.6,
+      col:STAR_COLORS[i%STAR_COLORS.length],
+      state:'idle',pulsePhase:Math.random()*Math.PI*2
+    });
+  }
+}
+
+function startGame(){
+  if(gameActive)return;
+  gameActive=true;level=1;totalSAU=0;
+  document.getElementById('sauDisp').textContent='0';
+  nextLevel();
+}
+function resetGame(){
+  gameActive=false;level=1;totalSAU=0;path=[];userPath=[];
+  document.getElementById('progDisp').textContent='0';
+  document.getElementById('totalDisp').textContent='0';
+  document.getElementById('sauDisp').textContent='0';
+  document.getElementById('goalPath').textContent='—';
+  document.getElementById('statusMsg').textContent='항성을 순서대로 클릭해서 항법 경로를 완성하세요';
+  feed('[리셋] 게임 초기화');
+}
+function nextLevel(){
+  const starCount=Math.min(4+level,9);
+  buildStars(starCount);
+  const pathLen=Math.min(3+Math.floor(level/2),6);
+  path=[];
+  const used=new Set();
+  while(path.length<pathLen){
+    const idx=Math.floor(Math.random()*starCount);
+    if(!used.has(idx)){used.add(idx);path.push(idx);}
+  }
+  userPath=[];
+  mistakeCount=0;
+  document.getElementById('totalDisp').textContent=path.length;
+  document.getElementById('progDisp').textContent='0';
+  document.getElementById('goalPath').textContent=path.map(i=>stars[i].name).join(' → ');
+  document.getElementById('statusMsg').textContent='경로를 외우고 같은 순서로 항성을 클릭하세요!';
+  feed('[레벨 '+level+'] 경로 '+path.length+'개 항성');
+
+  setTimeout(()=>{
+    document.getElementById('goalPath').textContent='???';
+    document.getElementById('statusMsg').textContent='이제 기억한 순서로 클릭하세요!';
+  },2500+path.length*500);
+}
+function onStarClick(idx){
+  if(!gameActive)return;
+  const s=stars[idx];
+  const expectIdx=path[userPath.length];
+
+  if(idx===expectIdx){
+    s.state='correct';
+    userPath.push(idx);
+    document.getElementById('progDisp').textContent=userPath.length;
+    feed('[연결] '+s.name+' 정답! ('+userPath.length+'/'+path.length+')');
+
+    if(userPath.length===path.length){
+      levelClear();
+    }
+  } else {
+    s.state='wrong';
+    setTimeout(()=>{s.state='idle';},500);
+    mistakeCount++;
+    feed('[오류] 잘못된 순서! 경로 재시도');
+    userPath=[];
+    stars.forEach(st=>{if(st.state==='correct')st.state='idle';});
+    document.getElementById('progDisp').textContent='0';
+  }
+}
+async function levelClear(){
+  const perfectBonus=mistakeCount===0;
+  let gain=30+level*5;
+  if(perfectBonus)gain+=50;
+  const granted=await reportSAU('nav',gain,8);
+  totalSAU+=granted;
+  document.getElementById('sauDisp').textContent=totalSAU.toFixed(0);
+  showResult(true,granted,perfectBonus?'퍼펙트! 실수 0회':'경로 완성');
+  feed('[완성] 레벨 '+level+' 경로 완성! +'+granted.toFixed(1)+' SAU');
+  level++;
+  setTimeout(()=>{
+    stars.forEach(s=>s.state='idle');
+    nextLevel();
+  },1800);
+}
+function showResult(ok,gain,msg){
+  const pop=document.getElementById('resultPop');
+  document.getElementById('rTitle').textContent='🌟 경로 완성!';
+  document.getElementById('rTitle').style.color='#27AE60';
+  document.getElementById('rAmt').textContent='+'+gain+' SAU';
+  document.getElementById('rSub').textContent=msg;
+  pop.style.borderColor='#378add';
+  pop.classList.add('show');
+  if(resultTimer)clearTimeout(resultTimer);
+  resultTimer=setTimeout(()=>pop.classList.remove('show'),1500);
+}
+const fq=[];
+function feed(m){fq.unshift(m);if(fq.length>3)fq.pop();document.getElementById('feed').textContent='[ NAV ] '+fq[0];}
+
+SpaceEngine.bindTap(gc, (e, pt)=>{
+  const hitR=SpaceEngine.isTouchDevice()?38:26;
+  stars.forEach(s=>{if(Math.hypot(pt.x-s.x,pt.y-s.y)<hitR)onStarClick(s.idx);});
+});
+</script>
+<script>
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.8);
+  bg.addColorStop(0,'#050514');bg.addColorStop(1,'#000000');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  if(frame%3===0){for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H,0.5,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.55)';ctx.fill();}}
+
+  // 연결된 경로 라인 (사용자가 진행한 부분)
+  if(userPath.length>1){
+    ctx.beginPath();
+    userPath.forEach((idx,i)=>{
+      const s=stars[idx];
+      if(i===0)ctx.moveTo(s.x,s.y);else ctx.lineTo(s.x,s.y);
+    });
+    ctx.strokeStyle='rgba(39,174,96,0.95)';ctx.lineWidth=2.5;ctx.stroke();
+  }
+
+  // 항성 그리기
+  stars.forEach(s=>{
+    s.pulsePhase+=0.03;
+    const pulse=0.85+Math.sin(s.pulsePhase)*0.15;
+    let size=18*pulse,glowMul=1.8;
+    let col=s.col;
+    if(s.state==='correct'){col='#27AE60';size=22*pulse;glowMul=2.5;}
+    else if(s.state==='wrong'){col='#e74c3c';size=22*pulse;glowMul=2.5;}
+
+    // 글로우
+    const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,size*glowMul);
+    g.addColorStop(0,col+'AA');g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(s.x,s.y,size*glowMul,0,Math.PI*2);ctx.fill();
+
+    // 본체
+    const sg=ctx.createRadialGradient(s.x-size*.3,s.y-size*.3,size*.05,s.x,s.y,size);
+    sg.addColorStop(0,'rgba(255,255,255,1.0)');
+    sg.addColorStop(0.4,col);
+    sg.addColorStop(1,col+'66');
+    ctx.beginPath();ctx.arc(s.x,s.y,size,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();
+    ctx.strokeStyle=col+'AA';ctx.lineWidth=1;ctx.stroke();
+
+    // 이름 라벨
+    ctx.font='9px monospace';ctx.textAlign='center';
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.fillText(s.name,s.x,s.y+size+14);
+
+    // 순서 표시 (사용자가 클릭한 순번)
+    const upIdx=userPath.indexOf(s.idx);
+    if(upIdx>=0){
+      ctx.font='bold 10px monospace';ctx.fillStyle='#27AE60';
+      ctx.fillText((upIdx+1).toString(),s.x,s.y+3);
+    }
+  });
+
+  // 반짝이는 배경 입자
+  if(!window._navSparkles){
+    window._navSparkles=Array.from({length:10},()=>({
+      x:Math.random()*W,y:Math.random()*H,
+      phase:Math.random()*Math.PI*2,speed:0.02+Math.random()*0.03,
+      col:STAR_COLORS[Math.floor(Math.random()*STAR_COLORS.length)]
+    }));
+  }
+  window._navSparkles.forEach(sp=>{
+    sp.phase+=sp.speed;
+    const tw=0.2+Math.sin(sp.phase)*0.6;
+    if(tw<0.1)return;
+    ctx.beginPath();ctx.arc(sp.x,sp.y,1+tw*1.5,0,Math.PI*2);
+    ctx.fillStyle=sp.col;ctx.globalAlpha=tw*0.5;ctx.fill();ctx.globalAlpha=1;
+  });
+
+  frame++;requestAnimationFrame(loop);
+}
+resize();
+window.addEventListener('resize',()=>{resize();if(stars.length)buildStars(stars.length);});
+feed('[NAV] 게임 시작을 눌러 항법 경로 학습을 시작하세요');
+loadSauBalance();
+loop();
+</script>
+</body>
+</html>

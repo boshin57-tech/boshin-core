@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot 관리자</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#020818;color:#fff;font-family:sans-serif;min-height:100vh}
+.top{background:#0a0a1a;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(226,59,59,0.2)}
+.logo{color:#E23B3B;font-weight:700;font-size:15px}
+.wrap{max-width:800px;margin:24px auto;padding:0 16px}
+.card{background:#0d0d20;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:500;color:#E23B3B;margin-bottom:14px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px}
+.field input{width:100%;background:#060e1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px}
+.field input:focus{outline:none;border-color:#E23B3B}
+.app-card{background:#060e1a;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px}
+.app-id{font-size:22px;font-weight:700;color:#F5A623;min-width:48px;text-align:center}
+.app-info{flex:1}
+.app-name{font-size:14px;font-weight:500;color:#fff;margin-bottom:3px}
+.app-meta{font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px}
+.app-badge{font-size:9px;padding:2px 8px;border-radius:10px;display:inline-block}
+.app-actions{display:flex;gap:6px;margin-top:8px}
+.btn-approve{padding:5px 14px;background:rgba(39,174,96,0.15);border:1px solid #27AE60;border-radius:6px;color:#27AE60;font-size:11px;cursor:pointer}
+.btn-approve:hover{background:rgba(39,174,96,0.3)}
+.btn-reject{padding:5px 14px;background:rgba(226,59,59,0.12);border:1px solid #E23B3B;border-radius:6px;color:#E23B3B;font-size:11px;cursor:pointer}
+.btn-reject:hover{background:rgba(226,59,59,0.25)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stat{background:#060e1a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;text-align:center}
+.stat-n{font-size:20px;font-weight:700;color:#00ffaa}
+.stat-l{font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px}
+.empty{text-align:center;color:rgba(255,255,255,0.25);padding:24px;font-size:13px}
+.revenue-row{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.revenue-row span{color:#555}.revenue-row span:last-child{color:#00ffaa}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">⬡ Dot 관리자 페이지</div>
+  <div style="display:flex;gap:10px">
+    <a href="/dot-apply.html" style="font-size:12px;color:rgba(255,255,255,0.4)">분양신청 페이지</a>
+    <a href="/dot.html" style="font-size:12px;color:rgba(255,255,255,0.4)">← 전체 지도</a>
+  </div>
+</div>
+<div class="wrap">
+  <div class="card">
+    <div class="card-title">🔑 관리자 인증</div>
+    <div class="field"><label>관리자 키</label>
+      <input id="adminKey" type="password" placeholder="관리자 키 입력" onchange="loadAll()">
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-n" id="sTotalApply">0</div><div class="stat-l">총 신청</div></div>
+    <div class="stat"><div class="stat-n" id="sPending">0</div><div class="stat-l">승인대기</div></div>
+    <div class="stat"><div class="stat-n" id="sApproved">0</div><div class="stat-l">분양완료</div></div>
+    <div class="stat"><div class="stat-n" id="sRevenue">0</div><div class="stat-l">총 AU 수입</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⏳ 승인 대기 신청</div>
+    <div id="pendingList"><div class="empty">데이터 로딩중...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✅ 분양 완료 목록</div>
+    <div id="approvedList"><div class="empty">데이터 로딩중...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 수익 현황</div>
+    <div id="revenueList"><div class="empty">데이터 로딩중...</div></div>
+  </div>
+</div>
+
+<script>
+function loadAll(){
+  fetch('/dot-api/cells').then(r=>r.json()).then(data=>{
+    const all=Object.values(data);
+    const pending=all.filter(c=>c.status==='pending');
+    const approved=all.filter(c=>c.status==='approved');
+    const totalAU=all.reduce((s,c)=>s+(c.auPaid||0),0);
+    const totalFee=all.reduce((s,c)=>s+(c.totalFee||0),0);
+
+    document.getElementById('sTotalApply').textContent=all.length;
+    document.getElementById('sPending').textContent=pending.length;
+    document.getElementById('sApproved').textContent=approved.length;
+    document.getElementById('sRevenue').textContent=(totalAU+totalFee).toFixed(1);
+
+    // 대기 목록
+    const pl=document.getElementById('pendingList');
+    if(pending.length===0){pl.innerHTML='<div class="empty">대기중인 신청이 없습니다</div>';}
+    else{
+      pl.innerHTML=pending.map(c=>`
+        <div class="app-card">
+          <div class="app-id">${c.cellId}</div>
+          <div class="app-info">
+            <div class="app-name">${c.name||'-'}</div>
+            <div class="app-meta">신청자: ${c.userId} · 유형: ${c.type} · Layer ${c.layer} · ${c.auPaid} AU</div>
+            <div class="app-meta">${c.desc||''}</div>
+            <div class="app-meta">링크: ${c.link||'-'}</div>
+            <div class="app-meta">신청일: ${c.appliedAt?c.appliedAt.slice(0,16):'-'}</div>
+            <div class="app-actions">
+              <button class="btn-approve" onclick="approve('${c.cellId}')">✅ 승인</button>
+              <button class="btn-reject" onclick="reject('${c.cellId}')">❌ 거절</button>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    // 완료 목록
+    const al=document.getElementById('approvedList');
+    if(approved.length===0){al.innerHTML='<div class="empty">분양완료 칸이 없습니다</div>';}
+    else{
+      al.innerHTML=approved.map(c=>`
+        <div class="app-card">
+          <div class="app-id">${c.cellId}</div>
+          <div class="app-info">
+            <div class="app-name">${c.name||'-'}</div>
+            <div class="app-meta">소유자: ${c.owner} · ${c.type} · Layer ${c.layer}</div>
+            <div class="app-meta">분양가: ${c.auPaid} AU · 수수료수입: ${(c.totalFee||0).toFixed(2)} AU</div>
+            <div class="app-meta">승인일: ${c.approvedAt?c.approvedAt.slice(0,16):'-'}</div>
+            <div class="app-actions">
+              <a href="/dot/${c.cellId}.html" target="_blank" style="padding:4px 12px;background:rgba(55,138,221,0.1);border:1px solid #378add;border-radius:6px;color:#85b7eb;font-size:11px;text-decoration:none">페이지 보기</a>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    // 수익
+    const rl=document.getElementById('revenueList');
+    rl.innerHTML=`
+      <div class="revenue-row"><span>분양 수입 (AU)</span><span>${totalAU} AU</span></div>
+      <div class="revenue-row"><span>거래 수수료 수입</span><span>${totalFee.toFixed(2)} AU</span></div>
+      <div class="revenue-row"><span>총 수입</span><span>${(totalAU+totalFee).toFixed(2)} AU</span></div>
+      <div class="revenue-row"><span>분양 완료 칸</span><span>${approved.length} / 324</span></div>
+      <div class="revenue-row"><span>잔여 분양 가능</span><span>${324-approved.length} 칸</span></div>`;
+  });
+}
+
+function approve(cellId){
+  const key=document.getElementById('adminKey').value;
+  if(!key){alert('관리자 키를 입력하세요!');return;}
+  fetch('/dot-api/approve',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cellId,adminKey:key})})
+  .then(r=>r.json()).then(d=>{
+    alert(d.ok?'✅ '+d.msg:'❌ '+d.msg);
+    if(d.ok)loadAll();
+  });
+}
+
+function reject(cellId){
+  const key=document.getElementById('adminKey').value;
+  if(!key){alert('관리자 키를 입력하세요!');return;}
+  if(!confirm(cellId+' 거절하시겠습니까?'))return;
+  fetch('/dot-api/reject',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cellId,adminKey:key})})
+  .then(r=>r.json()).then(d=>{
+    alert(d.ok?'✅ '+d.msg:'❌ '+d.msg);
+    if(d.ok)loadAll();
+  });
+}
+
+loadAll();
+setInterval(loadAll,10000);
+</script>
+</body>
+</html>

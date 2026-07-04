@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>항성 신호 해독 — Dot Space L2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace}
+#wrap{width:100vw;height:100vh;position:relative;background:#020010}
+.hud{position:absolute;top:0;left:0;right:0;height:38px;background:rgba(0,2,12,0.92);border-bottom:1px solid rgba(155,89,182,0.25);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:10;font-size:11px;color:#9B59B6}
+.hud-stat{font-size:10px;color:rgba(155,89,182,0.6)}
+.hud-stat b{color:#9B59B6}
+.back{font-size:9px;color:rgba(155,89,182,0.5);padding:3px 8px;border:1px solid rgba(155,89,182,0.2);border-radius:5px;cursor:pointer;text-decoration:none}
+.back:hover{color:#9B59B6;border-color:#9B59B6}
+#stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;height:340px}
+.zone{position:absolute;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid rgba(155,89,182,0.3);background:rgba(155,89,182,0.05);transition:all .15s;font-size:20px}
+.zone.lit{background:rgba(155,89,182,0.7);border-color:#9B59B6;box-shadow:0 0 30px rgba(155,89,182,0.8);transform:scale(1.1)}
+.zone.correct{background:rgba(39,174,96,0.4);border-color:#27AE60}
+.zone.wrong{background:rgba(231,76,60,0.4);border-color:#e74c3c}
+#center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,#9B59B6,#4a2360);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:10px;pointer-events:none;z-index:2}
+#roundNum{font-size:22px;font-weight:bold}
+#statusMsg{position:absolute;left:50%;top:80%;transform:translateX(-50%);font-size:13px;color:rgba(255,255,255,0.5);text-align:center;width:300px}
+.botbar{position:absolute;bottom:0;left:0;right:0;height:42px;background:rgba(0,2,12,0.92);border-top:1px solid rgba(155,89,182,0.15);display:flex;align-items:center;gap:8px;padding:0 12px;z-index:10}
+.abtn{padding:4px 12px;border-radius:8px;border:1px solid rgba(155,89,182,0.3);color:rgba(155,89,182,0.7);font-size:9px;cursor:pointer;background:none;font-family:monospace}
+.abtn:hover{border-color:#9B59B6;color:#9B59B6}
+.feed{flex:1;font-size:9px;color:rgba(155,89,182,0.35);overflow:hidden;white-space:nowrap}
+#resultPop{display:none;position:absolute;left:50%;top:18%;transform:translate(-50%,-50%);background:rgba(0,2,12,0.97);border:1px solid #9B59B6;border-radius:12px;padding:14px 28px;text-align:center;z-index:20;min-width:200px}
+#resultPop.show{display:block;animation:popIn .25s ease}
+@keyframes popIn{from{transform:translate(-50%,-50%) scale(0.75);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#rTitle{font-size:14px;font-weight:bold;color:#9B59B6;margin-bottom:4px}
+#rAmt{font-size:20px;font-weight:bold;color:#FFD700;margin:4px 0}
+#rSub{font-size:10px;color:rgba(255,255,255,0.4)}
+.layer-badge{position:absolute;top:46px;right:12px;font-size:9px;color:rgba(155,89,182,0.4);z-index:8}
+</style>
+</head>
+<body>
+<div id="wrap">
+<div class="hud">
+  <span>📡 항성 신호 해독 — Layer 2</span>
+  <span class="hud-stat">라운드 <b id="roundDisp">0</b>/12</span>
+  <span class="hud-stat">SAU <b id="sauDisp">0</b></span>
+  <a class="back" href="/dot.html">← 지도</a>
+</div>
+<div class="layer-badge">⬡ L2 전용 — 패턴 기억 게임</div>
+<div id="stage"></div>
+<div id="center"><div id="roundNum">0</div><div>ROUND</div></div>
+<div id="statusMsg">패턴을 기억하고 똑같이 클릭하세요</div>
+<div id="resultPop"><div id="rTitle">📡 신호 수신 성공!</div><div id="rAmt">+0 SAU</div><div id="rSub"></div></div>
+<div class="botbar">
+  <button class="abtn" onclick="startGame()">▶ 게임 시작</button>
+  <button class="abtn" onclick="resetGame()">🔄 리셋</button>
+  <div class="feed" id="feed">[ SIGNAL ] 게임 시작을 눌러주세요</div>
+</div>
+</div>
+<script>
+const stage=document.getElementById('stage');
+const ZONE_COUNT=6;
+const ZONE_COLORS=['#9B59B6','#8E44AD','#A569BD','#7D3C98','#6C3483','#5B2C6F'];
+let zones=[];
+let pattern=[];
+let userInput=[];
+let round=0,totalSAU=0,gameActive=false,showingPattern=false;
+let resultTimer=null;
+
+function buildZones(){
+  stage.innerHTML='';
+  zones=[];
+  const cx=170,cy=170,r=140;
+  for(let i=0;i<ZONE_COUNT;i++){
+    const a=(i/ZONE_COUNT)*Math.PI*2-Math.PI/2;
+    const x=cx+Math.cos(a)*r-35;
+    const y=cy+Math.sin(a)*r-35;
+    const el=document.createElement('div');
+    el.className='zone';
+    el.style.left=x+'px';el.style.top=y+'px';
+    el.style.width='70px';el.style.height='70px';
+    el.style.color=ZONE_COLORS[i];
+    el.textContent='✦';
+    el.dataset.idx=i;
+    el.addEventListener('click',()=>onZoneClick(i));
+    stage.appendChild(el);
+    zones.push(el);
+  }
+}
+buildZones();
+
+function startGame(){
+  if(gameActive)return;
+  gameActive=true;round=0;pattern=[];totalSAU=0;
+  document.getElementById('sauDisp').textContent='0';
+  nextRound();
+}
+function resetGame(){
+  gameActive=false;round=0;pattern=[];userInput=[];totalSAU=0;
+  document.getElementById('roundDisp').textContent='0';
+  document.getElementById('roundNum').textContent='0';
+  document.getElementById('sauDisp').textContent='0';
+  document.getElementById('statusMsg').textContent='패턴을 기억하고 똑같이 클릭하세요';
+  feed('[리셋] 게임 초기화');
+}
+function nextRound(){
+  round++;
+  userInput=[];
+  pattern.push(Math.floor(Math.random()*ZONE_COUNT));
+  document.getElementById('roundDisp').textContent=round;
+  document.getElementById('roundNum').textContent=round;
+  document.getElementById('statusMsg').textContent='신호를 수신하는 중...';
+  feed('[라운드 '+round+'] 패턴 길이 '+pattern.length);
+  showPattern();
+}
+function showPattern(){
+  showingPattern=true;
+  let i=0;
+  const interval=setInterval(()=>{
+    if(i>0)zones[pattern[i-1]].classList.remove('lit');
+    if(i<pattern.length){
+      zones[pattern[i]].classList.add('lit');
+      i++;
+    } else {
+      clearInterval(interval);
+      setTimeout(()=>{
+        zones.forEach(z=>z.classList.remove('lit'));
+        showingPattern=false;
+        document.getElementById('statusMsg').textContent='이제 같은 순서로 클릭하세요! ('+pattern.length+'개)';
+      },400);
+    }
+  },700);
+}
+function onZoneClick(i){
+  if(!gameActive||showingPattern)return;
+  const el=zones[i];
+  el.classList.add('lit');
+  setTimeout(()=>el.classList.remove('lit'),200);
+
+  userInput.push(i);
+  const idx=userInput.length-1;
+
+  if(userInput[idx]!==pattern[idx]){
+    // 실패
+    el.classList.add('wrong');
+    setTimeout(()=>el.classList.remove('wrong'),500);
+    gameOver(false);
+    return;
+  }
+
+  if(userInput.length===pattern.length){
+    // 라운드 클리어
+    el.classList.add('correct');
+    setTimeout(()=>el.classList.remove('correct'),400);
+    roundClear();
+  }
+}
+function roundClear(){
+  let gain=0,tier='';
+  if(round>=12){gain=400;tier='🏆 12단계 풀클리어!';}
+  else if(round>=9){gain=150;tier='⭐ 9단계 돌파!';}
+  else if(round>=6){gain=60;tier='✨ 6단계 돌파!';}
+  else if(round>=3){gain=20;tier='✅ 3단계 돌파!';}
+  
+  if(gain>0){
+    totalSAU+=gain;
+    document.getElementById('sauDisp').textContent=totalSAU.toFixed(0);
+    showResult(true,gain,tier);
+    feed('[클리어] 라운드 '+round+' 성공! +'+gain+' SAU');
+  } else {
+    feed('[성공] 라운드 '+round+' 클리어');
+  }
+
+  if(round>=12){
+    setTimeout(()=>{
+      gameActive=false;
+      document.getElementById('statusMsg').textContent='🎉 모든 라운드 클리어! 리셋하고 다시 도전하세요';
+      feed('[완료] 전체 12라운드 클리어! 총 '+totalSAU.toFixed(0)+' SAU 획득');
+    },1000);
+    return;
+  }
+  setTimeout(nextRound,1200);
+}
+function gameOver(isWin){
+  gameActive=false;
+  showResult(false,0,'라운드 '+round+'에서 실패');
+  document.getElementById('statusMsg').textContent='❌ 패턴 실패! 리셋하고 다시 도전하세요';
+  feed('[실패] 라운드 '+round+'에서 게임 오버. 획득 SAU: '+totalSAU.toFixed(0));
+}
+function showResult(ok,gain,msg){
+  const pop=document.getElementById('resultPop');
+  if(ok){
+    document.getElementById('rTitle').textContent='📡 신호 해독 성공!';
+    document.getElementById('rTitle').style.color='#27AE60';
+    document.getElementById('rAmt').textContent='+'+gain+' SAU';
+    document.getElementById('rSub').textContent=msg;
+    pop.style.borderColor='#27AE60';
+  } else {
+    document.getElementById('rTitle').textContent='❌ 패턴 실패';
+    document.getElementById('rTitle').style.color='#e74c3c';
+    document.getElementById('rAmt').textContent='총 '+totalSAU.toFixed(0)+' SAU 획득';
+    document.getElementById('rSub').textContent=msg;
+    pop.style.borderColor='#e74c3c';
+  }
+  pop.classList.add('show');
+  if(resultTimer)clearTimeout(resultTimer);
+  resultTimer=setTimeout(()=>pop.classList.remove('show'),1800);
+}
+const fq=[];
+function feed(m){fq.unshift(m);if(fq.length>3)fq.pop();document.getElementById('feed').textContent='[ SIGNAL ] '+fq[0];}
+</script>
+</body>
+</html>

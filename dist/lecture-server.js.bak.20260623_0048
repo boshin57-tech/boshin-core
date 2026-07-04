@@ -1,0 +1,171 @@
+'use strict';
+const http = require('http');
+const Server = require('socket.io');
+const { MongoClient } = require('mongodb');
+
+const PORT = 8018;
+const MONGO_URL = 'mongodb://localhost:27017';
+const DB_NAME = 'tob';
+let db;
+
+MongoClient.connect(MONGO_URL).then(client => {
+  db = client.db(DB_NAME);
+  console.log('[lecture-server] MongoDB 연결 완료');
+});
+
+const server = http.createServer(async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(200); return res.end(); }
+
+  if (req.url === '/health') {
+    res.writeHead(200, {'Content-Type':'application/json'});
+    return res.end(JSON.stringify({status:'ok',port:PORT}));
+  }
+
+  // 강의 이력 조회
+  if (req.url.startsWith('/lecture-history') && req.method === 'GET') {
+    const u = new URL(req.url, 'http://x');
+    const userId = u.searchParams.get('user_id');
+    try {
+      const history = await db.collection('lectures').find({user_id:userId}).sort({created_at:-1}).limit(20).toArray();
+      res.writeHead(200, {'Content-Type':'application/json'});
+      return res.end(JSON.stringify(history));
+    } catch(e) { res.writeHead(500); return res.end('{}'); }
+  }
+
+  // 녹화 목록 조회
+  if (req.url.startsWith('/recordings') && req.method === 'GET') {
+    const u = new URL(req.url, 'http://x');
+    const roomId = u.searchParams.get('room_id');
+    try {
+      const recs = await db.collection('lecture_recordings').find({room_id:roomId}).sort({created_at:-1}).limit(10).toArray();
+      res.writeHead(200, {'Content-Type':'application/json'});
+      return res.end(JSON.stringify(recs));
+    } catch(e) { res.writeHead(500); return res.end('[]'); }
+  }
+
+  res.writeHead(404); res.end();
+});
+
+const io = new Server(server, {
+  cors: { origin:'*', methods:['GET','POST'] },
+  path: '/lecture/socket.io'
+});
+
+const rooms = {};
+
+async function saveToMongo(collection, data) {
+  try { await db.collection(collection).insertOne({...data, created_at: new Date()}); }
+  catch(e) { console.error('[mongo]', e.message); }
+}
+
+const raisedHands = new Map(); // socketId → { name, time }
+
+io.on('connection', (socket) => {
+  console.log('[lecture] 연결:', socket.id);
+
+  socket.on('join-room', async ({ roomId, userId, role, boardSize, mode }) => {
+    socket.join(roomId);
+    if (!rooms[roomId]) rooms[roomId] = { students:{}, pro:null, board:{size:boardSize||9,stones:[],move:0}, mode:mode||'ai', recording:false, startTime:new Date() };
+    if (role==='pro') rooms[roomId].pro = { socketId:socket.id, userId };
+    else rooms[roomId].students[socket.id] = { userId, role };
+    const memberCount = Object.keys(rooms[roomId].students).length;
+    io.to(roomId).emit('room-update', { memberCount, pro:rooms[roomId].pro, boardSize:rooms[roomId].board.size, mode:rooms[roomId].mode });
+
+    // 입장 이력 저장
+    await saveToMongo('lectures', { room_id:roomId, user_id:userId, role, mode:mode||'ai', action:'join', board_size:boardSize||9 });
+    console.log(`[lecture] ${userId}(${role}) → ${roomId}`);
+  });
+
+  // WebRTC 시그널링
+  socket.on('webrtc-offer',  d => socket.to(d.roomId).emit('webrtc-offer',  {...d, from:socket.id}));
+  socket.on('webrtc-answer', d => socket.to(d.roomId).emit('webrtc-answer', {...d, from:socket.id}));
+  socket.on('webrtc-ice',    d => socket.to(d.roomId).emit('webrtc-ice',    {...d, from:socket.id}));
+
+  // P2P
+  socket.on('p2p-join',   ({ roomId, userId, role }) => { socket.join(roomId); socket.to(roomId).emit('p2p-user-joined', { userId, socketId:socket.id, role }); });
+  socket.on('p2p-offer',  d => io.to(d.to).emit('p2p-offer',  {...d, from:socket.id}));
+  socket.on('p2p-answer', d => io.to(d.to).emit('p2p-answer', {...d, from:socket.id}));
+  socket.on('p2p-ice',    d => io.to(d.to).emit('p2p-ice',    {...d, from:socket.id}));
+  socket.on('p2p-leave',  d => socket.to(d.roomId).emit('p2p-user-left', { socketId:socket.id }));
+
+  // 바둑판
+  socket.on('board-move', async ({ roomId, stone, move, boardSize }) => {
+    if (!rooms[roomId]) return;
+    rooms[roomId].board.stones.push(stone);
+    rooms[roomId].board.move = move;
+    rooms[roomId].board.size = boardSize;
+    socket.to(roomId).emit('board-move', { stone, move, boardSize });
+    await saveToMongo('lectures', { room_id:roomId, action:'move', stone, move, board_size:boardSize });
+  });
+
+  socket.on('board-reset', async ({ roomId, boardSize }) => {
+    if (!rooms[roomId]) return;
+    rooms[roomId].board = { size:boardSize||9, stones:[], move:0 };
+    io.to(roomId).emit('board-reset', { boardSize });
+  });
+
+  socket.on('board-sync-request', ({ roomId }) => {
+    if (!rooms[roomId]) return;
+    socket.emit('board-sync', rooms[roomId].board);
+  });
+
+  // 채팅
+  socket.on('chat', async ({ roomId, userId, text, role }) => {
+    io.to(roomId).emit('chat', { userId, text, role, ts:Date.now() });
+    await saveToMongo('lectures', { room_id:roomId, action:'chat', user_id:userId, text, role });
+  });
+
+  // 녹화 시작/종료
+  socket.on('recording-start', async ({ roomId, userId }) => {
+    if (!rooms[roomId]) return;
+    rooms[roomId].recording = true;
+    rooms[roomId].recordStart = new Date();
+    io.to(roomId).emit('recording-status', { recording:true });
+    await saveToMongo('lecture_recordings', { room_id:roomId, user_id:userId, status:'started' });
+    console.log(`[recording] ${roomId} 녹화 시작`);
+  });
+
+  socket.on('recording-stop', async ({ roomId, userId, duration }) => {
+    if (!rooms[roomId]) return;
+    rooms[roomId].recording = false;
+    io.to(roomId).emit('recording-status', { recording:false });
+    await saveToMongo('lecture_recordings', { room_id:roomId, user_id:userId, status:'stopped', duration, stones:rooms[roomId].board.stones });
+    console.log(`[recording] ${roomId} 녹화 종료 ${duration}초`);
+  });
+
+  // D-ID 아바타 요청
+  socket.on('avatar-speak', async ({ roomId, text, lang }) => {
+    io.to(roomId).emit('avatar-speaking', { text, lang });
+  });
+
+  // 손들기
+  socket.on('raise-hand', ({ name }) => {
+    raisedHands.set(socket.id, { name: name || '수강생', time: Date.now() });
+    io.to(Object.keys(socket.rooms||{}).find(r=>r!==socket.id)||'').emit('hand-update', Array.from(raisedHands.entries()).map(([id,v])=>({id,...v})));
+    io.emit('hand-update', Array.from(raisedHands.entries()).map(([id,v])=>({id,...v})));
+    console.log('[손들기]', name, socket.id);
+  });
+  socket.on('lower-hand', ({ targetId } = {}) => {
+    const tid = targetId || socket.id;
+    raisedHands.delete(tid);
+    io.emit('hand-update', Array.from(raisedHands.entries()).map(([id,v])=>({id,...v})));
+  });
+
+  socket.on('disconnecting', () => {
+    for (const roomId of Object.keys(socket.rooms||{})) {
+      if (!rooms[roomId]) continue;
+      delete rooms[roomId].students[socket.id];
+      if (rooms[roomId].pro?.socketId === socket.id) rooms[roomId].pro = null;
+      const memberCount = Object.keys(rooms[roomId].students).length;
+      socket.to(roomId).emit('room-update', { memberCount, pro:rooms[roomId].pro });
+      socket.to(roomId).emit('p2p-user-left', { socketId:socket.id });
+    }
+  });
+});
+
+server.listen(PORT, () => console.log(`[lecture-server] 포트 ${PORT} 시작`));
+
+// goRoom 실시간 대국 불러오기

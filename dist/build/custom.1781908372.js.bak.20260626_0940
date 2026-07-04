@@ -1,0 +1,2111 @@
+// ===== go_room 진입시 올바른 방으로 redirect =====
+(function(){
+  var path = window.location.pathname;
+  if(path.indexOf('/go_room:') < 0) return;
+  
+  var GT={GO:0,PUZZLE:1,PIECE_DESIGN:2,FFA:3,SKPNI:4,OMOK:5};
+  var roomMap={1:'puzzle_room',2:'pdesign_room',3:'ffa_room',4:'skpni_room',5:'omok_room'};
+  
+  // localStorage에서 마지막 선택 콘텐츠 확인
+  var content = parseInt(localStorage.getItem('_lastContent') || '0');
+  console.log('[GOROOM CHECK] path:'+path+' lastContent:'+content);
+  
+  if(content !== GT.GO && content > 0){
+    var roomType = roomMap[content];
+    var roomId = path.split('/go_room:')[1];
+    if(roomType && roomId){
+      console.log('[GOROOM REDIRECT] '+roomType+':'+roomId);
+      window.history.replaceState(null,'','/'+roomType+':'+roomId);
+      localStorage.removeItem('_lastContent');
+    }
+  }
+})();
+
+// go_room roomURL 자동 설정
+(function(){
+  var p = window.location.pathname;
+  var roomId = null;
+  if(p.indexOf('/go_room/')===0){
+    window._currentRoomId = p.split('/go_room/')[1];
+    roomId=p.split('/go_room/')[1].split('?')[0].split('#')[0];
+  } else if(p.indexOf('/go_room:')===0){
+    roomId=p.split('/go_room:')[1].split('?')[0].split('#')[0];
+  }
+  if(roomId){
+    sessionStorage.setItem('go_room_id',roomId);
+    sessionStorage.setItem('go_room_url',window.location.protocol+'//'+window.location.hostname+'/go_room');
+  }
+
+  // lobby socket 후킹 - token 저장
+  var _origSetSocketLobby = null;
+  setInterval(function(){
+    if(window._lobbySocket && !window._tokenHookSet){
+      window._tokenHookSet = true;
+      var _orig = window._lobbySocket.on.bind(window._lobbySocket);
+      window._lobbySocket.on('sc_message', function(proto, err, data){
+        if(proto===512 && data && data.user && data.user.token){
+          window._userToken=data.token;
+          localStorage.setItem("token",data.token);
+          sessionStorage.setItem("go_room_token",data.token);
+        }
+      });
+    }
+  }, 300);
+
+  // 로비에서 token sessionStorage 저장
+  document.addEventListener('DOMContentLoaded', function(){
+    var checkInterval = setInterval(function(){
+      if(window._lobbySocket){
+        clearInterval(checkInterval);
+        window._lobbySocket.on('sc_message', function(proto, err, data){
+          if(proto===512 && data && data.user && data.user.token){
+            window._userToken=data.user.token;
+            localStorage.setItem("token",data.user.token);
+            sessionStorage.setItem("go_room_token",data.user.token);
+            console.log("[TOKEN] 저장됨:", data.user.token);
+          }
+        });
+      }
+    }, 100);
+  });
+})();
+
+// SC_CREATE_ROOM(545) 응답 처리 - 방생성 후 자동 입장
+setInterval(function(){
+  if(window._lobbySocket && !window._scCreateRoomSet){
+    window._scCreateRoomSet = true;
+    window._lobbySocket.on('sc_message', function(proto, err, data){
+      if(proto===545 && err===0 && data && data.room_id){
+        console.log('[SC_CREATE_ROOM] 방생성! room_id:', data.room_id);
+        window.location.href = '/go_room:' + data.room_id;
+      }
+    });
+    console.log('[SC_CREATE_ROOM] 핸들러 등록!');
+  }
+}, 300);
+
+// SC_GAME_START 후 putAble 강제 설정
+setInterval(function(){
+  if(window.__REDUX_STORE__ && !window._putAbleFixSet){
+    window._putAbleFixSet = true;
+    var origDispatch = window.__REDUX_STORE__.dispatch.bind(window.__REDUX_STORE__);
+    window.__REDUX_STORE__.dispatch = function(action){
+      var result = origDispatch(action);
+      if(action && action.type === 'UPDATE_ROOM_STATE' && action.room_state === 2){
+        var state = window.__REDUX_STORE__.getState();
+        var goState = state && (state.go || state.goRoom || state.game);
+        console.log('[PUTFIX] UPDATE_ROOM_STATE PLAYING, store state:', JSON.stringify(goState && goState.players));
+      }
+      return result;
+    };
+  }
+}, 300);
+
+// 게임 중 통과 버튼 항상 활성화
+setInterval(function(){
+  if(window.location.pathname.indexOf('/go_room') === -1) return;
+  var root = document.querySelector('#root');
+  if(!root) return;
+  var key = Object.keys(root).find(function(k){ return k.startsWith('__reactFiber'); });
+  if(!key) return;
+  var node = root[key];
+  while(node){
+    if(node.memoizedProps && node.memoizedProps.store){
+      var st = node.memoizedProps.store.getState();
+      if(st && st.go && st.go.room_state === 2) {
+        node.memoizedProps.store.dispatch({type:'SET_PUTABLE', putAble:true});
+      }
+      break;
+    }
+    node = node.return;
+  }
+}, 1000);
+
+// AU 베팅 버튼 (접이식)
+(function(){
+  function addBettingBtn(){
+    if(document.getElementById('au-bet-btn')) return;
+    if(window.location.pathname.indexOf('/go_room') === -1) return;
+
+    // 토글 버튼
+    var btn = document.createElement('div');
+    btn.id = 'au-bet-btn';
+    btn.innerHTML = 'AU<br>베팅';
+    btn.style.cssText = 'position:fixed;right:0;top:calc(50% - 60px);background:linear-gradient(180deg,#8B0000,#4a0000);border-radius:8px 0 0 8px;padding:8px 5px;z-index:9999;color:#FFD700;font-size:10px;font-weight:bold;cursor:pointer;text-align:center;width:30px;box-shadow:-2px 0 8px rgba(0,0,0,0.5);';
+    btn.onclick = function(){ 
+      var panel = document.getElementById('au-bet-panel');
+      panel.style.display = panel.style.display==='none' ? 'block' : 'none';
+    };
+    document.body.appendChild(btn);
+
+    // 패널
+    var panel = document.createElement('div');
+    panel.id = 'au-bet-panel';
+    panel.style.cssText = 'display:none;position:fixed;right:32px;top:50%;transform:translateY(-50%);background:linear-gradient(180deg,#1a1a2e,#16213e);border:1px solid #FFD700;border-radius:8px;padding:10px;z-index:9998;width:120px;text-align:center;color:#fff;font-size:11px;box-shadow:-3px 0 10px rgba(0,0,0,0.5);';
+    panel.innerHTML = `
+      <div style="color:#FFD700;font-weight:bold;margin-bottom:8px;">🏆 AU BET</div>
+      <div style="font-size:9px;color:#aaa;margin-bottom:6px;">🥉 Bronze</div>
+      <button onclick="auBet('1grain',this)" style="display:block;width:100%;margin:3px 0;padding:5px;background:#2d4a22;border:1px solid #4a7a35;border-radius:4px;color:#90EE90;font-size:10px;cursor:pointer;">1 grain</button>
+      <button onclick="auBet('1dwt',this)" style="display:block;width:100%;margin:3px 0;padding:5px;background:#1a3a4a;border:1px solid #2a6a8a;border-radius:4px;color:#87CEEB;font-size:10px;cursor:pointer;">1 dwt</button>
+      <button onclick="auBet('0.5AU',this)" style="display:block;width:100%;margin:3px 0;padding:5px;background:#4a3a00;border:1px solid #8a6a00;border-radius:4px;color:#FFD700;font-size:10px;cursor:pointer;">0.5 AU</button>
+      <button onclick="auBet('1AU',this)" style="display:block;width:100%;margin:3px 0;padding:5px;background:#3a1a3a;border:1px solid #6a2a6a;border-radius:4px;color:#EE82EE;font-size:10px;cursor:pointer;">1 AU</button>
+      <div id="au-bet-selected" style="margin-top:6px;font-size:9px;color:#FFD700;min-height:14px;"></div>
+      <button onclick="auBetSubmit()" style="display:block;width:100%;margin-top:6px;padding:6px;background:#8B0000;border:1px solid #FF4444;border-radius:4px;color:#fff;font-size:11px;cursor:pointer;font-weight:bold;">BET! 🎯</button>
+    `;
+    document.body.appendChild(panel);
+  }
+
+  window.auBet = function(amount, el){
+    document.querySelectorAll('#au-bet-panel button').forEach(b=>b.style.opacity='0.6');
+    el.style.opacity='1';
+    el.style.border='2px solid #FFD700';
+    document.getElementById('au-bet-selected').textContent = '✓ '+amount;
+    window._auBetAmount = amount;
+  };
+
+  window.auBetSubmit = function(){
+    if(!window._auBetAmount){ alert('베팅 금액을 선택하세요!'); return; }
+    var token = localStorage.getItem('token');
+    var roomId = sessionStorage.getItem('go_room_id');
+    if(window._lobbySocket){
+      window._lobbySocket.emit('cs_message', 848, {token:token, room_id:roomId, bet_coin:window._auBetAmount});
+      console.log('[BET] 베팅 전송:', window._auBetAmount);
+      document.getElementById('au-bet-selected').textContent = '✅ 베팅완료!';
+      setTimeout(function(){ document.getElementById('au-bet-panel').style.display='none'; }, 1500);
+    }
+  };
+
+  setInterval(function(){
+    if(window.location.pathname.indexOf('/go_room') !== -1){
+      addBettingBtn();
+    } else {
+      var b = document.getElementById('au-bet-btn');
+      var p = document.getElementById('au-bet-panel');
+      if(b) b.remove();
+      if(p) p.remove();
+    }
+  }, 1000);
+})();
+
+// go_room 소켓 자동 CS_ENTERED_ROOM 전송
+(function(){
+  var p = window.location.pathname;
+  if(p.indexOf('/go_room')!==0) return;
+  var roomId = sessionStorage.getItem('go_room_id');
+  if(!roomId){
+    if(p.indexOf('/go_room:')===0) roomId=p.split('/go_room:')[1];
+    else if(p.indexOf('/go_room/')===0) roomId=p.split('/go_room/')[1];
+    if(roomId) roomId=roomId.split('?')[0].split('#')[0];
+  }
+  if(!roomId) return;
+  var token = localStorage.getItem('token') || sessionStorage.getItem('go_room_token');
+  if(!token) return;
+  var goRoomUrl = 'https://tobmate.com';
+  console.log('[CUSTOM2] goRoom 직접 연결:', goRoomUrl, 'room:', roomId);
+  var s = io(goRoomUrl, {path: '/go_room/socket.io', reconnection: true, reconnectionAttempts: 10, reconnectionDelay: 500});
+  window._custom2Socket = s;
+  s.on('connect', function(){
+    console.log('[CUSTOM2] 연결성공! CS_ENTERED_ROOM 전송');
+    s.emit('cs_message', 784, {token:token, room_id:roomId});
+    s.emit('cs_message', 768, {room_id:roomId});
+    s.on('sc_message', function(proto, err, data){
+      if(proto===800) console.log('[CUSTOM2] SC_ADD_USER!', data);
+      // 835 SC_GAME_MOVE - React에 직접 전달
+      if(proto===835 && err===0){
+        // 현재 방 835만 처리
+        if(data && data.room_id && window._currentRoomId && data.room_id !== window._currentRoomId) {
+          console.log('[CUSTOM2] 다른방 835 무시:', data.room_id);
+          return;
+        }
+        console.log('[CUSTOM2] 835 수신! move:', data && data.move, 'turn:', data && data.turn);
+        if(data && data.move !== undefined){
+          window._lastGameMove = data.move;
+          window._lastTurn = data.turn;
+          window._totalMoves = (window._totalMoves||0)+1;
+          // board string 생성 (b=흑, w=백, e=빈)
+          try {
+            if(window._goBoard === undefined) window._goBoard = new Array(19*19).fill(0);
+            var mv=data.move, bx=mv&255, by=(mv>>8)&255;
+            var color=data.turn===0?1:2; // 0=흑차례면 흑이 둠
+            if(bx<19&&by<19) window._goBoard[by*19+bx]=color;
+            window._lastBoardStr=window._goBoard.map(function(v){return v===1?'b':v===2?'w':'e';}).join('');
+          } catch(e){}
+          setTimeout(function(){ if(window.aiLectureRequest) window.aiLectureRequest(); }, 500);
+        }
+        window._moveSocket = s; // 실제 착수 소켓 저장
+        if(window._reactGoSocket){
+          var _ls835 = window._reactGoSocket.listeners('sc_message');
+          for(var _i835=0;_i835<_ls835.length;_i835++){
+            if(_ls835[_i835].toString().indexOf('switch')>=0){
+              try { _ls835[_i835](835, 0, data); } catch(_e835){}
+              break;
+            }
+          }
+        }
+      }
+      // SC_ROOM_INFO React 자체 소켓으로 처리
+      // 832 SC_GAME_START - React 자체 소켓으로 처리
+      if(proto===835 && err===0){
+        // AAA 차례일 때만 putAble=true (다음 착수자가 AAA인지 확인)
+        var _colors = window._832colors || (window._captured832 && window._captured832.colors);
+        var _isMyTurn = true; // 항상 내 차례에 통과 버튼 활성화
+        setTimeout(function(){
+          window._putAbleAutoSet = _isMyTurn;
+          if(!_isMyTurn) return;
+          var root = document.querySelector('#root');
+          if(root){
+            var key = Object.keys(root).find(function(k){ return k.startsWith('__reactFiber'); });
+            var node = root[key];
+            while(node){
+              if(node.memoizedProps && node.memoizedProps.store){
+                node.memoizedProps.store.dispatch({type:'SET_PUTABLE', putAble:true});
+                console.log('[CUSTOM2] 835 putAble true!');
+                break;
+              }
+              node = node.return;
+            }
+          }
+        }, 200);
+      }
+      if(proto===832 && err===0){
+        console.log('[CUSTOM2] SC_GAME_START! React 전달');
+        window._captured832 = data;
+        // rule 저장 (0=일반, 2=순장)
+        if(data && data.rule !== undefined) window._lastRule = data.rule;
+        else if(data && data.setting && data.setting.sunjang) window._lastRule = 2;
+        else window._lastRule = 0;
+        window._goBoard = new Array(19*19).fill(0); // 새 게임 보드 초기화
+        window._totalMoves = 0;
+        // SPA3 소켓으로도 전달
+        if(window._spa3Socket && window._spa3Socket.connected){
+          try { window._spa3Socket.emit('sc_message', 832, 0, data); } catch(_e){}
+        }
+        // SPA2 소켓으로도 전달
+        if(window._spa2Socket && window._spa2Socket.connected){
+          try { window._spa2Socket.emit('sc_message', 832, 0, data); } catch(_e){}
+        }
+        if(window._reactGoSocket){
+          var _ls832 = window._reactGoSocket.listeners('sc_message');
+          for(var _i832=0;_i832<_ls832.length;_i832++){
+            if(_ls832[_i832].toString().indexOf('switch')>=0){
+              try { _ls832[_i832](832, 0, data); console.log('[CUSTOM2] 832 전달 성공!'); } catch(_e){}
+              break;
+            }
+          }
+        }
+        // 게임 시작 후 통과 버튼 활성화
+        setTimeout(function(){
+          var root = document.querySelector('#root');
+          if(root){
+            var key = Object.keys(root).find(function(k){ return k.startsWith('__reactFiber'); });
+            var node = root[key];
+            while(node){
+              if(node.memoizedProps && node.memoizedProps.store){
+                node.memoizedProps.store.dispatch({type:'SET_PUTABLE', putAble:true});
+                console.log('[CUSTOM2] 832 putAble true!');
+                break;
+              }
+              node = node.return;
+            }
+          }
+        }, 1000);
+      }
+      if(proto===817 && err===0 && !window._817triggering){
+        console.log('[CUSTOM2] SC_START_PREPARE! 리스너 직접 호출');
+        window._captured817 = data;
+        window._817room_id = data.room_id;
+        window._817triggering = true;
+        if(window._reactGoSocket){
+          var _ls = window._reactGoSocket.listeners('sc_message');
+          var _reactFn = null;
+          for(var _i=0;_i<_ls.length;_i++){
+            if(_ls[_i].toString().indexOf('switch')>=0){ _reactFn=_ls[_i]; break; }
+          }
+          if(_reactFn){
+            var _d = Object.assign({}, data); _d.prepared = [true, true];
+            try { _reactFn(817, 0, _d); console.log('[CUSTOM2] 모달 트리거 성공!'); }
+            catch(_e){ console.log('[CUSTOM2] 모달 오류:', _e.message); }
+          }
+        }
+        // 준비 모달 주입
+        setTimeout(function(){
+          if(document.getElementById('custom-ready-modal')) return;
+          var modal = document.createElement('div');
+          modal.id = 'custom-ready-modal';
+          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;';
+          var _lang = document.documentElement.lang || navigator.language || 'ko';
+          var _txt = {
+            title: {ko:'⚪ 순장바둑 ⚫', en:'⚪ Sunjang Baduk ⚫', zh:'⚪ 순장바둑 ⚫', ja:'⚪ 순장바둑 ⚫'},
+            msg:   {ko:'대국을 시작할\n준비가 되었습니까?', en:'Are you ready\nto start the game?', zh:'您准备好开始对局了吗?', ja:'対局を始める準備はできましたか?'},
+            yes:   {ko:'예', en:'Yes', zh:'是', ja:'はい'},
+            no:    {ko:'아니오', en:'No', zh:'否', ja:'いいえ'}
+          };
+          var _l = _lang.substring(0,2);
+          if(!_txt.title[_l]) _l = 'en';
+          modal.innerHTML = '<div style="background:#1a237e;border:3px solid #C9922A;border-radius:16px;padding:40px 50px;text-align:center;color:white;min-width:320px;">' +
+            '<div style="font-size:24px;font-weight:700;margin-bottom:12px;">'+_txt.title[_l]+'</div>' +
+            '<div style="font-size:17px;margin-bottom:28px;line-height:1.8;">'+_txt.msg[_l].replace('\n','<br>')+'</div>' +
+            '<div style="display:flex;gap:16px;justify-content:center;">' +
+            '<button id="ready-yes" style="background:#1565c0;color:white;border:none;padding:14px 44px;font-size:18px;font-weight:700;border-radius:10px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.4);">'+_txt.yes[_l]+'</button>' +
+            '<button id="ready-no" style="background:#b71c1c;color:white;border:none;padding:14px 44px;font-size:18px;font-weight:700;border-radius:10px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.4);">'+_txt.no[_l]+'</button>' +
+            '</div></div>';
+          document.body.appendChild(modal);
+          console.log('[CUSTOM2] 준비 모달 주입!');
+          document.getElementById('ready-yes').onclick = function(){
+            var token = localStorage.getItem('token');
+            var roomId = window._817room_id || (window._captured817 && window._captured817.room_id);
+            if(window._custom2Socket && window._custom2Socket.connected){
+              window._custom2Socket.emit('cs_message', 818, {token:token, room_id:roomId});
+              console.log('[CUSTOM2] 예! CS_CONFIRM_PREPARED 전송!');
+            }
+            modal.remove();
+          };
+          document.getElementById('ready-no').onclick = function(){
+            modal.remove();
+            window.history.back();
+          };
+        }, 800);
+        setTimeout(function(){ window._817triggering = false; }, 3000);
+      }
+    });
+  });
+  s.on('connect_error', function(e){ console.log('[CUSTOM2] 연결실패:', e.message); });
+})();
+// 구버전
+(function(){
+  var p = window.location.pathname;
+  if(p.indexOf('/go_room')===0){
+    var roomId = sessionStorage.getItem('go_room_id');
+    if(!roomId){
+      if(p.indexOf('/go_room:')===0) roomId=p.split('/go_room:')[1];
+      else if(p.indexOf('/go_room/')===0) roomId=p.split('/go_room/')[1];
+      if(roomId) roomId=roomId.split('?')[0].split('#')[0];
+    }
+    if(!roomId) return;
+    var token = localStorage.getItem('token') || sessionStorage.getItem('go_room_token');
+    if(!token) return;
+    // React 소켓이 연결될 때까지 기다렸다가 재사용
+    var attempts = 0;
+    var checkInterval = setInterval(function(){
+      attempts++;
+      if(attempts > 100) { clearInterval(checkInterval); return; }
+      // React 소켓 찾기
+      var reactSocket = null;
+      if(window._goSocket && window._goSocket.nsp && window._goSocket.nsp.indexOf("go_room")>=0) reactSocket=window._goSocket;
+      if(!reactSocket && window._goRoomSocket && window._goRoomSocket.connected) reactSocket=window._goRoomSocket;
+      if(reactSocket && reactSocket.connected){
+        clearInterval(checkInterval);
+        console.log('[CUSTOM] React 소켓 재사용! CS_ENTERED_ROOM 전송');
+        reactSocket.emit('cs_message', 784, {token:token, room_id:roomId});
+        reactSocket.emit('cs_message', 768, {room_id:roomId});
+        reactSocket.on('sc_message', function(proto, err, data){
+          if(proto===817 && err===0){
+            console.log('[CUSTOM] SC_START_PREPARE - 자동전송 비활성화');
+          }
+        });
+      }
+    }, 100);
+  }
+})();
+// SPA URL 변화 감지 - go_room 진입 시 소켓 연결
+(function(){
+  function tryConnectGoRoom(){
+    var p = window.location.pathname;
+    var roomId = null;
+    if(p.indexOf('/go_room:')===0) roomId=p.split('/go_room:')[1];
+    else if(p.indexOf('/go_room/')===0) roomId=p.split('/go_room/')[1];
+    if(!roomId) return;
+    if(window._custom2Socket && window._custom2Socket.connected) return;
+    // goSocket이 끊어졌으면 재연결
+    if(window._goSocket && !window._goSocket.connected){
+      window._goSocket.connect();
+      console.log('[SPA] _goSocket 재연결 시도!');
+    }
+    var token = localStorage.getItem('token') || sessionStorage.getItem('go_room_token');
+    if(!token) {
+      // token 없으면 500ms 후 재시도
+      setTimeout(tryConnectGoRoom, 500);
+      return;
+    }
+    // React 원본 소켓이 이미 연결돼 있으면 그걸 사용
+    if(window._goSocket && window._goSocket.connected){
+      console.log('[SPA] React 소켓 재사용:', window._goSocket.id);
+      window._custom2Socket = window._goSocket;
+      return;
+    }
+    var goRoomUrl = 'https://tobmate.com';
+    console.log('[SPA] goRoom 소켓 연결:', roomId);
+    var s = io(goRoomUrl, {path: '/go_room/socket.io', reconnection: true, reconnectionAttempts: 10, reconnectionDelay: 500});
+    window._custom2Socket = s;
+    s.on('connect', function(){
+      console.log('[SPA] 연결성공! CS_ENTERED_ROOM 전송');
+      window._spaGoSocket = s;
+      // React _goSocket이 끊어졌으면 SPA 소켓으로 교체
+      setTimeout(function(){
+        if(window._goSocket && !window._goSocket.connected){
+          console.log('[SPA] _goSocket 교체!');
+          // _goSocket의 listeners를 SPA 소켓에 복사
+          var ls = window._goSocket.listeners('sc_message');
+          ls.forEach(function(fn){ s.on('sc_message', fn); });
+          window._goSocket = s;
+          window._reactGoSocket = s;
+        }
+      }, 2000);
+      s.emit('cs_message', 784, {token:token, room_id:roomId});
+      s.emit('cs_message', 768, {room_id:roomId});
+      s.on('sc_message', function(proto, err, data){
+        if(proto===800) console.log('[SPA] SC_ADD_USER!', data);
+        if(proto===835 && err===0){
+        // AAA 차례일 때만 putAble=true (다음 착수자가 AAA인지 확인)
+        var _colors = window._832colors || (window._captured832 && window._captured832.colors);
+        var _isMyTurn = true; // 항상 내 차례에 통과 버튼 활성화
+        setTimeout(function(){
+          window._putAbleAutoSet = _isMyTurn;
+          if(!_isMyTurn) return;
+          var root = document.querySelector('#root');
+          if(root){
+            var key = Object.keys(root).find(function(k){ return k.startsWith('__reactFiber'); });
+            var node = root[key];
+            while(node){
+              if(node.memoizedProps && node.memoizedProps.store){
+                node.memoizedProps.store.dispatch({type:'SET_PUTABLE', putAble:true});
+                console.log('[CUSTOM2] 835 putAble true!');
+                break;
+              }
+              node = node.return;
+            }
+          }
+        }, 200);
+      }
+      if(proto===832 && err===0){
+        console.log('[CUSTOM2] SC_GAME_START! React 전달');
+        window._captured832 = data;
+        // SPA3 소켓으로도 전달
+        if(window._spa3Socket && window._spa3Socket.connected){
+          try { window._spa3Socket.emit('sc_message', 832, 0, data); } catch(_e){}
+        }
+        // SPA2 소켓으로도 전달
+        if(window._spa2Socket && window._spa2Socket.connected){
+          try { window._spa2Socket.emit('sc_message', 832, 0, data); } catch(_e){}
+        }
+        if(window._reactGoSocket){
+          var _ls832 = window._reactGoSocket.listeners('sc_message');
+          for(var _i832=0;_i832<_ls832.length;_i832++){
+            if(_ls832[_i832].toString().indexOf('switch')>=0){
+              try { _ls832[_i832](832, 0, data); console.log('[CUSTOM2] 832 전달 성공!'); } catch(_e){}
+              break;
+            }
+          }
+        }
+        // 게임 시작 후 통과 버튼 활성화
+        setTimeout(function(){
+          var root = document.querySelector('#root');
+          if(root){
+            var key = Object.keys(root).find(function(k){ return k.startsWith('__reactFiber'); });
+            var node = root[key];
+            while(node){
+              if(node.memoizedProps && node.memoizedProps.store){
+                node.memoizedProps.store.dispatch({type:'SET_PUTABLE', putAble:true});
+                console.log('[CUSTOM2] 832 putAble true!');
+                break;
+              }
+              node = node.return;
+            }
+          }
+        }, 1000);
+      }
+      if(proto===817 && err===0 && !window._817triggering){
+          console.log('[SPA] SC_START_PREPARE!');
+          window._captured817 = data;
+          window._817room_id = data.room_id;
+          window._817triggering = true;
+          if(window._reactGoSocket){
+            var _ls = window._reactGoSocket.listeners('sc_message');
+            var _reactFn = null;
+            for(var _i=0;_i<_ls.length;_i++){
+              if(_ls[_i].toString().indexOf('switch')>=0){ _reactFn=_ls[_i]; break; }
+            }
+            if(_reactFn){
+              var _d = Object.assign({}, data); _d.prepared = [true, true];
+              try { _reactFn(817, 0, _d); console.log('[SPA] 모달 트리거!'); }
+              catch(_e){ console.log('[SPA] 모달 오류:', _e.message); }
+            }
+          }
+          setTimeout(function(){ window._817triggering = false; }, 3000);
+        }
+      });
+    });
+  }
+
+  // URL 변화 감지
+  var _lastPath = '';
+  setInterval(function(){
+    if(window.location.pathname !== _lastPath){
+      _lastPath = window.location.pathname;
+      setTimeout(tryConnectGoRoom, 100);
+    }
+  }, 300);
+})();
+
+// SPA 소켓 SC_ROOM_INFO React 전달
+(function(){
+  var _origTry = setInterval(function(){
+    if(!window._custom2Socket) return;
+    clearInterval(_origTry);
+    window._custom2Socket.on('sc_message', function(proto, err, data){
+      if(proto===769 && err===0 && !window._769triggering){
+        window._769triggering = true;
+        console.log('[SPA2] SC_ROOM_INFO React 전달');
+        // enter_room dispatch - room_type을 'play'로 설정
+        if(window._reactGoSocket){
+          var _ls_er = window._reactGoSocket.listeners('sc_message');
+          for(var _ei=0;_ei<_ls_er.length;_ei++){
+            var _ef = _ls_er[_ei].toString();
+            if(_ef.indexOf('enter_room')>=0 || _ef.indexOf('ENTER_ROOM')>=0){
+              try { _ls_er[_ei](549, 0, {room_id:data.room_id, game_type:0, is_player:true, url:''}); } catch(_ee){}
+              break;
+            }
+          }
+        }
+        window._captured769 = data;
+        // state:2 = 게임중 → 832처럼 처리
+        if(data && data.state === 2 && !window._832triggered){
+          window._832triggered = true;
+          // _captured832는 실제 832에서만 설정
+        window._putAbleAutoSet = true;
+        // CS_ROOM_INFO 재요청 제거 - colors 덮어쓰기 방지
+          if(window._reactGoSocket){
+            var _ls4 = window._reactGoSocket.listeners('sc_message');
+            for(var _i4=0;_i4<_ls4.length;_i4++){
+              if(_ls4[_i4].toString().indexOf('switch')>=0){
+                try { _ls4[_i4](832, 0, data); console.log('[SPA2] state:2 → 832 전달!'); } catch(_e4){}
+                break;
+              }
+            }
+          }
+          setTimeout(function(){ window._832triggered = false; }, 5000);
+        }
+        if(window._reactGoSocket){
+          var _ls = window._reactGoSocket.listeners('sc_message');
+          for(var _i=0;_i<_ls.length;_i++){
+            if(_ls[_i].toString().indexOf('switch')>=0){
+              try { _ls[_i](769, 0, data); } catch(_e){}
+              break;
+            }
+          }
+        }
+        setTimeout(function(){ window._769triggering = false; }, 2000);
+      }
+    });
+  }, 300);
+})();
+
+// SC_GAME_START React 전달
+(function(){
+  var _checkInterval = setInterval(function(){
+    if(!window._custom2Socket) return;
+    clearInterval(_checkInterval);
+    window._custom2Socket.on('sc_message', function(proto, err, data){
+      if(proto===832 && err===0){
+        console.log('[SPA3] SC_GAME_START React 전달', JSON.stringify(data));
+        if(!data.room_state) data.room_state = 2;
+        window._captured832 = data;
+        // _custom2Socket 리스너로 832 전달 후 769도 전달
+        if(window._custom2Socket){
+          var _targetSock = window._reactGoSocket || window._custom2Socket; var _ls832 = _targetSock.listeners('sc_message');
+          if(_ls832 && _ls832.length > 0){
+            try { _ls832[0](832, 0, data); console.log('[SPA3] 리스너[0] 832 전달 성공!');
+            // room_type=play 강제 설정
+            setTimeout(function(){
+              var _ls2 = window._custom2Socket.listeners('sc_message');
+              for(var _ei2=0;_ei2<_ls2.length;_ei2++){
+                if(_ls2[_ei2].toString().indexOf('enter_room')>=0){
+                  try { _ls2[_ei2](549, 0, {room_id:data.room_id, game_type:0, is_player:true, url:''}); console.log('[SPA3] 549 play 설정!'); } catch(_e){}
+                  break;
+                }
+              }
+            }, 500); }
+            catch(_e){ console.log('[SPA3] 오류:', _e.message); }
+            // 769(SC_ROOM_INFO)로도 전달해서 players 표시
+            setTimeout(function(){
+              var _d2 = Object.assign({}, data);
+              _d2.room_state = 2;
+              try { _ls832[1](769, 0, _d2); console.log('[SPA3] 769 추가 전달!'); }
+              catch(_e2){}
+            }, 300);
+          }
+        }
+        // 832 후 putAble 강제 설정 (CS_ROOM_INFO 재요청 제거 - colors 덮어쓰기 방지)
+        setTimeout(function(){
+          window._putAbleAutoSet = true;
+          window._832colors = data.colors;
+        }, 800);
+      }
+    });
+  }, 300);
+})();
+
+// SC_GAME_START 후 putAble 강제 true 설정
+(function(){
+  setInterval(function(){
+    if(!window._putAbleAutoSet) return;
+    var rootEl = document.querySelector('#root');
+    if(!rootEl) return;
+    var fiberKey = Object.keys(rootEl).find(function(k){ return k.startsWith('__react'); });
+    if(!fiberKey) return;
+    function findStore(fiber) {
+      if(!fiber) return null;
+      if(fiber.memoizedProps && fiber.memoizedProps.store) return fiber.memoizedProps.store;
+      if(fiber.memoizedState && fiber.memoizedState.store) return fiber.memoizedState.store;
+      return findStore(fiber.child) || findStore(fiber.sibling);
+    }
+    var store = findStore(rootEl[fiberKey]);
+    if(!store) return;
+    var state = store.getState();
+    if(state.goBoardReducer && !state.goBoardReducer.putAble) {
+      store.dispatch({type: 'SET_PUTABLE', putAble: true});
+      store.dispatch({type: 'UPDATE_ROOM', putAble: true});
+      window._putAble = true;
+      console.log('[AUTO] putAble → true!');
+    }
+  }, 500);
+})();
+
+// ★ 백돌/흑돌 착수 색깔 표시 패치
+(function(){
+  var _patchInterval = setInterval(function(){
+    if(!window._custom2Socket) return;
+    clearInterval(_patchInterval);
+
+    window._custom2Socket.on('sc_message', function(proto, err, data){
+      if(proto === 832 && err === 0 && data) {
+        // 내 user_id로 내가 몇번 플레이어인지, 어떤 색인지 저장
+        // socket_id로 내 user_id 찾기
+        var mySocketId = window._custom2Socket && window._custom2Socket.id;
+        var myId = null;
+        if(data.users && mySocketId) {
+          for(var u=0; u<data.users.length; u++){
+            if(data.users[u].socket_id === mySocketId){ myId = data.users[u].user_id; break; }
+          }
+        }
+        // custom2Socket id로도 찾기
+        if(!myId && window._custom2Socket) {
+          var _c2id = window._custom2Socket.id;
+          for(var u=0; u<data.users.length; u++){
+            if(data.users[u].socket_id === _c2id){ myId = data.users[u].user_id; break; }
+          }
+        }
+        console.log('[COLOR] 내 socketId:', mySocketId, '→ userId:', myId);
+        if(data.players && data.colors) {
+          for(var i=0; i<data.players.length; i++){
+            if(data.players[i].user_id === myId){
+              window._myPlayerIdx = i;
+              window._myColor = data.colors[i]; // 1=흑, 2=백
+              console.log('[COLOR] 내 인덱스:', i, '색깔:', window._myColor===1?'흑':'백');
+              break;
+            }
+          }
+          window._832colors = data.colors;
+        }
+      }
+
+      if(proto === 835 && err === 0 && data) {
+        // data.turn = 방금 착수한 플레이어 인덱스
+        var moverIdx = data.turn;
+        var colors = window._832colors;
+        if(!colors) return;
+        var moverColor = colors[moverIdx]; // 1=흑, 2=백
+        var colorLabel = moverColor === 1 ? '●흑' : '○백';
+        var coord = data.move;
+        console.log('[835] 착수:', colorLabel, 'move:', coord, '착수자idx:', moverIdx);
+
+        // putAble: 다음 차례가 나인지 확인
+        // 다음 착수자 = 1 - moverIdx (2인 기준)
+        var nextIdx = 1 - moverIdx;
+        var isMyTurn = (nextIdx === window._myPlayerIdx);
+        window._putAbleAutoSet = isMyTurn;
+        console.log('[835] 다음차례 내꺼?', isMyTurn, 'nextIdx:', nextIdx, 'myIdx:', window._myPlayerIdx);
+      }
+    });
+  }, 500);
+})();
+
+(function(){
+  var _btnInjected = false;
+  function injectButtons(){
+    var container = null;
+    var pw = document.querySelectorAll('[class*="playButton"],[class*="toolWrapper"],[class*="rightPanel"],[class*="right_panel"],[class*="gameControl"]');
+    if(pw.length>0){ container = pw[pw.length-1].parentNode; }
+    if(!container){ container = document.querySelector('[class*="goRoom"],[class*="go_room"]'); }
+    if(!container) return;
+    _btnInjected = true;
+    var div = document.createElement('div');
+    div.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap;z-index:9999;';
+    var btns = [{label:'통과',move:8224,color:'#4a90d9'},{label:'기권',move:8481,color:'#e05c5c'},{label:'계가',move:8608,color:'#5cb85c'}];
+    btns.forEach(function(b){
+      var btn = document.createElement('button');
+      btn.textContent = b.label;
+      btn.style.cssText = 'padding:8px 16px;font-size:14px;font-weight:bold;color:#fff;background:'+b.color+';border:none;border-radius:6px;cursor:pointer;min-width:60px;';
+      btn.onmouseenter=function(){this.style.opacity='0.8';};
+      btn.onmouseleave=function(){this.style.opacity='1';};
+      btn.onclick=function(){
+        var useSock=window._moveSocket||window._custom2Socket||window._goRoomSocket;
+        if(!useSock||!useSock.connected){alert('소켓 연결 안됨');return;}
+        var roomId=window.location.pathname.split('go_room:')[1]||window._currentRoomId||sessionStorage.getItem('go_room_id');
+        var token=localStorage.getItem('token')||sessionStorage.getItem('go_room_token');
+        console.log('[BTN] 소켓:', useSock.id, 'move:', b.move, 'room:', roomId);
+        if(window._mobileConfirmMode && /Mobi|Android/i.test(navigator.userAgent)) {
+          showMoveConfirm(function(){ useSock.emit('cs_message',834,{token:token,room_id:roomId,move:b.move}); });
+        } else {
+          useSock.emit('cs_message',834,{token:token,room_id:roomId,move:b.move});
+        }
+      };
+      div.appendChild(btn);
+    });
+    container.appendChild(div);
+    console.log('[BTN] 버튼 주입 완료!');
+  }
+  setInterval(function(){
+    if(window._captured832||window._gameStarted){ injectButtons(); }
+  },1000);
+})();
+
+
+
+
+// ===== 순장바둑 계가 모달 =====
+(function(){
+  // 832 캡처된 데이터에서 sjRule 초기화 (훅 전에 이미 받았을 경우)
+  function initFromCaptured(){
+    var d = window._captured832;
+    if(!d) return;
+    if(window._sjRuleInited) return;
+    window._sjRuleInited = true;
+    window._sjRule = (d.rule === 2 || (d.setting && d.setting.sunjang === 1));
+    window._currentKomi = d.kpmi || d.komi || 6.5;
+    window._sjHandicap = d.handicap || 0;
+    console.log('[SCORING] captured832에서 초기화! _sjRule:', window._sjRule, 'rule:', d.rule, 'komi:', window._currentKomi);
+  }
+  function hookScoring(){
+    initFromCaptured();
+    var socks = [window._goSocket, window._reactGoSocket, window._custom2Socket, window._moveSocket];
+    socks.forEach(function(sock){
+      if(!sock || sock._scoringHooked2) return;
+      sock._scoringHooked2 = true;
+      sock.on('sc_message', function(protocol, err, data){
+        if(protocol === 832){
+          window._sjRule = (data && (data.rule === 2 || (data.setting && data.setting.sunjang === 1)));
+          window._currentKomi = data.kpmi || data.komi || 6.5;
+          window._sjHandicap = data && data.handicap || 0;
+          window._sjRuleInited = true;
+          console.log('[SCORING] GAME_START _sjRule:', window._sjRule, 'rule:', data.rule, 'komi:', window._currentKomi);
+        }
+        if(protocol === 1029){
+          if(err !== 0) return;
+          var D = data.bsum, B = data.wsum;
+          var komi = window._currentKomi || 6.5;
+          var handicap = window._sjHandicap || 0;
+          var C = '';
+          console.log('[SCORING] 1029 수신! _sjRule:', window._sjRule, 'bsum:', D, 'wsum:', B);
+          if(window._sjRule){
+            var sjDiff = D - B + (handicap === 0 ? komi : 0);
+            var sjAbs = Math.abs(sjDiff).toFixed(1);
+            var sjWin = sjDiff > 0 ? '흑 승 (Black wins)' : sjDiff < 0 ? '백 승 (White wins)' : '무승부 (Draw)';
+            C = sjWin + '\n+' + sjAbs + '집\n\n[순장바둑 계가 상세]\n흑집: ' + D + '집 | 백집: ' + B + '집';
+            C += handicap === 0 ? '\n덤: ' + komi + '집 (호선)' : '\n접바둑: 덤 없음';
+            C += '\n\n* 순장바둑: 집만 계산\n(따내돌·코미 없음)';
+          } else {
+            var P = B - D + komi;
+            C = P > 0 ? '백 승 (White wins) +' + Math.abs(P).toFixed(1) + '집' :
+                P < 0 ? '흑 승 (Black wins) +' + Math.abs(P).toFixed(1) + '집' : '무승부 (Draw)';
+            C += '\n\n[계가 상세]\n흑집: ' + D + ' | 백집: ' + B + '\n덤: ' + komi;
+          }
+          var old = document.getElementById('sj-score-modal');
+          if(old) old.remove();
+          var overlay = document.createElement('div');
+          overlay.id = 'sj-score-modal';
+          overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999999;display:flex;align-items:center;justify-content:center;';
+          var box = document.createElement('div');
+          box.style.cssText = 'background:#1a2a1a;border:2px solid #4caf50;border-radius:12px;padding:28px 36px;min-width:300px;max-width:420px;color:#fff;font-size:16px;white-space:pre-line;line-height:1.8;text-align:center;';
+          box.innerText = C;
+          var btn = document.createElement('button');
+          btn.innerText = '확인';
+          btn.style.cssText = 'margin-top:20px;width:100%;padding:12px;background:#4caf50;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;';
+          btn.onclick = function(){ overlay.remove(); };
+          box.appendChild(btn);
+          overlay.appendChild(box);
+          document.body.appendChild(overlay);
+          console.log('[SCORING] 모달 생성!');
+        }
+      });
+    });
+  }
+  setInterval(hookScoring, 500);
+})();
+
+// ===== 사이드바 글씨 크기 개선 =====
+(function(){
+  function fixSidebarText(){
+    if(window.location.pathname.indexOf('/go_room') >= 0) return;
+    if(document.getElementById('sidebar-text-style')) return;
+    var style = document.createElement('style');
+    style.id = 'sidebar-text-style';
+    style.textContent = `
+      .MuiButton-contained {
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.3px !important;
+        white-space: nowrap !important;
+      }
+      .MuiButton-contained .MuiButton-label {
+        font-size: 13px !important;
+        white-space: nowrap !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  setInterval(fixSidebarText, 500);
+})();
+
+// ===== 배경 이미지 위치 수정 =====
+(function(){
+  function fixLanding(){
+    if(window.location.pathname.indexOf('/go_room') >= 0) return;
+    var all = document.querySelectorAll('div');
+    for(var i=0; i<all.length; i++){
+      var bg = window.getComputedStyle(all[i]).backgroundImage;
+      if(bg && bg.includes('landing1')){
+        all[i].style.backgroundPosition = 'center 60%';
+        all[i].style.backgroundSize = '100% 100%';
+        return;
+      }
+    }
+  }
+  setInterval(fixLanding, 300);
+})();
+
+// ===== 상단 메뉴 간격 수정 =====
+(function(){
+  if(document.getElementById('header-fix')) return;
+  var style = document.createElement('style');
+  style.id = 'header-fix';
+  style.textContent = `
+    .MuiButton-text {
+      margin-right: 20px !important;
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+      letter-spacing: 1px !important;
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+
+
+
+
+
+
+// ===== 통과/기권/계가/다시하기 버튼 =====
+(function(){
+  function injectGameBtns(){
+    if(document.getElementById('cg-btns')) return;
+    if(!window._captured832) return;
+    var div = document.createElement('div');
+    div.id = 'cg-btns';
+    div.style.cssText = 'position:fixed;right:0;top:57vh;width:20vw;height:8vh;background:rgba(200,200,200,0.6);z-index:1112;display:flex;align-items:center;justify-content:space-around;font-size:3vh;';
+    var items = [
+      {label:'통과', icon:'fa-paypal', move:8224, type:'move'},
+      {label:'기권', icon:'fa-flag', move:8481, type:'move'},
+      {label:'계가', icon:'fa-pie-chart', move:0, type:'score'},
+      {label:'다시하기', icon:'fa-retweet', move:0, type:'restart'}
+    ];
+    items.forEach(function(item){
+      var btn = document.createElement('button');
+      btn.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;color:#333;font-size:1.2vh;padding:4px;width:25%;';
+      btn.innerHTML = '<i class="fa '+item.icon+'" style="font-size:2.5vh;"></i><span>'+item.label+'</span>';
+      btn.onclick = function(){
+        var sock = window._custom2Socket;
+        if(!sock||!sock.connected){console.log('[CG-BTN] 소켓없음');return;}
+        var token = localStorage.getItem('token');
+        var roomId = window._captured832&&window._captured832.room_id;
+        if(item.type==='move'){
+          if(window._mobileConfirmMode && /Mobi|Android/i.test(navigator.userAgent)) {
+          showMoveConfirm(function(){ sock.emit('cs_message',834,{token:token,room_id:roomId,move:item.move}); });
+        } else {
+          sock.emit('cs_message',834,{token:token,room_id:roomId,move:item.move});
+        }
+        } else if(item.type==='score'){
+          sock.emit('cs_message',1025,{token:token,room_id:roomId});
+        } else if(item.type==='restart'){
+          sock.emit('cs_message',836,{token:token,room_id:roomId});
+        }
+        console.log('[CG-BTN]',item.label);
+      };
+      div.appendChild(btn);
+    });
+    document.body.appendChild(div);
+    console.log('[CG-BTN] 주입완료!');
+  }
+  setInterval(injectGameBtns, 1000);
+})();
+
+// ===== 바둑판 클릭 착수 =====
+(function(){
+  function setupBoardClick(){
+    var marks = document.getElementById('GoBoard0_BoardMarksCanvas');
+    if(!marks || marks._clickSetup) return;
+    marks._clickSetup = true;
+    marks.addEventListener('mousedown', function(e){
+      if(!window._putAbleAutoSet) return;
+      if(!window._custom2Socket || !window._custom2Socket.connected) return;
+      var w = marks.width;
+      var margin = w / 22;
+      var step = (w - margin*2) / 18;
+      var cellX = Math.round((e.offsetX - margin) / step);
+      var cellY = Math.round((e.offsetY - margin) / step);
+      if(cellX < 0 || cellX > 18 || cellY < 0 || cellY > 18) return;
+      var move = (cellY << 8) | cellX;
+      var token = localStorage.getItem('token');
+      var roomId = window._817room_id || (window._captured832 && window._captured832.room_id);
+      if(window._mobileConfirmMode && /Mobi|Android/i.test(navigator.userAgent)) {
+          showMoveConfirm(function(){ window._custom2Socket.emit('cs_message', 834, {token:token, room_id:roomId, move:move}); });
+        } else {
+          window._custom2Socket.emit('cs_message', 834, {token:token, room_id:roomId, move:move});
+        }
+      console.log('[BOARD] 착수!', cellX, cellY, move);
+    });
+    marks.addEventListener('mousemove', function(e){
+      var target = document.getElementById('GoBoard0_TargetCanvas');
+      if(!target) return;
+      target.height = marks.height;
+      var evt = new MouseEvent('mousemove', {bubbles:true, cancelable:true, clientX:e.clientX, clientY:e.clientY});
+      Object.defineProperty(evt, 'offsetX', {value: e.offsetX});
+      Object.defineProperty(evt, 'offsetY', {value: e.offsetY});
+      target.dispatchEvent(evt);
+    });
+    console.log('[BOARD] 클릭 설정완료!');
+  }
+  setInterval(setupBoardClick, 1000);
+})();
+
+// ===== 콘텐츠별 방개설 설정창 =====
+(function(){
+  var GT={GO:0,PUZZLE:1,PIECE_DESIGN:2,FFA:3,SKPNI:4,OMOK:5};
+  var roomMap={1:'puzzle_room',2:'pdesign_room',3:'ffa_room',4:'skpni_room',5:'omok_room'};
+  function i18n(k){return window.i18n?window.i18n.t(k):k;}
+  function getStore(){
+    if(window._reduxStore)return window._reduxStore;
+    var root=document.getElementById('root');
+    var fk=Object.keys(root).find(function(k){return k.startsWith('__react');});
+    function fs(n,d){if(!n||d>50)return null;try{if(n.memoizedProps&&n.memoizedProps.store&&n.memoizedProps.store.getState)return n.memoizedProps.store;var f=null;if(n.child)f=fs(n.child,d+1);if(!f&&n.sibling)f=fs(n.sibling,d+1);return f;}catch(e){return null;}}
+    window._reduxStore=fs(root[fk],0);return window._reduxStore;
+  }
+  function getContent(){var s=getStore();return s?s.getState().commonReducer.content:0;}
+  function getHistory(){
+    if(window._history)return window._history;
+    var root=document.getElementById('root');
+    var fk=Object.keys(root).find(function(k){return k.startsWith('__react');});
+    function fh(n,d){if(!n||d>50)return null;try{if(n.memoizedProps&&n.memoizedProps.history&&n.memoizedProps.history.push)return n.memoizedProps.history;var f=null;if(n.child)f=fh(n.child,d+1);if(!f&&n.sibling)f=fh(n.sibling,d+1);return f;}catch(e){return null;}}
+    window._history=fh(root[fk],0);return window._history;
+  }
+  function showDlg(){
+    var content=getContent();
+    if(content===GT.GO)return;
+    var old=document.getElementById('cdlg');
+    if(old)old.remove();
+    var typeKey={1:'puzzle',2:'piece_design',3:'FFA',4:'star_kpni',5:'omok'};
+    var title=i18n('gameType.'+typeKey[content])+' '+i18n('setting.game_setting');
+    var overlay=document.createElement('div');
+    overlay.id='cdlg';
+    overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML='<div style="background:#1a1a2e;border:2px solid #26C6DA;border-radius:12px;padding:32px;min-width:320px;color:#fff;font-size:15px;">'+
+      '<div style="font-size:18px;font-weight:bold;color:#26C6DA;margin-bottom:20px;text-align:center;">'+title+'</div>'+
+      '<div style="margin-bottom:14px;"><label style="color:#aaa;display:block;margin-bottom:6px;">'+i18n('setting.coin')+'</label>'+
+      '<select id="cdlg-coin" style="width:100%;padding:8px;background:#2a2a3e;color:#fff;border:1px solid #26C6DA;border-radius:6px;">'+
+      '<option value="0">100</option><option value="1">200</option><option value="2">500</option></select></div>'+
+      '<div style="margin-bottom:14px;"><label style="color:#aaa;display:block;margin-bottom:6px;">'+i18n('setting.time')+'</label>'+
+      '<div style="display:flex;gap:16px;"><label><input type="radio" name="ct" value="0"> '+i18n('setting.fast')+'</label>'+
+      '<label><input type="radio" name="ct" value="1" checked> '+i18n('setting.normal')+'</label>'+
+      '<label><input type="radio" name="ct" value="2"> '+i18n('setting.slow')+'</label></div></div>'+
+      '<div style="margin-bottom:20px;"><label style="color:#aaa;display:block;margin-bottom:6px;">'+i18n('game.name')+'</label>'+
+      '<div style="display:flex;gap:16px;"><label><input type="radio" name="co" value="0"> '+i18n('game.vs')+'</label>'+
+      '<label><input type="radio" name="co" value="1" checked> AI</label></div></div>'+
+      '<div style="display:flex;gap:10px;">'+
+      '<button id="cdlg-ok" style="flex:1;padding:12px;background:#26C6DA;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer;">✔ '+i18n('setting.start')+'</button>'+
+      '<button id="cdlg-no" style="flex:1;padding:12px;background:#555;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">'+i18n('setting.no')+'</button>'+
+      '</div></div>';
+    document.body.appendChild(overlay);
+    document.getElementById('cdlg-no').onclick=function(){overlay.remove();};
+    overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+    document.getElementById('cdlg-ok').onclick=function(){
+      var coin=parseInt(document.getElementById('cdlg-coin').value);
+      var time=parseInt(document.querySelector('input[name="ct"]:checked').value);
+      var opp=parseInt(document.querySelector('input[name="co"]:checked').value);
+      var store=getStore();
+      var user=store&&store.getState().authReducer.user;
+      var token=user?user.token:'';
+      var setting={board_size:0,handicap:0,coin:coin,time:time,kind:opp,inc_room_coin:1,left_count:0,problems:1};
+      var sock=window._lobbySocket;
+      if(sock&&sock.connected){
+        localStorage.setItem('_lastContent', content);
+        sock.emit('cs_message',544,{token:token,game_type:content,setting:setting});
+        console.log('[CDlg] CS_CREATE_ROOM game_type:'+content);
+      }
+      overlay.remove();
+    };
+  }
+  setInterval(function(){
+    var content=getContent();
+    var origBtn=null;
+    document.querySelectorAll('button').forEach(function(b){
+      if(b.id==='cdlg-create-btn')return;
+      var txt=b.textContent.trim();
+      if(txt===i18n('game.create_room')||txt==='방개설'||txt==='Create Room'||txt==='室を創造'||txt==='新对局'||txt==='Создать номер'||txt.indexOf('Room')>=0||txt.indexOf('room')>=0||txt.indexOf('室')>=0||txt.indexOf('新对')>=0)origBtn=b;
+    });
+    if(!origBtn)return;
+    if(content===GT.GO){
+      origBtn.style.visibility='';
+      origBtn.style.position='';
+      var ob=document.getElementById('cdlg-create-btn');
+      if(ob)ob.remove();
+      return;
+    }
+    origBtn.style.visibility='hidden';
+    origBtn.style.position='absolute';
+    var nb=document.getElementById('cdlg-create-btn');
+    if(!nb){
+      nb=document.createElement('button');
+      nb.id='cdlg-create-btn';
+      nb.className=origBtn.className;
+      nb.textContent=origBtn.textContent;
+      origBtn.parentNode.insertBefore(nb,origBtn);
+      console.log('[CDlg] 버튼 교체완료!');
+    }
+    // 매번 onclick 재설정
+    nb.onclick=null;
+    nb.addEventListener('click',function(e){
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      console.log('[CDlg] 커스텀 버튼 클릭!');
+      showDlg();
+    },true);
+  },300);
+  function hookLobby(){
+    var sock=window._lobbySocket;
+    if(!sock||sock._cdlgHooked)return;
+    sock._cdlgHooked=true;
+    sock.on('sc_message',function(protocol,err,data){
+      if(protocol===545&&err===0){
+        var content=getContent();
+        console.log('[CDlg] SC_CREATE_ROOM game_type:'+data.game_type+' content:'+content);
+        if(content!==GT.GO){
+          if(data.game_type===content){
+            // 올바른 방 생성됨 - 입장
+            var h=getHistory();
+            var roomType=roomMap[content];
+            if(h&&roomType){
+              console.log('[CDlg] 올바른 방 입장!',roomType,data.room_id);
+              h.push('/'+roomType+':'+data.room_id);
+            }
+          } else if(data.game_type===GT.GO){
+            // 바둑방이 생성됨 - 삭제하고 올바른 방 생성
+            var store2=getStore();
+            var user2=store2&&store2.getState().authReducer.user;
+            var token2=user2?user2.token:'';
+            console.log('[CDlg] 바둑방 감지! 삭제 후 올바른 방 생성 content:'+content);
+            // 바둑방 삭제
+            sock.emit('admin_message',548,{token:token2,game_type:GT.GO,room_id:data.room_id});
+            // 올바른 game_type으로 방 생성
+            setTimeout(function(){
+              sock.emit('cs_message',544,{
+                token:token2,
+                game_type:content,
+                setting:{board_size:0,handicap:0,coin:0,time:1,kind:1,inc_room_coin:1,left_count:0,problems:1}
+              });
+              console.log('[CDlg] 올바른 방 생성 요청! game_type:'+content);
+            },300);
+          }
+        }
+      }
+    });
+  }
+  setInterval(hookLobby,500);
+
+  // history.push 가로채기 - go_room 이동을 올바른 방으로 교체
+  function hookHistory(){
+    var h=getHistory();
+    if(!h||h._cdlgPushHooked)return;
+    h._cdlgPushHooked=true;
+    var origPush=h.push.bind(h);
+    h.push=function(path){
+      var content=getContent();
+      if(content!==GT.GO && typeof path==='string' && path.indexOf('/go_room:')>=0){
+        console.log('[CDlg] go_room 이동 차단! path:'+path+' content:'+content);
+        // 올바른 방 생성 요청
+        var sock=window._lobbySocket;
+        var store=getStore();
+        var user=store&&store.getState().authReducer.user;
+        var token=user?user.token:'';
+        if(sock&&sock.connected){
+          sock.emit('cs_message',544,{
+            token:token,
+            game_type:content,
+            setting:{board_size:0,handicap:0,coin:0,time:1,kind:1,inc_room_coin:1,left_count:0,problems:1}
+          });
+        }
+        return;
+      }
+      return origPush(path);
+    };
+    console.log('[CDlg] history.push 훅 완료!');
+  }
+  setInterval(hookHistory,500);
+})();
+
+// ===== URL 감지 redirect =====
+(function(){
+  var GT={GO:0,PUZZLE:1,PIECE_DESIGN:2,FFA:3,SKPNI:4,OMOK:5};
+  var roomMap={1:'puzzle_room',2:'pdesign_room',3:'ffa_room',4:'skpni_room',5:'omok_room'};
+  
+  function getStore(){
+    if(window._reduxStore)return window._reduxStore;
+    var root=document.getElementById('root');
+    var fk=Object.keys(root).find(function(k){return k.startsWith('__react');});
+    function fs(n,d){if(!n||d>50)return null;try{if(n.memoizedProps&&n.memoizedProps.store&&n.memoizedProps.store.getState)return n.memoizedProps.store;var f=null;if(n.child)f=fs(n.child,d+1);if(!f&&n.sibling)f=fs(n.sibling,d+1);return f;}catch(e){return null;}}
+    window._reduxStore=fs(root[fk],0);return window._reduxStore;
+  }
+
+  var lastPath = window.location.pathname;
+  setInterval(function(){
+    var path = window.location.pathname;
+    if(path === lastPath) return;
+    lastPath = path;
+    
+    // go_room으로 이동했을 때
+    if(path.indexOf('/go_room:') >= 0){
+      var store = getStore();
+      if(!store) return;
+      var content = store.getState().commonReducer.content;
+      if(content === GT.GO) return; // 바둑탭이면 정상
+      
+      // 다른 콘텐츠 탭인데 go_room으로 들어간 경우
+      var roomType = roomMap[content];
+      if(!roomType) return;
+      var roomId = path.split('/go_room:')[1];
+      console.log('[REDIRECT] go_room 감지! content:'+content+' roomType:'+roomType);
+      
+      // 올바른 방 URL로 즉시 교체
+      window.history.replaceState(null,'','/'+roomType+':'+roomId);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  }, 100);
+})();
+
+// ═══════════════════════════════════════
+// TPI 대시보드 — 개인정보 페이지 자동 삽입
+// ═══════════════════════════════════════
+(function() {
+  var _tpiInjected = false;
+
+  function getTierColor(tier) {
+    return tier === 'platinum' ? '#378ADD'
+         : tier === 'gold'     ? '#C9922A'
+         : tier === 'silver'   ? '#888780'
+         : '#8B5E3C'; // bronze
+  }
+  function getTierLabel(tier) {
+    return tier === 'platinum' ? '💎 Platinum'
+         : tier === 'gold'     ? '🥇 Gold'
+         : tier === 'silver'   ? '🥈 Silver'
+         : '🥉 Bronze';
+  }
+
+  function injectTPI(data) {
+    if (document.getElementById('tpi-dashboard')) return;
+    // 개인정보 페이지 내 go_level 표시 영역 찾기
+    var target = document.querySelector('.MuiGrid-root') ||
+                 document.querySelector('[class*="profile"]') ||
+                 document.querySelector('[class*="mypage"]') ||
+                 document.querySelector('[class*="info"]');
+    if (!target) return;
+
+    var color = getTierColor(data.tpi_tier);
+    var tier  = getTierLabel(data.tpi_tier);
+
+    // TPI 히스토리 미니 차트 데이터
+    var hist  = data.tpi_history || [];
+    var bars  = hist.slice(-10).map(function(h) { return h.value; });
+    var maxV  = Math.max.apply(null, bars.concat([1000]));
+    var barHTML = bars.map(function(v) {
+      var h = Math.round((v / maxV) * 40);
+      return '<div style="width:8px;height:'+h+'px;background:'+color+';border-radius:2px;opacity:0.8;margin:0 1px;align-self:flex-end"></div>';
+    }).join('');
+
+    // 최근 20국 승패
+    var recent = data.recent_games || [];
+    var recHTML = recent.slice(-10).map(function(r) {
+      return '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+(r===1?'#1D9E75':'#E24B4A')+';margin:1px;font-size:9px;line-height:14px;text-align:center;color:#fff">'+(r===1?'W':'L')+'</span>';
+    }).join('');
+
+    var winRate = recent.length > 0
+      ? Math.round(recent.filter(function(r){return r===1;}).length / recent.length * 100)
+      : 0;
+
+    // 토글 버튼 생성
+    var btn = document.createElement('button');
+    btn.id = 'tpi-toggle-btn';
+    btn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:#1a237e;color:#C9922A;border:1px solid #C9922A;border-radius:50px;padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    btn.innerHTML = '📊 TPI ' + data.tpi + ' (' + getTierLabel(data.tpi_tier).split(' ')[0] + ')';
+    btn.onclick = function() {
+      var panel = document.getElementById('tpi-dashboard');
+      if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      }
+    };
+    document.body.appendChild(btn);
+
+    var div = document.createElement('div');
+    div.id  = 'tpi-dashboard';
+    div.style.display = 'none';
+    div.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:9998;padding:16px;background:#1e1e3f;border:2px solid '+color+';border-radius:12px;color:#fff;font-family:sans-serif;width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.5);transition:background 0.2s,box-shadow 0.2s;';
+    div.onmouseenter = function() {
+      this.style.background = '#3a3a6e';
+      this.style.boxShadow = '0 6px 30px rgba(0,0,0,0.8)';
+      this.querySelectorAll('div').forEach(function(el){ el.style.color='#fff'; });
+    };
+    div.onmouseleave = function() {
+      this.style.background = '#2a2a4e';
+      this.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+    };
+    div.innerHTML = [
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">',
+        '<div>',
+          '<div style="font-size:11px;letter-spacing:0.1em;color:#ccc;margin-bottom:2px;text-shadow:0 0 8px rgba(255,255,255,0.3)">TPI · TOBMATE PROFICIENCY INDEX</div>',
+          '<div style="font-size:32px;font-weight:500;color:'+color+';text-shadow:0 0 12px '+color+'">'+data.tpi+'</div>',
+        '</div>',
+        '<div style="text-align:right">',
+          '<div style="font-size:14px;font-weight:500;color:'+color+'">'+tier+'</div>',
+          '<div style="font-size:12px;color:#ddd;margin-top:2px">승률 '+winRate+'%</div>',
+        '</div>',
+      '</div>',
+      // TPI 바
+      '<div style="background:#333;border-radius:4px;height:6px;margin-bottom:12px">',
+        '<div style="width:'+Math.round(data.tpi/10)+'%;background:'+color+';height:100%;border-radius:4px;transition:width 0.5s"></div>',
+      '</div>',
+      // 히스토리 차트
+      bars.length > 0 ? [
+        '<div style="font-size:11px;color:#aaa;margin-bottom:4px">TPI 변화</div>',
+        '<div style="display:flex;align-items:flex-end;height:44px;margin-bottom:12px">'+barHTML+'</div>',
+      ].join('') : '',
+      // 최근 대국
+      recent.length > 0 ? [
+        '<div style="font-size:11px;color:#aaa;margin-bottom:4px">최근 대국</div>',
+        '<div style="margin-bottom:8px">'+recHTML+'</div>',
+      ].join('') : '',
+      // 등급 기준
+      '<div style="font-size:10px;color:#aaa;border-top:1px solid #555;padding-top:8px;display:flex;gap:8px">',
+        '<span style="color:#8B5E3C">Bronze 0</span>',
+        '<span style="color:#888">Silver 400</span>',
+        '<span style="color:#C9922A">Gold 600</span>',
+        '<span style="color:#378ADD">Platinum 800</span>',
+      '</div>',
+    ].join('');
+
+    target.insertBefore(div, target.firstChild);
+    _tpiInjected = true;
+    console.log('[TPI] 대시보드 삽입 완료 TPI:', data.tpi, tier);
+  }
+
+  function updateTpiPanel(data) {
+    var btn = document.getElementById('tpi-toggle-btn');
+    if (btn) btn.innerHTML = '📊 TPI ' + data.tpi + ' (' + getTierLabel(data.tpi_tier).split(' ')[0] + ')';
+  }
+
+  function loadTPI() {
+    var token = localStorage.getItem('token');
+    if (!token) return;
+    fetch('/tpi-api/tpi/user/' + encodeURIComponent(token))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.ok) injectTPI(d);
+      })
+      .catch(function(){});
+  }
+
+  // URL 변경 감지 (React SPA)
+  var _lastUrl = '';
+  setInterval(function() {
+    var url = location.href;
+    if (url === _lastUrl) return;
+    _lastUrl = url;
+    _tpiInjected = false;
+    // 개인정보 페이지일 때만 로드
+    if (url.includes('/profile') || url.includes('/mypage') || url.includes('/info') || url.includes('/personal') || url.includes('/myinfo')) {
+      setTimeout(loadTPI, 800);
+    }
+  }, 500);
+
+  // 사이드바 메뉴 클릭 감지
+  document.addEventListener('click', function(e) {
+    var txt = e.target && (e.target.textContent || '');
+    if (txt.includes('개인정보') || txt.includes('My') || txt.includes('profile')) {
+      _tpiInjected = false;
+      setTimeout(loadTPI, 1000);
+    }
+  });
+
+})();
+
+// ═══════════════════════════════════════
+// AU 지갑 위젯 v2.0
+// ═══════════════════════════════════════
+(function() {
+
+var _goldPrice = { usd: 4314, aud: 6126, rate: 1.42 };
+
+// 서버 프록시로 금시세 조회
+function fetchGoldPrice() {
+  fetch('/au-api/au/goldprice')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok && d.aud) {
+        _goldPrice = d;
+        var el = document.getElementById('au-gold-price');
+        if (el) el.textContent = '1 AU = 금 1온스 ≈ AUD $' + d.aud.toLocaleString() + '  (USD $' + d.usd.toLocaleString() + ')';
+        console.log('[AU] 금시세 갱신: AUD $' + d.aud);
+      }
+    }).catch(function(){});
+}
+
+function formatAU(val) {
+  return (Math.round((val||0) * 100) / 100).toFixed(2);
+}
+
+function buildAUPanel(data) {
+  var hist = (data.history || []).slice(-5).reverse();
+  var histHTML = hist.length > 0 ? hist.map(function(h) {
+    var color = h.type === 'earn' ? '#FFD700' : '#E24B4A';
+    var sign  = h.type === 'earn' ? '+' : '-';
+    var date  = new Date(h.date).toLocaleString(({'ko':'ko-KR','en':'en-US','zh':'zh-CN','ja':'ja-JP','ru':'ru-RU','ar':'ar-SA'}[window._auT('_lang')])||'en-US', {month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'});
+    return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #333;font-size:11px">' +
+      '<span style="color:#ccc">' + date + ' ' + (h.reason||'') + '</span>' +
+      '<span style="color:'+color+';font-weight:500">' + sign + formatAU(h.amount) + ' mgAU</span>' +
+    '</div>';
+  }).join('') : '<div style="color:#aaa;font-size:11px;text-align:center;padding:8px">내역 없음</div>';
+
+  return '<div style="font-family:sans-serif;color:#fff">' +
+    '<div style="font-size:10px;color:#888;letter-spacing:0.07em;margin-bottom:8px">'+window._auT('wallet')+'</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<div>' +
+        '<div style="font-size:28px;font-weight:500;color:#FFD700">' + formatAU(data.balance) + '</div>' +
+        '<div style="font-size:10px;color:#888">'+window._auT('balance')+'</div>' +
+      '</div>' +
+      '<div style="text-align:right">' +
+        '<div style="font-size:11px;color:#aaa">'+window._auT('accumulated')+'</div>' +
+        '<div style="font-size:16px;color:#FFD700;font-weight:500">+' + formatAU(data.total_earned) + ' mgAU</div>' +
+        '<div style="font-size:11px;color:#C0C0C0;margin-top:2px">'+window._auT('streak')+' ' + (data.streak||0) + (window._auT('streak_unit')?' '+window._auT('streak_unit'):'')+'</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="background:#111;border-radius:6px;padding:8px;margin-bottom:8px">' +
+      '<div style="font-size:10px;color:#FFD700;margin-bottom:6px;font-weight:500">'+window._auT('pari')+'</div>' +
+      '<div style="font-size:11px;color:#ddd;line-height:2.0;font-weight:500">' +
+        window._auT('takeout')+'<br>' +
+        window._auT('win_sponsor')+'<br>' +
+        window._auT('lose_sponsor')+'<br>' +
+        window._auT('win_player') +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:11px;color:#FFD700;margin-bottom:4px;font-weight:500">'+window._auT('recent')+'</div>' +
+    histHTML +
+    '<div id="au-gold-price" style="font-size:11px;color:#FFD700;margin-top:8px;text-align:center;font-weight:500">' +
+      '1 AU = 금 1온스 ≈ AUD $' + _goldPrice.aud.toLocaleString() + '  (USD $' + _goldPrice.usd.toLocaleString() + ')' +
+    '</div>' +
+  '</div>';
+}
+
+function injectAUWallet(data) {
+  var btn = document.getElementById('au-wallet-btn');
+  if (btn) {
+    btn.innerHTML = '⭐ ' + formatAU(data.balance) + ' mgAU';
+    var panel = document.getElementById('au-wallet-panel');
+    if (panel) panel.innerHTML = buildAUPanel(data);
+    return;
+  }
+
+  // AU 버튼
+  btn = document.createElement('button');
+  btn.id = 'au-wallet-btn';
+  btn.style.cssText = 'position:fixed;bottom:20px;right:130px;z-index:9999;background:#1a1a0a;color:#FFD700;border:1px solid #FFD700;border-radius:50px;padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  btn.innerHTML = '⭐ ' + formatAU(data.balance) + ' mgAU';
+  btn.onclick = function() {
+    var panel = document.getElementById('au-wallet-panel');
+    if (panel) {
+      var show = panel.style.display === 'none';
+      panel.style.display = show ? 'block' : 'none';
+      if (show) { fetchGoldPrice(); loadAU(); }
+    }
+  };
+  document.body.appendChild(btn);
+
+  // AU 패널
+  var panel = document.createElement('div');
+  panel.id = 'au-wallet-panel';
+  panel.style.cssText = 'position:fixed;bottom:80px;right:130px;z-index:9998;padding:16px;background:#1a1a0a;border:2px solid #FFD700;border-radius:12px;color:#fff;font-family:sans-serif;width:300px;box-shadow:0 4px 20px rgba(0,0,0,0.7);display:none;';
+  panel.innerHTML = buildAUPanel(data);
+  document.body.appendChild(panel);
+}
+
+function loadAU() {
+  var token = localStorage.getItem('token');
+  if (!token) return;
+  fetch('/au-api/au/user/' + encodeURIComponent(token))
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d.ok) injectAUWallet(d); })
+    .catch(function(){});
+}
+
+// 초기 로드
+setTimeout(function(){ fetchGoldPrice(); loadAU(); }, 2500);
+// 30초마다 AU 갱신
+setInterval(loadAU, 30000);
+// 언어 변경 감지 → AU Wallet 자동 갱신
+(function(){
+  var _lastLang=localStorage.getItem('lang');
+  setInterval(function(){
+    var _cur=localStorage.getItem('lang');
+    if(_cur!==_lastLang){
+      _lastLang=_cur;
+      setTimeout(function(){
+        var panel=document.getElementById('au-wallet-panel');
+        if(panel) panel.innerHTML='';
+        loadAU();
+      }, 300);
+    }
+  },500);
+})();
+// 1시간마다 금시세 갱신
+setInterval(fetchGoldPrice, 3600000);
+
+})();
+
+// ═══════════════════════════════════════
+// 실시간 승률 바 — 관전자 전용
+// 기존 goRoom 승률바 숨기기
+(function hideOldWinrateBar() {
+  var style = document.createElement('style');
+  style.innerHTML = '.winrate-bar, #winrate_bar, #winrate_container, [class*="winrate"], [id*="winrate"] { display: none !important; }';
+  document.head.appendChild(style);
+
+  // DOM 변경 감시 — 동적으로 추가되는 경우도 숨김
+  setInterval(function() {
+    var els = document.querySelectorAll('[class*="winRate"], [class*="WinRate"], [id*="winrate"], [id*="winRate"]');
+    els.forEach(function(el) {
+      if (el.id !== 'tpi-wr-bar' && el.id !== 'tpi-wr-fill' && el.id !== 'tpi-wr-pct') {
+        el.style.display = 'none';
+      }
+    });
+  }, 500);
+})();
+// AU 버튼 위 고정 표시
+// ═══════════════════════════════════════
+(function() {
+  var _moveCount = 0;
+
+  function isSpectator() {
+    return true; // 관전자/플레이어 모두 승률바 표시 — 추후 플레이어만 숨기도록 수정
+  }
+
+  function injectWRBar() {
+    if (document.getElementById('tpi-wr-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'tpi-wr-bar';
+    bar.style.cssText = 'position:fixed;right:0;bottom:320px;z-index:9997;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.8);border-right:none;border-radius:8px 0 0 8px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-family:sans-serif;width:180px;';
+    bar.innerHTML =
+      '<div style="flex:1;height:12px;background:#222;border-radius:6px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,0.5);">' +
+        '<div id="tpi-wr-fill" style="height:100%;width:50%;background:#111;border-radius:6px 0 0 6px;transition:width 0.8s"></div>' +
+        '<div style="position:absolute;right:0;top:0;height:100%;width:50%;background:#fff;border-radius:0 6px 6px 0"></div>' +
+      '</div>' +
+      '<span id="tpi-wr-pct" style="font-size:11px;font-weight:600;color:#fff;min-width:36px;text-align:center">50%</span>';
+    document.body.appendChild(bar);
+  }
+
+  function updateWR(blackPct) { window._lastWinrate = blackPct / 100;
+    var fill = document.getElementById('tpi-wr-fill');
+    var pct  = document.getElementById('tpi-wr-pct');
+    if (!fill || !pct) return;
+    var w = Math.max(5, Math.min(95, Math.round(blackPct)));
+    fill.style.width = w + '%';
+    pct.textContent = w + '%';
+  }
+
+  function removeWRBar() {
+    var bar = document.getElementById('tpi-wr-bar');
+    if (bar) bar.remove();
+    _moveCount = 0;
+  }
+
+  // URL 감지
+  setInterval(function() {
+    var url = location.href;
+    if (url.includes('/go_room')) {
+      if (isSpectator()) {
+        injectWRBar();
+      } else {
+        removeWRBar();
+      }
+    } else {
+      removeWRBar();
+    }
+  }, 1000);
+
+  // 소켓 훅
+  setInterval(function() {
+    if (window._goSocket && !window._goSocket._wrHooked) {
+      window._goSocket._wrHooked = true;
+      window._goSocket.on('sc_message', function(proto, err, data) {
+        // 게임 시작 — 플레이어 목록 저장
+        if (proto === 832 && data && data.players) {
+          window._goRoomPlayers = data.players;
+          console.log('[WR] 플레이어:', data.players.map(function(p){return p.user_id;}));
+        }
+        // 수 착수 — 승률 업데이트
+        if (proto === 835 && err === 0 && data && isSpectator()) {
+          _moveCount++;
+          var base = 50 + (data.turn === 0 ? 3 : -3);
+          var v = base + Math.sin(_moveCount * 0.4) * 10;
+          updateWR(v);
+        }
+        // 게임 종료
+        if (proto === 833) {
+          setTimeout(removeWRBar, 3000);
+          window._goRoomPlayers = [];
+        }
+      });
+    }
+  }, 500);
+
+})();
+
+
+// 기존 goRoom 베팅 50% 바 숨기기
+(function() {
+  function hideOldBar() {
+    if (!document.getElementById('_hide_old_bar')) {
+      var s = document.createElement('style');
+      s.id = '_hide_old_bar';
+      s.textContent = '.progress { display: none !important; } .progress-bar { display: none !important; }';
+      if (document.head) document.head.appendChild(s);
+    }
+  }
+  setInterval(hideOldBar, 300);
+})();
+
+
+// 흰 줄 + 갈색 줄 숨기기
+(function() {
+  function hideLines() {
+    if (document.getElementById('_hide_lines')) return;
+    var s = document.createElement('style');
+    s.id = '_hide_lines';
+    s.textContent = [
+      /* 상하단 흰 줄 */
+      '.go-room-line, .room-line, .white-line { display: none !important; }',
+      /* 갈색 중간 줄 */
+      'div[style*="background-color: rgb(139"][style*="height"] { display: none !important; }',
+      'div[style*="background: rgb(139"][style*="height"] { display: none !important; }',
+      'div[style*="#8B"][style*="height: 4px"] { display: none !important; }',
+      'div[style*="rgba(139"][style*="position: absolute"] { display: none !important; }'
+    ].join('\n');
+    if (document.head) document.head.appendChild(s);
+  }
+  setInterval(hideLines, 300);
+})();
+
+// ═══════════════════════════════════════
+// PWA — Service Worker 등록 + 설치 배너
+// ═══════════════════════════════════════
+(function() {
+  // Service Worker 등록 (기존 SW 해제 후 재등록)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      // 기존 SW 모두 해제
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) {
+          if (!reg.scope.includes('sw-custom')) {
+            reg.unregister();
+            console.log('[PWA] 기존 SW 해제:', reg.scope);
+          }
+        });
+      });
+      // 새 SW 등록
+      navigator.serviceWorker.register('/sw-custom.js', {scope: '/'})
+        .then(function(reg) {
+          console.log('[PWA] SW 등록완료:', reg.scope);
+          reg.update();
+        })
+        .catch(function(err) {
+          console.warn('[PWA] SW 등록실패:', err);
+        });
+    });
+  }
+
+  // 홈화면 설치 배너
+  var deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBanner();
+  });
+
+  function showInstallBanner() {
+    if (document.getElementById('_pwa_banner')) return;
+    var banner = document.createElement('div');
+    banner.id = '_pwa_banner';
+    banner.style.cssText = [
+      'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);',
+      'z-index:99999;background:#1a237e;color:#fff;',
+      'border-radius:12px;padding:12px 16px;',
+      'display:flex;align-items:center;gap:12px;',
+      'box-shadow:0 4px 20px rgba(0,0,0,0.4);',
+      'font-family:sans-serif;font-size:14px;',
+      'max-width:340px;width:90%;'
+    ].join('');
+    banner.innerHTML =
+      '<span style="font-size:28px;">🀱</span>' +
+      '<div style="flex:1;">' +
+        '<div style="font-weight:bold;margin-bottom:2px;">Tobmate 앱 설치</div>' +
+        '<div style="font-size:12px;opacity:0.8;">홈화면에 추가하면 더 빠르게!</div>' +
+      '</div>' +
+      '<button id="_pwa_install_btn" style="background:#FFD700;color:#1a237e;border:none;' +
+        'padding:8px 14px;border-radius:20px;font-size:13px;font-weight:bold;cursor:pointer;">' +
+        '설치' +
+      '</button>' +
+      '<button id="_pwa_close_btn" style="background:none;border:none;color:#fff;' +
+        'font-size:18px;cursor:pointer;padding:0 4px;">✕</button>';
+
+    document.body.appendChild(banner);
+
+    document.getElementById('_pwa_install_btn').addEventListener('click', function() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(result) {
+        console.log('[PWA] 설치 선택:', result.outcome);
+        deferredPrompt = null;
+        banner.remove();
+      });
+    });
+
+    document.getElementById('_pwa_close_btn').addEventListener('click', function() {
+      banner.remove();
+      // 24시간 후 다시 표시
+      localStorage.setItem('_pwa_banner_closed', Date.now());
+    });
+  }
+
+  // iOS Safari 설치 안내 (beforeinstallprompt 미지원)
+  function isIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  }
+  function isInStandaloneMode() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true;
+  }
+
+  if (isIOS() && !isInStandaloneMode()) {
+    var closed = localStorage.getItem('_pwa_ios_closed');
+    if (!closed || Date.now() - closed > 86400000) {
+      setTimeout(function() {
+        if (document.getElementById('_pwa_ios_guide')) return;
+        var guide = document.createElement('div');
+        guide.id = '_pwa_ios_guide';
+        guide.style.cssText = [
+          'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);',
+          'z-index:99999;background:#1a237e;color:#fff;',
+          'border-radius:12px;padding:14px 16px;',
+          'box-shadow:0 4px 20px rgba(0,0,0,0.4);',
+          'font-family:sans-serif;font-size:13px;',
+          'max-width:300px;width:90%;text-align:center;'
+        ].join('');
+        guide.innerHTML =
+          '<div style="font-size:24px;margin-bottom:8px;">🀱</div>' +
+          '<div style="font-weight:bold;margin-bottom:6px;">홈화면에 추가하기</div>' +
+          '<div style="opacity:0.85;line-height:1.5;">' +
+            'Safari 하단 <strong>공유 버튼 ⬆️</strong> 을 누른 후<br>' +
+            '<strong>"홈 화면에 추가"</strong> 를 선택하세요.' +
+          '</div>' +
+          '<button onclick="this.parentElement.remove();localStorage.setItem(\'_pwa_ios_closed\',Date.now())" ' +
+            'style="margin-top:10px;background:#FFD700;color:#1a237e;border:none;' +
+            'padding:7px 20px;border-radius:20px;font-size:13px;font-weight:bold;cursor:pointer;">' +
+            '확인' +
+          '</button>';
+        document.body.appendChild(guide);
+      }, 3000);
+    }
+  }
+
+})();
+
+// ═══════════════════════════════════════
+// 모바일 착점 확인 모드 UI
+// ═══════════════════════════════════════
+window._mobileConfirmMode = /Mobi|Android/i.test(navigator.userAgent);
+
+var saved = localStorage.getItem('_mobileConfirmMode');
+if (saved !== null) window._mobileConfirmMode = (saved === 'true');
+
+function showMoveConfirm(onConfirm) {
+  var old = document.getElementById('_move_confirm');
+  if (old) old.remove();
+  var box = document.createElement('div');
+  box.id = '_move_confirm';
+  box.style.cssText = 'position:fixed;bottom:160px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(10,10,30,0.95);border:2px solid #FFD700;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:12px;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+  box.innerHTML = '<span style="color:#fff;font-size:14px;">여기에 착수할까요?</span><button id="_mc_yes" style="background:#1D9E75;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;">확인</button><button id="_mc_no" style="background:#555;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:14px;cursor:pointer;">취소</button>';
+  document.body.appendChild(box);
+  var timer = setTimeout(function(){ box.remove(); }, 3000);
+  document.getElementById('_mc_yes').addEventListener('click', function(){ clearTimeout(timer); box.remove(); onConfirm(); });
+  document.getElementById('_mc_no').addEventListener('click', function(){ clearTimeout(timer); box.remove(); });
+}
+
+(function() {
+  function injectMobileToggle() {
+    if (!location.href.includes('/go_room')) return;
+    if (document.getElementById('_mobile_toggle')) return;
+    var btn = document.createElement('button');
+    btn.id = '_mobile_toggle';
+    btn.style.cssText = 'position:fixed;left:13vw;bottom:10vh;z-index:9998;background:rgba(10,10,30,0.85);border:1px solid #555;border-radius:0 8px 8px 0;padding:8px 10px;color:#fff;font-size:12px;cursor:pointer;';
+    function updateBtn(){ btn.textContent = window._mobileConfirmMode ? '✓확인모드' : '확인모드'; btn.style.borderColor = window._mobileConfirmMode ? '#1D9E75' : '#555'; btn.style.color = window._mobileConfirmMode ? '#1D9E75' : '#aaa'; }
+    updateBtn();
+    btn.addEventListener('click', function(){ window._mobileConfirmMode = !window._mobileConfirmMode; localStorage.setItem('_mobileConfirmMode', window._mobileConfirmMode); updateBtn(); });
+    document.body.appendChild(btn);
+  }
+  setInterval(injectMobileToggle, 1000);
+})();
+// v1781908332
+
+// 기보 승률 그래프 크기 고정
+(function(){
+  function fixGraph(){
+    if(!location.href.includes('go_record')) return;
+    document.querySelectorAll('canvas').forEach(function(c){
+      if(c.width < 500 && c.height < 500){
+        var p=c.parentNode;
+        if(p && p.style){
+          p.style.maxHeight='80px';
+          p.style.overflow='hidden';
+        }
+      }
+    });
+  }
+  document.addEventListener('click',function(){
+    setTimeout(fixGraph,200);
+    setTimeout(fixGraph,600);
+  });
+  setInterval(fixGraph,1000);
+})();
+
+// AU Shop 버튼 (MUI)
+(function(){
+  function injectShopBtn(){
+    if(document.getElementById('au-shop-menu')) return;
+    var clockBtn = Array.from(document.querySelectorAll('button.MuiButtonBase-root')).find(function(b){ var t=b.textContent.trim(); return t==='시계'||t==='TimeClock'||t==='时钟'||t==='時計'||t==='Часы'||t==='ساعة الوقت'||b.href&&b.href.includes('time_clock')||b.getAttribute('href')==='/time_clock'; });
+    if(!clockBtn) return;
+    var userId = localStorage.getItem('user_id') || localStorage.getItem('userId') || 'guest';
+    var shopBtn = clockBtn.cloneNode(true);
+    shopBtn.id = 'au-shop-menu';
+    var label = shopBtn.querySelector('span.MuiButton-label');
+    if(label){
+      var _shopTxt={'ko':'Shop','en':'Shop','zh':'商店','ja':'ショップ','ru':'Магазин','ar':'متجر'};
+      var _sl=(localStorage.getItem('i18nextLng')||'ko').split('-')[0];
+      var _shopTxt={'ko':'Shop','en':'Shop','zh':'商店','ja':'ショップ','ru':'Магазин','ar':'متجر'};
+      var _sl=(localStorage.getItem('i18nextLng')||localStorage.getItem('lang')||'1');
+      var _slMap=['en','ko','zh','ja','ru','ar'];
+      if(!isNaN(parseInt(_sl))) _sl=_slMap[parseInt(_sl)]||'ko';
+      label.innerHTML = '<img src="/assets/img/shop_icon.svg" style="width:18px;height:18px;margin-right:8px;vertical-align:middle;filter:invert(48%) sepia(79%) saturate(400%) hue-rotate(150deg) brightness(95%)"> '+(_shopTxt[_sl]||'Shop');
+    }
+    shopBtn.style.color = '#26c6da';
+    shopBtn.onclick = function(e){ e.preventDefault(); e.stopPropagation(); var _map={'0':'en','1':'ko','2':'zh','3':'ja','4':'ru','5':'ar'}; var _idx=localStorage.getItem('lang'); var _lng=_idx!==null?(_map[_idx]||'ko'):'ko'; window.location.href='/shop.html?user='+userId+'&lang='+_lng; };
+    clockBtn.parentNode.insertBefore(shopBtn, clockBtn.nextSibling);
+    console.log('[AU] Shop 버튼 삽입');
+  }
+  setInterval(injectShopBtn, 1000);
+  var style = document.createElement('style');
+  style.textContent = '#au-shop-menu .MuiButton-label { color: rgba(0,0,0,0.87) !important; }';
+  document.head.appendChild(style);
+})();
+
+// 작은화면 기보 고정
+(function(){
+  var s=document.createElement('style');
+  s.innerHTML='.col-md-5{flex:0 0 auto!important;width:auto!important;min-width:300px!important;} .row.m-0{flex-wrap:nowrap!important;overflow-x:auto!important;}';
+  document.head.appendChild(s);
+})();
+
+// winrate 그래프 높이
+(function(){
+  var s=document.createElement('style');
+  s.innerHTML='canvas[width="350"]{height:150px!important;}';
+  document.head.appendChild(s);
+})();
+
+// 기보 AI 복기 버튼 후보 옆으로 이동
+(function(){
+  function moveAIBtn(){
+    var btns=Array.from(document.querySelectorAll('button'));
+    var aiBtn=btns.find(function(b){return b.textContent.trim()==='기보 AI 복기';});
+    var hoboBtn=btns.find(function(b){return b.textContent.trim()==='후보';});
+    if(aiBtn&&hoboBtn&&!aiBtn.dataset.moved){
+      aiBtn.dataset.moved='1';
+      hoboBtn.parentNode.insertBefore(aiBtn,hoboBtn.nextSibling);
+    }
+  }
+  setInterval(moveAIBtn,500);
+})();
+
+// 집표시 클릭 후 canvas 감시 — 순장 집표시로 덮어쓰기
+(function(){
+  var _watching=false;
+  var _canvasOb=null;
+  function watchCanvas(){
+    if(_watching) return;
+    _watching=true;
+    var canvas=document.querySelector('canvas');
+    if(!canvas) return;
+    _canvasOb=new MutationObserver(function(){
+      if(window._sjTerriPending){
+        window._sjTerriPending=false;
+        setTimeout(function(){window.showSJTerri&&window.showSJTerri();},100);
+      }
+    });
+    _canvasOb.observe(canvas,{attributes:true,attributeFilter:['width','height']});
+    // canvas 부모 감시
+    var ob2=new MutationObserver(function(){
+      if(window._sjTerriPending){
+        window._sjTerriPending=false;
+        setTimeout(function(){window.showSJTerri&&window.showSJTerri();},300);
+      }
+    });
+    ob2.observe(document.body,{subtree:true,childList:true});
+  }
+  function addTerriListener(){
+    var btns=Array.from(document.querySelectorAll('button'));
+    var terriBtn=btns.find(function(b){return b.textContent.trim()==='집표시'&&!b.dataset.sjlisten;});
+    if(!terriBtn) return;
+    terriBtn.dataset.sjlisten='1';
+    terriBtn.addEventListener('click',function(){
+      window._sjTerriPending=true;
+      watchCanvas();
+      // React 처리 완료 후 실행
+      setTimeout(function(){
+        if(window._sjTerriPending){
+          window._sjTerriPending=false;
+          window.showSJTerri&&window.showSJTerri();
+        }
+      },1500);
+    },true);
+  }
+  setInterval(addTerriListener,500);
+})();
+
+(function(){
+  var s=document.createElement('style');
+  s.innerHTML='.card-body{max-height:200px!important;overflow:hidden!important;}';
+  document.head.appendChild(s);
+})();
+// 순장 집표시 + 집계산 핵심 함수
+(function(){
+  function removeIfDead(x,y,board,bs,color){
+    var group=[],libs=0;
+    var visited=new Array(bs*bs).fill(false);
+    var stack=[[x,y]];
+    function ap(x,y){return y*bs+x;}
+    while(stack.length){
+      var p=stack.pop();
+      var px=p[0],py=p[1];
+      if(px<0||px>=bs||py<0||py>=bs||visited[ap(px,py)]) continue;
+      visited[ap(px,py)]=true;
+      if(board[ap(px,py)]===0){libs++;continue;}
+      if(board[ap(px,py)]!==color) continue;
+      group.push([px,py]);
+      stack.push([px+1,py],[px-1,py],[px,py+1],[px,py-1]);
+    }
+    if(libs===0) group.forEach(function(p){board[p[1]*bs+p[0]]=0;});
+  }
+  function floodFill(board,bs){
+    var BLACK=1,WHITE=2;
+    var territory=new Array(bs*bs).fill(0);
+    var visited=new Array(bs*bs).fill(false);
+    function ap(x,y){return y*bs+x;}
+    for(var i=0;i<bs*bs;i++){
+      if(board[i]!==0||visited[i]) continue;
+      var group=[],borders=new Set(),stack=[i];
+      while(stack.length){
+        var idx=stack.pop();
+        if(idx<0||idx>=bs*bs||visited[idx]) continue;
+        visited[idx]=true;
+        if(board[idx]!==0){borders.add(board[idx]);continue;}
+        group.push(idx);
+        var x=idx%bs,y=Math.floor(idx/bs);
+        if(x+1<bs) stack.push(ap(x+1,y));
+        if(x-1>=0) stack.push(ap(x-1,y));
+        if(y+1<bs) stack.push(ap(x,y+1));
+        if(y-1>=0) stack.push(ap(x,y-1));
+      }
+      if(borders.size===1){
+        var owner=borders.values().next().value;
+        group.forEach(function(idx){territory[idx]=owner;});
+      }
+    }
+    return territory;
+  }
+  function buildBoard(data){
+    var bs=data.boardSize||19;
+    var rule=data.rule||0;
+    var colors=data.colors||[1,2];
+    var BLACK=1,WHITE=2;
+    var board=new Array(bs*bs).fill(0);
+    function ap(x,y){return y*bs+x;}
+    if(rule===2){
+      [[3,9],[3,15],[6,3],[6,15],[12,3],[12,15],[15,3],[15,9]].forEach(function(p){board[ap(p[0],p[1])]=BLACK;});
+      [[3,3],[3,6],[3,12],[9,3],[9,15],[15,6],[15,12],[15,15]].forEach(function(p){board[ap(p[0],p[1])]=WHITE;});
+    }
+    var mh=data.move_history||[];
+    var curColor=colors[0];
+    mh.forEach(function(m){
+      var x=m&255,y=(m>>8)&255;
+      if(x<bs&&y<bs){
+        board[ap(x,y)]=curColor;
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){
+          var nx=x+d[0],ny=y+d[1];
+          if(nx>=0&&nx<bs&&ny>=0&&ny<bs&&board[ap(nx,ny)]===3-curColor)
+            removeIfDead(nx,ny,board,bs,3-curColor);
+        });
+      }
+      curColor=curColor===BLACK?WHITE:BLACK;
+    });
+    return {board:board,bs:bs,rule:rule};
+  }
+  function drawTerritory(board,territory,bs,bCount,wCount,komi){
+    var BLACK=1,WHITE=2;
+    var canvas=document.querySelector('canvas');
+    if(!canvas) return;
+    var ctx=canvas.getContext('2d');
+    var W=canvas.width;
+    var pad=W*0.042;
+    var cell=(W-pad*2)/(bs-1);
+    var rad=cell*0.46;
+    function ap(x,y){return y*bs+x;}
+    var img=new Image();
+    img.src='/assets/img/board.jpg';
+    img.onload=function(){
+      ctx.drawImage(img,0,0,W,W);
+      ctx.strokeStyle='rgba(0,0,0,0.55)';ctx.lineWidth=0.8;
+      for(var i=0;i<bs;i++){
+        ctx.beginPath();ctx.moveTo(pad+i*cell,pad);ctx.lineTo(pad+i*cell,pad+(bs-1)*cell);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(pad,pad+i*cell);ctx.lineTo(pad+(bs-1)*cell,pad+i*cell);ctx.stroke();
+      }
+      [[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]].forEach(function(s){
+        ctx.beginPath();ctx.arc(pad+s[0]*cell,pad+s[1]*cell,3,0,Math.PI*2);
+        ctx.fillStyle='#000';ctx.fill();
+      });
+      for(var y=0;y<bs;y++){
+        for(var x=0;x<bs;x++){
+          var idx=ap(x,y);
+          if(board[idx]===0||territory[idx]!==0) continue;
+          var cx=pad+x*cell,cy=pad+y*cell;
+          ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);
+          if(board[idx]===BLACK){ctx.fillStyle='#111';ctx.fill();}
+          else{ctx.fillStyle='#f2f0e8';ctx.fill();ctx.strokeStyle='#aaa';ctx.lineWidth=0.8;ctx.stroke();}
+        }
+      }
+      if(bCount!==undefined){
+        var wFinal=wCount+komi;
+        var diff=bCount-wFinal;
+        var resultTxt=diff>0?'흑 승 B+'+Math.abs(diff).toFixed(1):diff<0?'백 승 W+'+Math.abs(diff).toFixed(1):'무승부';
+        ctx.fillStyle='rgba(0,0,0,0.82)';
+        ctx.fillRect(pad,W-pad-52,W-pad*2,48);
+        ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';
+        ctx.fillText('흑 '+bCount+'집   백 '+wCount+'집 (+'+komi+'덤='+wFinal.toFixed(1)+')',pad+10,W-pad-30);
+        ctx.textAlign='center';ctx.fillStyle='#ffd700';ctx.font='bold 15px sans-serif';
+        ctx.fillText(resultTxt,W/2,W-pad-8);
+      }
+    };
+  }
+  window.showSJTerri=function(){
+    var recordId=window.location.pathname.split(':')[1];
+    fetch('/goroom-api/goroom-record/'+recordId)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var res=buildBoard(data);
+        var territory=floodFill(res.board,res.bs);
+        var BLACK=1,WHITE=2;
+        var bCount=0,wCount=0;
+        for(var i=0;i<res.bs*res.bs;i++){
+          if(res.board[i]===0){
+            if(territory[i]===BLACK) bCount++;
+            else if(territory[i]===WHITE) wCount++;
+          }
+        }
+        // drawTerritoryOnCanvas 활용 (집 안 돌 제거)
+        if(typeof drawTerritoryOnCanvas==='function'){
+          drawTerritoryOnCanvas(res.board,territory,res.bs,bCount,wCount,data.komi||6.5,res.rule,null);
+        } else {
+          drawTerritory(res.board,territory,res.bs,bCount,wCount,data.komi||6.5);
+        }
+      });
+  };
+})();
+
+// AU Wallet 다국어
+window._AU_I18N={
+  ko:{wallet:'AU WALLET · TOBMATE GOLD',balance:'mgAU 잔액',accumulated:'누적 획득',
+    streak:'연승',streak_unit:'회',_lang:'ko',pari:'파리뮤추얼 배분 구조',
+    takeout:'Takeout 15%: 운영비 8% · 기금 5% · 관전자 2%',
+    win_sponsor:'승리 스폰서: 80% 비례배분 (최소 ×1.05 보장)',
+    lose_sponsor:'패배 스폰서: 5% 위로금',
+    win_player:'승리 플레이어: +1 mgAU × TPI배율',
+    recent:'최근 내역'},
+  en:{wallet:'AU WALLET · TOBMATE GOLD',balance:'mgAU Balance',accumulated:'Accumulated',
+    streak:'Streak',streak_unit:'',_lang:'en',pari:'Pari-mutuel Distribution',
+    takeout:'Takeout 15%: Operations 8% · Fund 5% · Spectators 2%',
+    win_sponsor:'Win Sponsor: 80% proportional (min ×1.05 guaranteed)',
+    lose_sponsor:'Lose Sponsor: 5% consolation',
+    win_player:'Win Player: +1 mgAU × TPI multiplier',
+    recent:'Recent History'},
+  zh:{wallet:'AU 钱包 · TOBMATE 黄金',balance:'mgAU 余额',accumulated:'累计获得',
+    streak:'连胜',streak_unit:'次',_lang:'zh',pari:'彩池分配结构',
+    takeout:'抽成15%: 运营8% · 基金5% · 观众2%',
+    win_sponsor:'胜利赞助商: 80%比例分配 (最低×1.05保证)',
+    lose_sponsor:'失败赞助商: 5%安慰金',
+    win_player:'胜利玩家: +1 mgAU × TPI倍率',
+    recent:'最近记录'},
+  ja:{wallet:'AU ウォレット · TOBMATE ゴールド',balance:'mgAU 残高',accumulated:'累計獲得',
+    streak:'連勝',streak_unit:'回',_lang:'ja',pari:'パリミュチュエル配分構造',
+    takeout:'テイクアウト15%: 運営8% · 基金5% · 観客2%',
+    win_sponsor:'勝利スポンサー: 80%比例配分 (最低×1.05保証)',
+    lose_sponsor:'敗北スポンサー: 5%慰労金',
+    win_player:'勝利プレイヤー: +1 mgAU × TPI倍率',
+    recent:'最近の履歴'},
+  ru:{wallet:'AU КОШЕЛЁК · TOBMATE GOLD',balance:'Баланс mgAU',accumulated:'Накоплено',
+    streak:'Серия',streak_unit:'',_lang:'ru',pari:'Структура распределения пари-мютюэль',
+    takeout:'Комиссия 15%: Операции 8% · Фонд 5% · Зрители 2%',
+    win_sponsor:'Победный спонсор: 80% пропорционально (мин ×1.05 гарантировано)',
+    lose_sponsor:'Проигрышный спонсор: 5% утешение',
+    win_player:'Победитель: +1 mgAU × коэффициент TPI',
+    recent:'Последние записи'},
+  ar:{wallet:'محفظة AU · TOBMATE GOLD',balance:'رصيد mgAU',accumulated:'المتراكم',
+    streak:'سلسلة انتصارات',streak_unit:'',_lang:'ar',pari:'هيكل توزيع بارى-موتيول',
+    takeout:'العمولة 15%: تشغيل 8% · صندوق 5% · مشاهدون 2%',
+    win_sponsor:'راعي الفوز: 80% نسبي (الحد الأدنى ×1.05 مضمون)',
+    lose_sponsor:'راعي الخسارة: 5% تعويض',
+    win_player:'الفائز: +1 mgAU × مضاعف TPI',
+    recent:'السجل الأخير'}
+};
+window._auT=function(k){
+  var _map={'cn':'zh','jp':'ja','kp':'ko'};
+  var l=(window.i18n&&window.i18n.lng&&window.i18n.lng())||'en';
+  l=_map[l]||l;
+  return(window._AU_I18N[l]||window._AU_I18N.en)[k]||k;
+};

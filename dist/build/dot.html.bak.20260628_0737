@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Metaverse — Tobmate</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#020818;color:#fff;font-family:monospace}
+#app{display:flex;flex-direction:column;height:100vh}
+.topbar{background:#0a0a1a;padding:7px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,180,255,0.15);flex-shrink:0}
+.logo{color:#F5A623;font-weight:700;font-size:14px}
+.url-disp{font-size:10px;color:rgba(0,180,255,0.6)}
+.toolbar{background:#0d0d20;padding:5px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.ltabs{display:flex;gap:3px}
+.ltab{font-size:10px;padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);cursor:pointer;background:none}
+.ltab.on{background:#1a2a4a;border-color:#4A90D9;color:#4A90D9}
+.zctrl{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.05);border-radius:14px;padding:2px 7px}
+.zb{width:20px;height:20px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:13px}
+.zb:hover{background:rgba(255,255,255,0.2)}
+.zsl{width:70px;accent-color:#F5A623}
+.zlbl{font-size:10px;color:#888;min-width:28px;text-align:center}
+.ftypes{display:flex;gap:3px;margin-left:auto}
+.ftype{font-size:10px;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.3);cursor:pointer;background:none}
+.ftype.on{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.3);color:#fff}
+.avpos{font-size:10px;color:#F5A623}
+.main{display:flex;flex:1;overflow:hidden;min-height:0}
+.map-wrap{flex:1;overflow:auto;padding:10px;background:#020818}
+.map-inner{display:inline-flex;flex-direction:column;gap:2px}
+.col-row{display:flex;gap:2px;padding-left:22px;margin-bottom:1px}
+.col-lbl{font-size:7px;color:#4A90D9;text-align:center;flex-shrink:0;font-weight:700}
+.row-line{display:flex;gap:2px;align-items:center}
+.row-lbl{font-size:7px;color:#4A90D9;width:18px;text-align:right;padding-right:3px;flex-shrink:0;font-weight:700}
+.grid-row{display:flex;gap:2px}
+.cell{border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;border:1.5px solid;transition:all 0.1s;position:relative;overflow:hidden;flex-shrink:0}
+.cell:hover{transform:scale(1.3);z-index:20;filter:brightness(1.8)}
+.cell.sel{outline:2px solid #fff;outline-offset:1px;z-index:15}
+.cell.me::before{content:'';position:absolute;top:2px;left:2px;width:4px;height:4px;border-radius:50%;background:#F5A623;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
+.cid{color:rgba(255,255,255,0.4);line-height:1;margin-top:1px;pointer-events:none}
+.cico{line-height:1;pointer-events:none}
+.info{width:185px;background:#0a0a1a;border-left:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;flex-shrink:0}
+.ih{padding:9px 11px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.ih-url{font-size:8px;color:#444;word-break:break-all;margin-bottom:3px}
+.ih-name{font-size:12px;font-weight:500;color:#fff}
+.ih-badge{font-size:9px;padding:2px 7px;border-radius:7px;display:inline-block;margin-top:3px}
+.ib{padding:8px 11px;flex:1;overflow-y:auto}
+.ir{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.ir span{color:#555}.ir span:last-child{color:#ccc}
+.iav{margin-top:7px}
+.iav-t{font-size:9px;color:#444;margin-bottom:4px}
+.av-row{display:flex;gap:3px;flex-wrap:wrap}
+.av-c{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;color:#fff}
+.mbtn{margin:5px 9px 3px;padding:7px;background:rgba(245,166,35,0.1);border:1px solid #F5A623;border-radius:7px;color:#F5A623;font-size:11px;text-align:center;cursor:pointer}
+.mbtn:hover{background:rgba(245,166,35,0.2)}
+.ebtn{margin:0 9px 7px;padding:7px;background:rgba(55,138,221,0.1);border:1px solid #378add;border-radius:7px;color:#85b7eb;font-size:11px;text-align:center;cursor:pointer}
+.ebtn:hover{background:rgba(55,138,221,0.2)}
+.botbar{display:flex;align-items:center;gap:5px;padding:5px 12px;background:#0a0a1a;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:3px;font-size:8px;color:#555}
+.ld{width:7px;height:7px;border-radius:2px;border:1px solid}
+.bstat{margin-left:auto;font-size:9px;color:#444}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="topbar">
+  <div class="logo">⬡ Dot Metaverse</div>
+  <div class="url-disp" id="urlDisp">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+</div>
+<div class="toolbar">
+  <div class="ltabs">
+    <button class="ltab on" onclick="setLayer(1,this)">L1</button>
+    <button class="ltab" onclick="setLayer(2,this)">L2</button>
+    <button class="ltab" onclick="setLayer(3,this)">L3</button>
+  </div>
+  <div class="zctrl">
+    <button class="zb" onclick="zoom(-1)">-</button>
+    <input type="range" class="zsl" id="zsl" min="1" max="8" value="3" step="1" oninput="setZoom(+this.value)">
+    <button class="zb" onclick="zoom(1)">+</button>
+    <span class="zlbl" id="zlbl">22px</span>
+  </div>
+  <div class="ftypes">
+    <button class="ftype on" onclick="doFilter('all',this)">전체</button>
+    <button class="ftype" onclick="doFilter('office',this)">사무실</button>
+    <button class="ftype" onclick="doFilter('shop',this)">상점</button>
+    <button class="ftype" onclick="doFilter('game',this)">게임</button>
+    <button class="ftype" onclick="doFilter('meet',this)">미팅</button>
+    <button class="ftype" onclick="doFilter('nft',this)">NFT</button>
+    <button class="ftype" onclick="doFilter('social',this)">소셜</button>
+  </div>
+  <div class="avpos" id="avpos">A1</div>
+</div>
+<div class="main">
+  <div class="map-wrap" id="mapWrap">
+    <div class="map-inner" id="mapInner"></div>
+  </div>
+  <div class="info">
+    <div class="ih">
+      <div class="ih-url" id="ihUrl">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+      <div class="ih-name" id="ihName">전체 지도 324칸</div>
+      <div class="ih-badge" id="ihBadge" style="background:rgba(245,166,35,0.1);color:#F5A623">분양 가능</div>
+    </div>
+    <div class="ib">
+      <div class="ir"><span>소유자</span><span id="ihOwner">-</span></div>
+      <div class="ir"><span>방문자</span><span id="ihVisit">-</span></div>
+      <div class="ir"><span>언어</span><span id="ihLang">ko</span></div>
+      <div class="ir"><span>레이어</span><span id="ihLayer">L1</span></div>
+      <div class="iav"><div class="iav-t">접속 아바타</div><div class="av-row" id="ihAvs"></div></div>
+    </div>
+    <div class="mbtn" onclick="moveHere()">이동</div>
+    <div class="ebtn" onclick="enterSpace()">입장 / 편집</div>
+  </div>
+</div>
+<div class="botbar">
+  <div class="leg"><div class="ld" style="background:#0a1828;border-color:#378add"></div>사무실</div>
+  <div class="leg"><div class="ld" style="background:#1e1200;border-color:#F5A623"></div>상점</div>
+  <div class="leg"><div class="ld" style="background:#041608;border-color:#27AE60"></div>게임</div>
+  <div class="leg"><div class="ld" style="background:#0c0620;border-color:#7B68EE"></div>미팅</div>
+  <div class="leg"><div class="ld" style="background:#180408;border-color:#E23B3B"></div>NFT</div>
+  <div class="leg"><div class="ld" style="background:#041414;border-color:#1ABC9C"></div>소셜</div>
+  <div class="bstat" id="bstat">A1~S18 324칸</div>
+</div>
+</div>
+<script>
+const COLS='ABCDEFGHJKLMNOPQRS'.split('');
+const TNAMES={office:'사무실',shop:'Dot 상점',game:'게임룸',meet:'미팅룸',nft:'NFT/ALD',social:'소셜'};
+const TCOLORS={office:'#378add',shop:'#F5A623',game:'#27AE60',meet:'#7B68EE',nft:'#E23B3B',social:'#1ABC9C'};
+const TBGS={office:'#0a1828',shop:'#1e1200',game:'#041608',meet:'#0c0620',nft:'#180408',social:'#041414'};
+const ICONS={office:'🏢',shop:'🛒',game:'🎮',meet:'🤝',nft:'💎',social:'💬'};
+const AVC=['#4A90D9','#F5A623','#27AE60','#7B68EE','#E23B3B','#1ABC9C'];
+const OWN=['AAA','Boshin','TobUser','GoldAU','SuiDev','KataGo','DotPro','MetaKim'];
+const SZ=[12,16,20,26,34,44,56,70];
+const PAL=[
+  {bg:'#1a0808',bd:'#FF4444'},{bg:'#1a0d00',bd:'#FF8C00'},{bg:'#1a1800',bd:'#FFD700'},
+  {bg:'#0a1800',bd:'#7FFF00'},{bg:'#001a08',bd:'#00FF7F'},{bg:'#001a1a',bd:'#00FFFF'},
+  {bg:'#000d1a',bd:'#00BFFF'},{bg:'#00001a',bd:'#4488FF'},{bg:'#0a001a',bd:'#9933FF'},
+  {bg:'#1a001a',bd:'#FF00FF'},{bg:'#1a000d',bd:'#FF1493'},{bg:'#0d1a00',bd:'#AAFF00'},
+  {bg:'#001a14',bd:'#20B2AA'},{bg:'#14001a',bd:'#DA70D6'},{bg:'#1a0a14',bd:'#FF69B4'},
+  {bg:'#0a1400',bd:'#9ACD32'},{bg:'#00141a',bd:'#5FC0C0'},{bg:'#140a00',bd:'#FFA500'},
+];
+const params=new URLSearchParams(location.search);
+let curUser=params.get('user')||'guest';
+let curLang=params.get('lang')||'ko';
+let layer=1,ft='all',sz=3,sel=null,myPos='A1';
+const cells={};
+const presets=[
+  {id:'A1',type:'office',owner:'AAA',name:'AAA 본사'},
+  {id:'C3',type:'shop',owner:'GoldAU',name:'ALD 금화 상점'},
+  {id:'F6',type:'game',owner:'KataGo',name:'순장바둑 AI'},
+  {id:'J9',type:'meet',owner:'TobUser',name:'Tobmate 회의실'},
+  {id:'L12',type:'nft',owner:'SuiDev',name:'Sui NFT 갤러리'},
+  {id:'P15',type:'social',owner:'DotPro',name:'커뮤니티 광장'},
+  {id:'B4',type:'shop',owner:'Boshin',name:'바둑 용품점'},
+  {id:'E8',type:'office',owner:'MetaKim',name:'메타버스 스튜디오'},
+  {id:'H11',type:'game',owner:'GoldAU',name:'퍼즐 게임룸'},
+  {id:'K5',type:'meet',owner:'AAA',name:'투자자 미팅룸'},
+  {id:'N14',type:'nft',owner:'TobUser',name:'아트 갤러리'},
+  {id:'Q2',type:'social',owner:'KataGo',name:'바둑 커뮤니티'},
+  {id:'D16',type:'office',owner:'SuiDev',name:'Sui 오피스'},
+  {id:'G7',type:'shop',owner:'MetaKim',name:'디지털 상점'},
+  {id:'M13',type:'game',owner:'Boshin',name:'토너먼트'},
+  {id:'N3',type:'meet',owner:'DotPro',name:'강의실 A'},
+  {id:'S18',type:'nft',owner:'AAA',name:'명예의 전당'},
+  {id:'A18',type:'social',owner:'GoldAU',name:'글로벌 광장'},
+  {id:'S1',type:'office',owner:'RaphaelS',name:'특허 오피스'},
+  {id:'H1',type:'shop',owner:'WeiGo',name:'위고 상점'},
+  {id:'P8',type:'game',owner:'KataGo',name:'AI 토너먼트'},
+  {id:'C15',type:'meet',owner:'MetaKim',name:'강의실 B'},
+  {id:'N6',type:'nft',owner:'GoldAU',name:'ALD NFT'},
+  {id:'F16',type:'social',owner:'Boshin',name:'바둑 커뮤니티'},
+];
+presets.forEach(p=>{
+  if(!cells[p.id])cells[p.id]={};
+  Object.assign(cells[p.id],{type:p.type,owner:p.owner,name:p.name,
+    visitors:Math.floor(Math.random()*80)+5,
+    avatars:OWN.slice(0,Math.floor(Math.random()*4)+1)});
+});
+function makeUrl(id){
+  const lyr=layer>1?layer:'';
+  return id?'https://tobmate.com/dot'+lyr+'.html?user='+curUser+'&lang='+curLang+'&cell='+id
+           :'https://tobmate.com/dot'+lyr+'.html?user='+curUser+'&lang='+curLang;
+}
+function buildGrid(){
+  const mi=document.getElementById('mapInner');
+  mi.innerHTML='';
+  const px=SZ[sz-1];
+  const cr=document.createElement('div');
+  cr.className='col-row';
+  COLS.forEach(c=>{const d=document.createElement('div');d.className='col-lbl';d.style.width=px+'px';d.style.minWidth=px+'px';d.textContent=c;cr.appendChild(d);});
+  mi.appendChild(cr);
+  for(let r=1;r<=18;r++){
+    const line=document.createElement('div');line.className='row-line';
+    const rl=document.createElement('div');rl.className='row-lbl';rl.textContent=r;line.appendChild(rl);
+    const gr=document.createElement('div');gr.className='grid-row';
+    for(let ci=0;ci<18;ci++){
+      const id=COLS[ci]+r;
+      const c=cells[id]||{};cells[id]=c;
+      const el=document.createElement('div');
+      el.className='cell'+(id===sel?' sel':'')+(id===myPos?' me':'');
+      el.id='cl-'+id;el.title=id;
+      el.style.width=px+'px';el.style.height=px+'px';
+      if(c.type){
+        el.style.background=TBGS[c.type];el.style.borderColor=TCOLORS[c.type];
+        if(px>=20){const ic=document.createElement('div');ic.className='cico';ic.style.fontSize=px>=34?'12px':'9px';ic.textContent=ICONS[c.type];el.appendChild(ic);}
+        if(px>=36){const lb=document.createElement('div');lb.className='cid';lb.style.fontSize='7px';lb.textContent=id;el.appendChild(lb);}
+      } else {
+        const p=PAL[(ci*3+r*7)%PAL.length];
+        el.style.background=p.bg;el.style.borderColor=p.bd;
+        if(px>=34){const lb=document.createElement('div');lb.className='cid';lb.style.fontSize='7px';lb.style.color=p.bd;lb.style.opacity='0.6';lb.textContent=id;el.appendChild(lb);}
+      }
+      el.style.opacity=(ft!=='all'&&c.type!==ft)?'0.07':'1';
+      el.addEventListener('click',()=>{pick(id);if(id==='A1')openA1();});
+      c.el=el;gr.appendChild(el);
+    }
+    line.appendChild(gr);mi.appendChild(line);
+  }
+  document.getElementById('zlbl').textContent=px+'px';
+}
+function pick(id){
+  if(sel){const p=document.getElementById('cl-'+sel);if(p)p.classList.remove('sel');}
+  sel=id;
+  const el=document.getElementById('cl-'+id);if(el)el.classList.add('sel');
+  const c=cells[id]||{};
+  const url=makeUrl(id);
+  document.getElementById('urlDisp').textContent=url;
+  document.getElementById('ihUrl').textContent=url;
+  document.getElementById('ihName').textContent=c.name||(id+' 빈 공간');
+  document.getElementById('ihLayer').textContent='L'+layer;
+  document.getElementById('ihLang').textContent=curLang;
+  const b=document.getElementById('ihBadge');
+  if(c.type){b.textContent=TNAMES[c.type];b.style.background=TCOLORS[c.type]+'22';b.style.color=TCOLORS[c.type];}
+  else{b.textContent='분양 가능';b.style.background='rgba(245,166,35,0.1)';b.style.color='#F5A623';}
+  document.getElementById('ihOwner').textContent=c.owner||'미분양';
+  document.getElementById('ihVisit').textContent=(c.visitors||0)+'명';
+  const avs=document.getElementById('ihAvs');avs.innerHTML='';
+  (c.avatars||[]).forEach((av,i)=>{const d=document.createElement('div');d.className='av-c';d.style.background=AVC[i%AVC.length];d.title=av;d.textContent=av[0];avs.appendChild(d);});
+}
+function openA1(){
+  var old=document.getElementById('a1modal');if(old){old.style.display='flex';return;}
+  var m=document.createElement('div');m.id='a1modal';
+  m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='position:relative;width:92vw;max-width:980px;height:86vh;border-radius:14px;overflow:hidden;border:1.5px solid rgba(0,180,255,0.35)';
+  var bar=document.createElement('div');
+  bar.style.cssText='position:absolute;top:0;left:0;right:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:rgba(2,8,24,0.98);border-bottom:1px solid rgba(0,180,255,0.2);z-index:10';
+  bar.innerHTML='<span style="font-size:11px;color:#00b4ff">https://tobmate.com/dot/A1.html</span>';
+  var cb=document.createElement('button');cb.textContent='X 닫기';
+  cb.style.cssText='background:rgba(226,59,59,0.12);border:1px solid #E23B3B;color:#E23B3B;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:11px';
+  cb.onclick=function(){m.style.display='none';};bar.appendChild(cb);
+  var fr=document.createElement('iframe');fr.src='/dot/A1.html?user='+curUser+'&lang='+curLang;
+  fr.style.cssText='width:100%;height:100%;border:none;padding-top:34px';
+  box.appendChild(bar);box.appendChild(fr);m.appendChild(box);
+  m.addEventListener('click',function(e){if(e.target===m)m.style.display='none';});
+  document.body.appendChild(m);
+}
+function moveHere(){if(!sel)return;myPos=sel;document.getElementById('avpos').textContent=myPos;buildGrid();}
+function enterSpace(){if(!sel)return;if(sel==='A1')openA1();else window.location.href='https://tobmate.com/dot/'+sel+'.html?user='+curUser+'&lang='+curLang;}
+function zoom(d){sz=Math.max(1,Math.min(8,sz+d));buildGrid();}
+function setZoom(v){sz=+v;buildGrid();}
+function setLayer(n,el){layer=n;document.querySelectorAll('.ltab').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function doFilter(t,el){ft=t;document.querySelectorAll('.ftype').forEach(e=>e.classList.remove('on'));el.classList.add('on');buildGrid();}
+document.getElementById('mapWrap').addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1:-1);},{passive:false});
+buildGrid();
+</script>
+</body>
+</html>

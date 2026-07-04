@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Metaverse — Tobmate</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#020818;color:#fff;font-family:monospace}
+#app{display:flex;flex-direction:column;height:100vh}
+.topbar{background:#0a0a1a;padding:7px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,180,255,0.15);flex-shrink:0}
+.logo{color:#F5A623;font-weight:700;font-size:14px}
+.url-disp{font-size:10px;color:rgba(0,180,255,0.6)}
+.toolbar{background:#0d0d20;padding:5px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.ltabs{display:flex;gap:3px}
+.ltab{font-size:10px;padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);cursor:pointer;background:none}
+.ltab.on{background:#1a2a4a;border-color:#4A90D9;color:#4A90D9}
+.zctrl{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.05);border-radius:14px;padding:2px 7px}
+.zb{width:20px;height:20px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:13px}
+.zb:hover{background:rgba(255,255,255,0.2)}
+.zsl{width:70px;accent-color:#F5A623}
+.zlbl{font-size:10px;color:#888;min-width:28px;text-align:center}
+.ftypes{display:flex;gap:3px;margin-left:auto}
+.ftype{font-size:10px;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.3);cursor:pointer;background:none}
+.ftype.on{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.3);color:#fff}
+.avpos{font-size:10px;color:#F5A623}
+.main{display:flex;flex:1;overflow:hidden;min-height:0}
+.map-wrap{flex:1;overflow:auto;padding:10px;background:#020818}
+.map-inner{display:inline-flex;flex-direction:column;gap:2px}
+.col-row{display:flex;gap:2px;padding-left:22px;margin-bottom:1px}
+.col-lbl{font-size:7px;color:#4A90D9;text-align:center;flex-shrink:0;font-weight:700}
+.row-line{display:flex;gap:2px;align-items:center}
+.row-lbl{font-size:7px;color:#4A90D9;width:18px;text-align:right;padding-right:3px;flex-shrink:0;font-weight:700}
+.grid-row{display:flex;gap:2px}
+.cell-space{background:rgba(155,89,182,0.25) !important;border-color:rgba(155,89,182,0.6) !important;}
+.cell-portal{background:rgba(255,215,0,0.15) !important;border-color:#FFD700 !important;animation:portalPulse 2s infinite;}
+@keyframes portalPulse{0%,100%{box-shadow:0 0 4px rgba(255,215,0,0.4)}50%{box-shadow:0 0 12px rgba(255,215,0,0.9)}}
+.cell{border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;border:1.5px solid;transition:all 0.1s;position:relative;overflow:hidden;flex-shrink:0}
+.cell:hover{transform:scale(1.3);z-index:20;filter:brightness(1.8)}
+.cell.sel{outline:2px solid #fff;outline-offset:1px;z-index:15}
+.cell.me::before{content:'';position:absolute;top:2px;left:2px;width:4px;height:4px;border-radius:50%;background:#F5A623;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
+.cid{color:rgba(255,255,255,0.4);line-height:1;margin-top:1px;pointer-events:none}
+.cico{line-height:1;pointer-events:none}
+.info{width:185px;background:#0a0a1a;border-left:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;flex-shrink:0}
+.ih{padding:9px 11px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.ih-url{font-size:8px;color:#444;word-break:break-all;margin-bottom:3px}
+.ih-name{font-size:12px;font-weight:500;color:#fff}
+.ih-badge{font-size:9px;padding:2px 7px;border-radius:7px;display:inline-block;margin-top:3px}
+.ib{padding:8px 11px;flex:1;overflow-y:auto}
+.ir{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.ir span{color:#555}.ir span:last-child{color:#ccc}
+.iav{margin-top:7px}
+.iav-t{font-size:9px;color:#444;margin-bottom:4px}
+.av-row{display:flex;gap:3px;flex-wrap:wrap}
+.av-c{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;color:#fff}
+.mbtn{margin:5px 9px 3px;padding:7px;background:rgba(245,166,35,0.1);border:1px solid #F5A623;border-radius:7px;color:#F5A623;font-size:11px;text-align:center;cursor:pointer}
+.mbtn:hover{background:rgba(245,166,35,0.2)}
+.ebtn{margin:0 9px 7px;padding:7px;background:rgba(55,138,221,0.1);border:1px solid #378add;border-radius:7px;color:#85b7eb;font-size:11px;text-align:center;cursor:pointer}
+.ebtn:hover{background:rgba(55,138,221,0.2)}
+.botbar{display:flex;align-items:center;gap:5px;padding:5px 12px;background:#0a0a1a;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:3px;font-size:8px;color:#555}
+.ld{width:7px;height:7px;border-radius:2px;border:1px solid}
+.bstat{margin-left:auto;font-size:9px;color:#444}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="topbar">
+  <div class="logo">⬡ Dot Metaverse</div>
+  <div class="url-disp" id="urlDisp">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+</div>
+<div class="toolbar">
+  <div class="ltabs">
+    <button class="ltab on" onclick="setLayer(1,this)">L1</button>
+    <button class="ltab" onclick="setLayer(2,this)">L2</button>
+    <button class="ltab" onclick="setLayer(3,this)">L3</button>
+  </div>
+  <div class="zctrl">
+    <button class="zb" onclick="zoom(-1)">-</button>
+    <input type="range" class="zsl" id="zsl" min="1" max="8" value="3" step="1" oninput="setZoom(+this.value)">
+    <button class="zb" onclick="zoom(1)">+</button>
+    <span class="zlbl" id="zlbl">22px</span>
+  </div>
+  <div class="ftypes">
+    <button class="ftype on" onclick="doFilter('all',this)">전체</button>
+    <button class="ftype" onclick="doFilter('office',this)">사무실</button>
+    <button class="ftype" onclick="doFilter('shop',this)">상점</button>
+    <button class="ftype" onclick="doFilter('game',this)">게임</button>
+    <button class="ftype" onclick="doFilter('meet',this)">미팅</button>
+    <button class="ftype" onclick="doFilter('nft',this)">NFT</button>
+    <button class="ftype" onclick="doFilter('social',this)">소셜</button>
+  </div>
+  <div class="avpos" id="avpos">A1</div>
+</div>
+<div class="main">
+  <div class="map-wrap" id="mapWrap">
+    <div class="map-inner" id="mapInner"></div>
+  </div>
+  <div class="info">
+    <div class="ih">
+      <div class="ih-url" id="ihUrl">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+      <div class="ih-name" id="ihName">전체 지도 324칸</div>
+      <div class="ih-badge" id="ihBadge" style="background:rgba(245,166,35,0.1);color:#F5A623">분양 가능</div>
+    </div>
+    <div class="ib">
+      <div class="ir"><span>소유자</span><span id="ihOwner">-</span></div>
+      <div class="ir"><span>방문자</span><span id="ihVisit">-</span></div>
+      <div class="ir"><span>언어</span><span id="ihLang">ko</span></div>
+      <div class="ir"><span>레이어</span><span id="ihLayer">L1</span></div>
+      <div class="iav"><div class="iav-t">접속 아바타</div><div class="av-row" id="ihAvs"></div></div>
+    </div>
+    <div class="mbtn" onclick="moveHere()">이동</div>
+    <div class="ebtn" onclick="enterSpace()">입장 / 편집</div>
+  </div>
+</div>
+<div class="botbar">
+  <div class="leg"><div class="ld" style="background:#0a1828;border-color:#378add"></div>사무실</div>
+  <div class="leg"><div class="ld" style="background:#1e1200;border-color:#F5A623"></div>상점</div>
+  <div class="leg"><div class="ld" style="background:#041608;border-color:#27AE60"></div>게임</div>
+  <div class="leg"><div class="ld" style="background:#0c0620;border-color:#7B68EE"></div>미팅</div>
+  <div class="leg"><div class="ld" style="background:#180408;border-color:#E23B3B"></div>NFT</div>
+  <div class="leg"><div class="ld" style="background:#041414;border-color:#1ABC9C"></div>소셜</div>
+  <div class="bstat" id="bstat">A1~S18 324칸</div>
+</div>
+</div>
+<script>
+const COLS='ABCDEFGHJKLMNOPQRS'.split('');
+const TNAMES={office:'사무실',shop:'Dot 상점',game:'게임룸',meet:'미팅룸',nft:'NFT/AU',social:'소셜'};
+const TCOLORS={office:'#378add',shop:'#F5A623',game:'#27AE60',meet:'#7B68EE',nft:'#E23B3B',social:'#1ABC9C'};
+const TBGS={office:'#0a1828',shop:'#1e1200',game:'#041608',meet:'#0c0620',nft:'#180408',social:'#041414'};
+const ICONS={office:'🏢',shop:'🛒',game:'🎮',meet:'🤝',nft:'💎',social:'💬'};
+const AVC=['#4A90D9','#F5A623','#27AE60','#7B68EE','#E23B3B','#1ABC9C'];
+const OWN=['AAA','Boshin','TobUser','GoldAU','SuiDev','KataGo','DotPro','MetaKim'];
+const SZ=[12,16,20,26,34,44,56,70];
+const PAL=[
+  {bg:'#1a0808',bd:'#FF4444'},{bg:'#1a0d00',bd:'#FF8C00'},{bg:'#1a1800',bd:'#FFD700'},
+  {bg:'#0a1800',bd:'#7FFF00'},{bg:'#001a08',bd:'#00FF7F'},{bg:'#001a1a',bd:'#00FFFF'},
+  {bg:'#000d1a',bd:'#00BFFF'},{bg:'#00001a',bd:'#4488FF'},{bg:'#0a001a',bd:'#9933FF'},
+  {bg:'#1a001a',bd:'#FF00FF'},{bg:'#1a000d',bd:'#FF1493'},{bg:'#0d1a00',bd:'#AAFF00'},
+  {bg:'#001a14',bd:'#20B2AA'},{bg:'#14001a',bd:'#DA70D6'},{bg:'#1a0a14',bd:'#FF69B4'},
+  {bg:'#0a1400',bd:'#9ACD32'},{bg:'#00141a',bd:'#5FC0C0'},{bg:'#140a00',bd:'#FFA500'},
+];
+const params=new URLSearchParams(location.search);
+let curUser=params.get('user')||'guest';
+let curLang=params.get('lang')||document.documentElement.lang||'ko';
+let layer=1,ft='all',sz=3,sel=null,myPos='A1';
+const cells={};
+const presets=[
+  {id:'A1',type:'office',owner:'AAA',name:'AAA 본사'},
+  {id:'C3',type:'shop',owner:'GoldAU',name:'AU 금화 상점'},
+  {id:'F6',type:'game',owner:'KataGo',name:'순장바둑 AI'},
+  {id:'J9',type:'meet',owner:'TobUser',name:'Tobmate 회의실'},
+  {id:'L12',type:'nft',owner:'SuiDev',name:'Sui NFT 갤러리'},
+  {id:'P15',type:'social',owner:'DotPro',name:'커뮤니티 광장'},
+  {id:'B4',type:'shop',owner:'Boshin',name:'바둑 용품점'},
+  {id:'E8',type:'office',owner:'MetaKim',name:'메타버스 스튜디오'},
+  {id:'H11',type:'game',owner:'GoldAU',name:'퍼즐 게임룸'},
+  {id:'K5',type:'meet',owner:'AAA',name:'투자자 미팅룸'},
+  {id:'N14',type:'nft',owner:'TobUser',name:'아트 갤러리'},
+  {id:'Q2',type:'social',owner:'KataGo',name:'바둑 커뮤니티'},
+  {id:'D16',type:'office',owner:'SuiDev',name:'Sui 오피스'},
+  {id:'G7',type:'shop',owner:'MetaKim',name:'디지털 상점'},
+  {id:'M13',type:'game',owner:'Boshin',name:'토너먼트'},
+  {id:'N3',type:'meet',owner:'DotPro',name:'강의실 A'},
+  {id:'S18',type:'nft',owner:'AAA',name:'명예의 전당'},
+  {id:'A18',type:'social',owner:'GoldAU',name:'글로벌 광장'},
+  {id:'S1',type:'office',owner:'RaphaelS',name:'특허 오피스'},
+  {id:'H1',type:'shop',owner:'WeiGo',name:'위고 상점'},
+  {id:'P8',type:'game',owner:'KataGo',name:'AI 토너먼트'},
+  {id:'C15',type:'meet',owner:'MetaKim',name:'강의실 B'},
+  {id:'N6',type:'nft',owner:'GoldAU',name:'AU NFT'},
+  {id:'F16',type:'social',owner:'Boshin',name:'바둑 커뮤니티'},
+];
+presets.forEach(p=>{
+  if(!cells[p.id])cells[p.id]={};
+  Object.assign(cells[p.id],{type:p.type,owner:p.owner,name:p.name,
+    visitors:Math.floor(Math.random()*80)+5,
+    avatars:OWN.slice(0,Math.floor(Math.random()*4)+1)});
+});
+function makeUrl(id){
+  const lyr=layer>1?layer:'';
+  return id?'https://tobmate.com/dot'+lyr+'.html?user='+curUser+'&lang='+curLang+'&cell='+id
+           :'https://tobmate.com/dot'+lyr+'.html?user='+curUser+'&lang='+curLang;
+}
+function buildGrid(){
+  const mi=document.getElementById('mapInner');
+  mi.innerHTML='';
+  const px=SZ[sz-1];
+  const cr=document.createElement('div');
+  cr.className='col-row';
+  COLS.forEach(c=>{const d=document.createElement('div');d.className='col-lbl';d.style.width=px+'px';d.style.minWidth=px+'px';d.textContent=c;cr.appendChild(d);});
+  mi.appendChild(cr);
+  for(let r=1;r<=18;r++){
+    const line=document.createElement('div');line.className='row-line';
+    const rl=document.createElement('div');rl.className='row-lbl';rl.textContent=r;line.appendChild(rl);
+    const gr=document.createElement('div');gr.className='grid-row';
+    for(let ci=0;ci<18;ci++){
+      const id=COLS[ci]+r;
+      const c=cells[id]||{};cells[id]=c;
+      // S18 = 공공 우주 포털 (소유 불가)
+      if(id==='S18'){
+        c.isPortal=true;c.type='portal';
+        c.owner='Tobmate';c.name='⭐ 우주 포털';
+        c.locked=true;
+      }
+      const el=document.createElement('div');
+      el.className='cell'+(id===sel?' sel':'')+(id===myPos?' me':'')+(c.isPortal?' cell-portal':'');
+      el.id='cl-'+id;el.title=id;
+      el.style.width=px+'px';el.style.height=px+'px';
+      if(c.type){
+        el.style.background=TBGS[c.type];el.style.borderColor=TCOLORS[c.type];
+        if(px>=20){const ic=document.createElement('div');ic.className='cico';ic.style.fontSize=px>=34?'12px':'9px';ic.textContent=ICONS[c.type];el.appendChild(ic);}
+        if(px>=36){const lb=document.createElement('div');lb.className='cid';lb.style.fontSize='7px';lb.textContent=id;el.appendChild(lb);}
+      } else {
+        const p=PAL[(ci*3+r*7)%PAL.length];
+        el.style.background=p.bg;el.style.borderColor=p.bd;
+        if(px>=34){const lb=document.createElement('div');lb.className='cid';lb.style.fontSize='7px';lb.style.color=p.bd;lb.style.opacity='0.6';lb.textContent=id;el.appendChild(lb);}
+      }
+      el.style.opacity=(ft!=='all'&&c.type!==ft)?'0.07':'1';
+      el.addEventListener('click',()=>{
+        if(id==='S18'){
+          if(localStorage.getItem('dot_space_intro_done')==='1'){
+            window.location.href='/dot/space.html?user='+curUser+'&lang='+curLang+'&skip_intro=1';
+          } else {
+            window.location.href='/dot/space/intro.html?user='+curUser+'&lang='+curLang;
+          }
+          return;
+        }
+        pick(id);if(id==='A1')openA1();
+      });
+      c.el=el;gr.appendChild(el);
+    }
+    line.appendChild(gr);mi.appendChild(line);
+  }
+  document.getElementById('zlbl').textContent=px+'px';
+}
+function pick(id){
+  if(sel){const p=document.getElementById('cl-'+sel);if(p)p.classList.remove('sel');}
+  sel=id;
+  const el=document.getElementById('cl-'+id);if(el)el.classList.add('sel');
+  const c=cells[id]||{};
+  const url=makeUrl(id);
+  document.getElementById('urlDisp').textContent=url;
+  document.getElementById('ihUrl').textContent=url;
+  document.getElementById('ihName').textContent=c.name||(id+' 빈 공간');
+  document.getElementById('ihLayer').textContent='L'+layer;
+  document.getElementById('ihLang').textContent=curLang;
+  const b=document.getElementById('ihBadge');
+  if(c.type){b.textContent=TNAMES[c.type];b.style.background=TCOLORS[c.type]+'22';b.style.color=TCOLORS[c.type];}
+  else{b.textContent='분양 가능';b.style.background='rgba(245,166,35,0.1)';b.style.color='#F5A623';}
+  document.getElementById('ihOwner').textContent=c.owner||'미분양';
+  document.getElementById('ihVisit').textContent=(c.visitors||0)+'명';
+  const avs=document.getElementById('ihAvs');avs.innerHTML='';
+  (c.avatars||[]).forEach((av,i)=>{const d=document.createElement('div');d.className='av-c';d.style.background=AVC[i%AVC.length];d.title=av;d.textContent=av[0];avs.appendChild(d);});
+}
+function openA1(){
+  var old=document.getElementById('a1modal');if(old){old.style.display='flex';return;}
+  var m=document.createElement('div');m.id='a1modal';
+  m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='position:relative;width:92vw;max-width:980px;height:86vh;border-radius:14px;overflow:hidden;border:1.5px solid rgba(0,180,255,0.35)';
+  var bar=document.createElement('div');
+  bar.style.cssText='position:absolute;top:0;left:0;right:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:rgba(2,8,24,0.98);border-bottom:1px solid rgba(0,180,255,0.2);z-index:10';
+  bar.innerHTML='<span style="font-size:11px;color:#00b4ff">https://tobmate.com/dot/A1.html</span>';
+  var cb=document.createElement('button');cb.textContent='X 닫기';
+  cb.style.cssText='background:rgba(226,59,59,0.12);border:1px solid #E23B3B;color:#E23B3B;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:11px';
+  cb.onclick=function(){m.style.display='none';};bar.appendChild(cb);
+  var fr=document.createElement('iframe');fr.src='/dot/A1.html?user='+curUser+'&lang='+curLang;
+  fr.style.cssText='width:100%;height:100%;border:none;padding-top:34px';
+  box.appendChild(bar);box.appendChild(fr);m.appendChild(box);
+  m.addEventListener('click',function(e){if(e.target===m)m.style.display='none';});
+  document.body.appendChild(m);
+}
+function moveHere(){if(!sel)return;myPos=sel;document.getElementById('avpos').textContent=myPos;buildGrid();}
+function enterSpace(){
+  if(!sel)return;
+  if(sel==='A1'){openA1();return;}
+  if(sel==='S18'){
+    if(localStorage.getItem('dot_space_intro_done')==='1'){
+      window.location.href='/dot/space.html?user='+curUser+'&lang='+curLang+'&skip_intro=1';
+    } else {
+      window.location.href='/dot/space/intro.html?user='+curUser+'&lang='+curLang;
+    }
+    return;
+  }
+  window.location.href='https://tobmate.com/dot/'+sel+'.html?user='+curUser+'&lang='+curLang;
+}
+function zoom(d){sz=Math.max(1,Math.min(8,sz+d));buildGrid();}
+function setZoom(v){sz=+v;buildGrid();}
+function setLayer(n,el){layer=n;document.querySelectorAll('.ltab').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function doFilter(t,el){ft=t;document.querySelectorAll('.ftype').forEach(e=>e.classList.remove('on'));el.classList.add('on');buildGrid();}
+document.getElementById('mapWrap').addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1:-1);},{passive:false});
+buildGrid();
+
+// S18 포털 잠금 처리
+function checkPortalLock(id){
+  if(id!=='S18')return false;
+  const popup=document.querySelector('.popup-content')||document.querySelector('.ebtn');
+  return true;
+}
+
+</script>
+<script>
+const DOT_LANG={
+  ko:{
+    title:'Dot 메타버스',applyTitle:'Dot 분양 신청',adminTitle:'Dot 관리자',
+    map:'Dot 전체 지도',apply:'분양 신청',mySpace:'내 공간',admin:'관리자',
+    selectCell:'칸 선택',cellInfo:'신청 정보',payment:'AU 결제 확인',
+    userId:'유저 ID',spaceName:'공간 이름',spaceType:'공간 유형',
+    layer:'레이어',desc:'공간 설명',link:'링크 / 연락처',
+    submitBtn:'분양 신청하기',saveBtn:'저장 및 입주 완료',
+    office:'사무실/오피스',shop:'Dot 상점',game:'게임룸',
+    meet:'미팅룸',nft:'NFT/AU 갤러리',social:'소셜/커뮤니티',
+    available:'분양 가능',taken:'분양완료',pending:'승인대기',
+    selected:'선택됨',noSelect:'없음',
+    price:'분양가',monthly:'월 유지비',commission:'거래 수수료',
+    applyDone:'분양 신청 완료! 관리자 승인 후 입주 확정',
+    auPaid:'납부 AU',waitApprove:'관리자 승인 대기중',
+    approve:'승인',reject:'거절',viewPage:'페이지 보기',
+    totalApply:'총 신청',waitApprove2:'승인대기',approved:'분양완료',
+    totalRevenue:'총 AU 수입',adminKey:'관리자 키',
+    pendingList:'승인 대기 신청',approvedList:'분양 완료 목록',
+    revenue:'수익 현황',applyIncome:'분양 수입',feeIncome:'거래 수수료 수입',
+    totalIncome:'총 수입',approvedCells:'분양 완료 칸',remaining:'잔여 분양 가능',
+    layer1:'기본 공간',layer2:'확장 공간',layer3:'프리미엄',
+    basic:'기본 공간',expanded:'확장 공간',premium:'프리미엄',
+    feeNote:'거래 수수료 3% · AU 금화 결제',backToMap:'← 전체 지도',
+    applyPage:'분양신청 페이지',applicant:'신청자',type:'유형',applyDate:'신청일',
+    approveDate:'승인일',owner:'소유자',feeRevenue:'수수료수입',
+  },
+  en:{
+    title:'Dot Metaverse',applyTitle:'Dot Space Application',adminTitle:'Dot Admin',
+    map:'Dot Map',apply:'Apply',mySpace:'My Space',admin:'Admin',
+    selectCell:'Select Cell',cellInfo:'Application Info',payment:'AU Payment',
+    userId:'User ID',spaceName:'Space Name',spaceType:'Space Type',
+    layer:'Layer',desc:'Description',link:'Link / Contact',
+    submitBtn:'Apply for Space',saveBtn:'Save & Move In',
+    office:'Office',shop:'Dot Shop',game:'Game Room',
+    meet:'Meeting Room',nft:'NFT/AU Gallery',social:'Social/Community',
+    available:'Available',taken:'Taken',pending:'Pending',
+    selected:'Selected',noSelect:'None',
+    price:'Price',monthly:'Monthly Fee',commission:'Trade Fee',
+    applyDone:'Application Complete! Confirmed after admin approval',
+    auPaid:'AU Paid',waitApprove:'Waiting for admin approval',
+    approve:'Approve',reject:'Reject',viewPage:'View Page',
+    totalApply:'Total',waitApprove2:'Pending',approved:'Approved',
+    totalRevenue:'Total AU Income',adminKey:'Admin Key',
+    pendingList:'Pending Applications',approvedList:'Approved List',
+    revenue:'Revenue',applyIncome:'Space Income',feeIncome:'Trade Fee Income',
+    totalIncome:'Total Income',approvedCells:'Approved Cells',remaining:'Available',
+    layer1:'Basic',layer2:'Extended',layer3:'Premium',
+    basic:'Basic',expanded:'Extended',premium:'Premium',
+    feeNote:'3% trade fee · AU Gold payment',backToMap:'← Map',
+    applyPage:'Apply Page',applicant:'Applicant',type:'Type',applyDate:'Applied',
+    approveDate:'Approved',owner:'Owner',feeRevenue:'Fee Revenue',
+  },
+  zh:{
+    title:'Dot 元宇宙',applyTitle:'Dot 空间申请',adminTitle:'Dot 管理员',
+    map:'Dot 地图',apply:'申请',mySpace:'我的空间',admin:'管理员',
+    selectCell:'选择格子',cellInfo:'申请信息',payment:'AU 支付确认',
+    userId:'用户ID',spaceName:'空间名称',spaceType:'空间类型',
+    layer:'层',desc:'空间描述',link:'链接 / 联系方式',
+    submitBtn:'申请空间',saveBtn:'保存并入住',
+    office:'办公室',shop:'Dot 商店',game:'游戏室',
+    meet:'会议室',nft:'NFT/AU 画廊',social:'社交/社区',
+    available:'可分配',taken:'已分配',pending:'待审批',
+    selected:'已选择',noSelect:'无',
+    price:'分配价格',monthly:'月费',commission:'交易手续费',
+    applyDone:'申请完成！管理员批准后确认入住',
+    auPaid:'已付AU',waitApprove:'等待管理员审批',
+    approve:'批准',reject:'拒绝',viewPage:'查看页面',
+    totalApply:'总申请',waitApprove2:'待审批',approved:'已批准',
+    totalRevenue:'总AU收入',adminKey:'管理员密钥',
+    pendingList:'待审批申请',approvedList:'已批准列表',
+    revenue:'收益',applyIncome:'空间收入',feeIncome:'手续费收入',
+    totalIncome:'总收入',approvedCells:'已批准格子',remaining:'可用',
+    layer1:'基础',layer2:'扩展',layer3:'高级',
+    basic:'基础',expanded:'扩展',premium:'高级',
+    feeNote:'3%交易手续费 · AU黄金支付',backToMap:'← 地图',
+    applyPage:'申请页面',applicant:'申请人',type:'类型',applyDate:'申请日期',
+    approveDate:'批准日期',owner:'所有者',feeRevenue:'手续费收入',
+  },
+  ja:{
+    title:'Dot メタバース',applyTitle:'Dot スペース申請',adminTitle:'Dot 管理者',
+    map:'Dot マップ',apply:'申請',mySpace:'マイスペース',admin:'管理者',
+    selectCell:'セル選択',cellInfo:'申請情報',payment:'AU 支払確認',
+    userId:'ユーザーID',spaceName:'スペース名',spaceType:'スペースタイプ',
+    layer:'レイヤー',desc:'スペース説明',link:'リンク / 連絡先',
+    submitBtn:'スペース申請',saveBtn:'保存して入居',
+    office:'オフィス',shop:'Dot ショップ',game:'ゲームルーム',
+    meet:'ミーティングルーム',nft:'NFT/AU ギャラリー',social:'ソーシャル',
+    available:'分譲可能',taken:'分譲済み',pending:'承認待ち',
+    selected:'選択済み',noSelect:'なし',
+    price:'分譲価格',monthly:'月額料金',commission:'取引手数料',
+    applyDone:'申請完了！管理者承認後に入居確定',
+    auPaid:'支払AU',waitApprove:'管理者承認待ち',
+    approve:'承認',reject:'拒否',viewPage:'ページを見る',
+    totalApply:'総申請',waitApprove2:'承認待ち',approved:'承認済み',
+    totalRevenue:'総AU収入',adminKey:'管理者キー',
+    pendingList:'承認待ち申請',approvedList:'承認済みリスト',
+    revenue:'収益',applyIncome:'スペース収入',feeIncome:'手数料収入',
+    totalIncome:'総収入',approvedCells:'承認済みセル',remaining:'利用可能',
+    layer1:'基本',layer2:'拡張',layer3:'プレミアム',
+    basic:'基本',expanded:'拡張',premium:'プレミアム',
+    feeNote:'3%取引手数料 · AU ゴールド決済',backToMap:'← マップ',
+    applyPage:'申請ページ',applicant:'申請者',type:'タイプ',applyDate:'申請日',
+    approveDate:'承認日',owner:'オーナー',feeRevenue:'手数料収入',
+  },
+  ru:{
+    title:'Dot Метавселенная',applyTitle:'Заявка на пространство Dot',adminTitle:'Dot Админ',
+    map:'Карта Dot',apply:'Подать заявку',mySpace:'Моё пространство',admin:'Админ',
+    selectCell:'Выбор ячейки',cellInfo:'Информация заявки',payment:'Оплата AU',
+    userId:'ID пользователя',spaceName:'Название',spaceType:'Тип',
+    layer:'Слой',desc:'Описание',link:'Ссылка / Контакт',
+    submitBtn:'Подать заявку',saveBtn:'Сохранить и въехать',
+    office:'Офис',shop:'Магазин Dot',game:'Игровая комната',
+    meet:'Переговорная',nft:'NFT/AU Галерея',social:'Социальное',
+    available:'Доступно',taken:'Занято',pending:'Ожидание',
+    selected:'Выбрано',noSelect:'Нет',
+    price:'Цена',monthly:'Ежемесячная плата',commission:'Комиссия',
+    applyDone:'Заявка принята! Подтверждение после одобрения',
+    auPaid:'Оплачено AU',waitApprove:'Ожидание одобрения',
+    approve:'Одобрить',reject:'Отклонить',viewPage:'Просмотр',
+    totalApply:'Всего заявок',waitApprove2:'Ожидание',approved:'Одобрено',
+    totalRevenue:'Доход AU',adminKey:'Ключ админа',
+    pendingList:'Заявки на рассмотрении',approvedList:'Одобренные',
+    revenue:'Доходы',applyIncome:'Доход от аренды',feeIncome:'Доход от комиссий',
+    totalIncome:'Общий доход',approvedCells:'Одобренные ячейки',remaining:'Доступно',
+    layer1:'Базовый',layer2:'Расширенный',layer3:'Премиум',
+    basic:'Базовый',expanded:'Расширенный',premium:'Премиум',
+    feeNote:'Комиссия 3% · Оплата золотом AU',backToMap:'← Карта',
+    applyPage:'Страница заявки',applicant:'Заявитель',type:'Тип',applyDate:'Дата заявки',
+    approveDate:'Дата одобрения',owner:'Владелец',feeRevenue:'Доход от комиссий',
+  },
+  ar:{
+    title:'Dot ميتافيرس',applyTitle:'طلب مساحة Dot',adminTitle:'مدير Dot',
+    map:'خريطة Dot',apply:'تقديم طلب',mySpace:'مساحتي',admin:'المدير',
+    selectCell:'اختر خلية',cellInfo:'معلومات الطلب',payment:'تأكيد دفع AU',
+    userId:'معرف المستخدم',spaceName:'اسم المساحة',spaceType:'نوع المساحة',
+    layer:'طبقة',desc:'وصف المساحة',link:'رابط / تواصل',
+    submitBtn:'تقديم الطلب',saveBtn:'حفظ والانتقال',
+    office:'مكتب',shop:'متجر Dot',game:'غرفة ألعاب',
+    meet:'غرفة اجتماعات',nft:'معرض NFT/AU',social:'اجتماعي',
+    available:'متاح',taken:'محجوز',pending:'قيد الانتظار',
+    selected:'محدد',noSelect:'لا شيء',
+    price:'سعر التخصيص',monthly:'رسوم شهرية',commission:'عمولة التداول',
+    applyDone:'اكتمل الطلب! يتم التأكيد بعد موافقة المدير',
+    auPaid:'AU المدفوع',waitApprove:'في انتظار موافقة المدير',
+    approve:'موافقة',reject:'رفض',viewPage:'عرض الصفحة',
+    totalApply:'إجمالي الطلبات',waitApprove2:'قيد الانتظار',approved:'موافق عليه',
+    totalRevenue:'إجمالي دخل AU',adminKey:'مفتاح المدير',
+    pendingList:'الطلبات المعلقة',approvedList:'قائمة الموافق عليها',
+    revenue:'الإيرادات',applyIncome:'دخل المساحة',feeIncome:'دخل العمولات',
+    totalIncome:'إجمالي الدخل',approvedCells:'الخلايا الموافق عليها',remaining:'متاح',
+    layer1:'أساسي',layer2:'موسع',layer3:'مميز',
+    basic:'أساسي',expanded:'موسع',premium:'مميز',
+    feeNote:'عمولة 3% · دفع بالذهب AU',backToMap:'← الخريطة',
+    applyPage:'صفحة الطلب',applicant:'مقدم الطلب',type:'النوع',applyDate:'تاريخ الطلب',
+    approveDate:'تاريخ الموافقة',owner:'المالك',feeRevenue:'دخل العمولات',
+  },
+};
+
+function getLang(){
+  const p=new URLSearchParams(location.search);
+  const l=p.get('lang')||document.documentElement.lang||'ko';
+  const map={'cn':'zh','jp':'ja','zh':'zh','ja':'ja'};const ll=map[l]||l;return DOT_LANG[ll]||DOT_LANG.ko;
+}
+
+function applyLang(){
+  const t=getLang();
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n');
+    if(t[key])el.textContent=t[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key=el.getAttribute('data-i18n-placeholder');
+    if(t[key])el.placeholder=t[key];
+  });
+  const lang=new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ar')document.body.style.direction='rtl';
+}
+
+(function(){
+  var lang=curLang||new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ko')return;
+  var TM={
+    all:{en:'All',zh:'全部',ja:'全て',ru:'Все',ar:'الكل'},
+    office:{en:'Office',zh:'办公室',ja:'オフィス',ru:'Офис',ar:'مكتب'},
+    shop:{en:'Shop',zh:'商店',ja:'ショップ',ru:'Магазин',ar:'متجر'},
+    game:{en:'Game',zh:'游戏',ja:'ゲーム',ru:'Игра',ar:'ألعاب'},
+    meet:{en:'Meet',zh:'会议',ja:'ミーティング',ru:'Встреча',ar:'اجتماع'},
+    nft:{en:'NFT',zh:'NFT',ja:'NFT',ru:'NFT',ar:'NFT'},
+    social:{en:'Social',zh:'社交',ja:'ソーシャル',ru:'Социальное',ar:'اجتماعي'},
+  };
+  var IL={
+    '소유자':{en:'Owner',zh:'所有者',ja:'オーナー',ru:'Владелец',ar:'المالك'},
+    '방문자':{en:'Visitors',zh:'访客',ja:'訪問者',ru:'Посетители',ar:'الزوار'},
+    '언어':{en:'Language',zh:'语言',ja:'言語',ru:'Язык',ar:'اللغة'},
+    '레이어':{en:'Layer',zh:'层',ja:'レイヤー',ru:'Слой',ar:'طبقة'},
+    '접속 아바타':{en:'Online',zh:'在线',ja:'オンライン',ru:'Онлайн',ar:'متصل'},
+    '이동':{en:'Move',zh:'移动',ja:'移動',ru:'Перейти',ar:'انتقل'},
+    '입장 / 편집':{en:'Enter/Edit',zh:'进入/编辑',ja:'入場/編集',ru:'Войти',ar:'دخول'},
+    '분양 가능':{en:'Available',zh:'可用',ja:'利用可能',ru:'Доступно',ar:'متاح'},
+  };
+  function applyAll(){
+    var KEYS=['all','office','shop','game','meet','nft','social'];
+    document.querySelectorAll('.ftype').forEach(function(el,i){
+      if(TM[KEYS[i]]&&TM[KEYS[i]][lang])el.textContent=TM[KEYS[i]][lang];
+    });
+    document.querySelectorAll('.ir span:first-child,.iav-t,.mbtn,.ebtn,.ih-badge').forEach(function(el){
+      var txt=el.textContent.trim();
+      if(IL[txt]&&IL[txt][lang])el.textContent=IL[txt][lang];
+    });
+    var ihn=document.querySelector('.ih-name');
+    if(ihn&&ihn.textContent.includes('324')){
+      var map={en:'Full Map 324',zh:'全图324格',ja:'全マップ324',ru:'Карта 324',ar:'خريطة 324'};
+      if(map[lang])ihn.textContent=map[lang];
+    }
+    var bs=document.querySelector('.bstat');
+    if(bs){var map={en:'A1~S18 324 cells',zh:'A1~S18 324格',ja:'A1~S18 324マス',ru:'A1~S18 324',ar:'A1~S18 324'};if(map[lang])bs.textContent=map[lang];}
+    if(lang==='ar')document.body.style.direction='rtl';
+  }
+  if(document.readyState==='complete'){applyAll();setTimeout(applyAll,1000);}
+  else{window.addEventListener('load',function(){applyAll();setTimeout(applyAll,500);});}
+  setInterval(applyAll,2000);
+})();
+</script>
+</body>
+</html>

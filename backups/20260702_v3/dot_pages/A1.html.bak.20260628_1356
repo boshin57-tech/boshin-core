@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot A1 — Tobmate Metaverse</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#020818;overflow:hidden;width:100vw;height:100vh}
+#uni{width:100%;height:100vh;position:relative;overflow:hidden;font-family:monospace}
+canvas#bg{position:absolute;inset:0;width:100%;height:100%}
+.hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(2,8,24,0.9);border-bottom:1px solid rgba(0,180,255,0.15);z-index:10}
+.hurl{font-size:10px;color:#00b4ff}
+.hsts{display:flex;gap:14px}
+.hs{font-size:9px;color:rgba(0,180,255,0.5)}
+.hs b{color:#00ffaa}
+.hclk{font-size:10px;color:rgba(255,255,255,0.25)}
+.zone{position:absolute;border-radius:10px;border:1px solid;padding:7px 10px;font-family:monospace;z-index:2;pointer-events:none}
+.zt{font-weight:700;font-size:10px;margin-bottom:2px}
+.zs{font-size:8px;opacity:0.5}
+.botbar{position:absolute;bottom:0;left:0;right:0;background:rgba(2,8,24,0.92);border-top:1px solid rgba(0,180,255,0.12);padding:7px 12px;display:flex;align-items:center;gap:8px;z-index:10}
+.abtn{padding:3px 10px;border-radius:14px;border:1px solid;font-size:9px;cursor:pointer;background:none;font-family:monospace;transition:opacity 0.15s}
+.abtn:hover{opacity:0.65}
+.feed{flex:1;font-size:9px;color:rgba(0,180,255,0.4);overflow:hidden;white-space:nowrap}
+.lbadge{font-size:8px;color:rgba(255,255,255,0.2)}
+.tip{position:absolute;z-index:20;pointer-events:none;font-family:monospace;font-size:9px;background:rgba(2,8,24,0.95);border:1px solid;border-radius:8px;padding:4px 8px;white-space:nowrap;animation:fadeUp 0.2s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+svg.conn{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.back-btn{position:absolute;top:46px;left:12px;z-index:15;font-size:9px;color:rgba(0,180,255,0.6);font-family:monospace;cursor:pointer;padding:3px 8px;border:1px solid rgba(0,180,255,0.2);border-radius:6px;background:rgba(2,8,24,0.8)}
+.back-btn:hover{color:#00b4ff;border-color:#00b4ff}
+</style>
+</head>
+<body>
+<div id="uni">
+<canvas id="bg"></canvas>
+<svg class="conn" id="lines"></svg>
+<div class="hud">
+  <div class="hurl" id="hurl">https://tobmate.com/dot.html?cell=A1&user=guest&lang=ko</div>
+  <div class="hsts">
+    <div class="hs">접속자 <b id="cnt">7</b>명</div>
+    <div class="hs">블록 <b>A1</b> · L1</div>
+    <div class="hs">AU <b id="au">5,919</b> AUD</div>
+    <div class="hs">Sui <b>Mainnet</b></div>
+  </div>
+  <div class="hclk" id="clk">00:00:00</div>
+</div>
+<a class="back-btn" href="/dot.html">← 전체 지도</a>
+<div id="space" style="position:absolute;inset:36px 0 38px 0">
+  <div class="zone" style="left:12px;top:12px;width:152px;height:86px;background:rgba(10,30,80,0.5);border-color:rgba(55,138,221,0.3);color:#378add"><div class="zt">AAA 본사 오피스</div><div class="zs">순장바둑 AI 연구소</div></div>
+  <div class="zone" style="left:192px;top:12px;width:140px;height:86px;background:rgba(30,18,0,0.5);border-color:rgba(245,166,35,0.3);color:#F5A623"><div class="zt">AU 금화 거래소</div><div class="zs">Sui · NFT · RWA</div></div>
+  <div class="zone" style="right:12px;top:12px;width:138px;height:86px;background:rgba(12,6,32,0.5);border-color:rgba(123,104,238,0.3);color:#7B68EE"><div class="zt">미팅룸 Alpha</div><div class="zs">DAO 거버넌스</div></div>
+  <div class="zone" style="left:12px;bottom:6px;width:148px;height:82px;background:rgba(4,22,8,0.5);border-color:rgba(39,174,96,0.3);color:#27AE60"><div class="zt">순장바둑 경기장</div><div class="zs">KataGo AI · TPI</div></div>
+  <div class="zone" style="left:190px;bottom:6px;width:148px;height:82px;background:rgba(24,4,8,0.5);border-color:rgba(226,59,59,0.3);color:#E23B3B"><div class="zt">NFT 갤러리</div><div class="zs">Open Avatar · 민팅</div></div>
+  <div class="zone" style="right:12px;bottom:6px;width:138px;height:82px;background:rgba(4,20,20,0.5);border-color:rgba(26,188,156,0.3);color:#1ABC9C"><div class="zt">커뮤니티 광장</div><div class="zs">소셜 · 6개 언어</div></div>
+  <canvas id="avCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:5"></canvas>
+  <div id="tipLayer" style="position:absolute;inset:0;z-index:15;pointer-events:none"></div>
+</div>
+<div class="botbar">
+  <button class="abtn" style="border-color:#378add;color:#378add" onclick="spawnAv()">+ 소환</button>
+  <button class="abtn" style="border-color:#F5A623;color:#F5A623" onclick="doTrade()">AU 거래</button>
+  <button class="abtn" style="border-color:#27AE60;color:#27AE60" onclick="doGame()">대국</button>
+  <button class="abtn" style="border-color:#7B68EE;color:#7B68EE" onclick="doMeet()">미팅</button>
+  <button class="abtn" style="border-color:#E23B3B;color:#E23B3B" onclick="doNFT()">NFT</button>
+  <div class="feed" id="feed">[ LIVE ] A1 공간 활성화...</div>
+  <div class="lbadge">dot/A1/L1</div>
+</div>
+</div>
+<script>
+const params=new URLSearchParams(location.search);
+const curUser=params.get('user')||'guest';
+const curLang=params.get('lang')||'ko';
+document.getElementById('hurl').textContent='https://tobmate.com/dot/A1.html?user='+curUser+'&lang='+curLang;
+
+const bgC=document.getElementById('bg');
+const bgX=bgC.getContext('2d');
+const avC=document.getElementById('avCanvas');
+const avX=avC.getContext('2d');
+const uni=document.getElementById('uni');
+const space=document.getElementById('space');
+const lines=document.getElementById('lines');
+const tipLayer=document.getElementById('tipLayer');
+let W,H,SW,SH,stars=[];
+
+function resize(){
+  W=bgC.width=uni.clientWidth;H=bgC.height=uni.clientHeight;
+  SW=avC.width=space.clientWidth;SH=avC.height=space.clientHeight;
+}
+resize();window.addEventListener('resize',resize);
+
+for(let i=0;i<150;i++)stars.push({x:Math.random()*2000,y:Math.random()*800,r:Math.random()*1.1+0.2,s:Math.random()*0.2+0.06,o:Math.random()*0.7+0.2});
+
+function drawBg(){
+  bgX.fillStyle='#020818';bgX.fillRect(0,0,W,H);
+  const t=Date.now()/1000;
+  [[W*.28,H*.4,W*.4,'rgba(0,40,140,0.1)'],[W*.72,H*.6,W*.35,'rgba(60,0,140,0.07)']].forEach(([x,y,r,c])=>{
+    const g=bgX.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(0,0,0,0)');
+    bgX.fillStyle=g;bgX.fillRect(0,0,W,H);
+  });
+  [[W*.5,H*.5,85],[W*.25,H*.35,60]].forEach(([x,y,r])=>{
+    for(let i=1;i<=5;i++){bgX.beginPath();bgX.arc(x,y,r*i*(1+Math.sin(t*.35+i)*.04),0,Math.PI*2);bgX.strokeStyle='rgba(0,140,255,'+(0.035-i*.005)+')';bgX.lineWidth=.5;bgX.stroke();}
+  });
+  stars.forEach(s=>{s.x-=s.s;if(s.x<0){s.x=W;s.y=Math.random()*H;}bgX.beginPath();bgX.arc(s.x,s.y,s.r,0,Math.PI*2);bgX.fillStyle='rgba(180,210,255,'+s.o+')';bgX.fill();});
+}
+
+const ACTS=['연구 중','대국 분석','AU 매수','NFT 민팅','DAO 투표','채팅 중','강의 수강','금시세 조회','아바타 커스텀','Layer 이동'];
+const ZONES=[{x:12,y:12,w:152,h:86},{x:192,y:12,w:140,h:86},{x:370,y:12,w:138,h:86},{x:12,y:222,w:148,h:82},{x:190,y:222,w:148,h:82},{x:368,y:222,w:138,h:82}];
+
+const AVATARS=[
+  {id:'AAA',color:'#F5A623',skin:'#f4c08e',hair:'#3d1c02',x:80,y:60,tx:80,ty:60,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'연구 중'},
+  {id:'Raphael',color:'#378add',skin:'#d4956a',hair:'#1a1a2a',x:250,y:55,tx:250,ty:55,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'AU 매수'},
+  {id:'KataGo',color:'#27AE60',skin:'#c8a882',hair:'#0d0d0d',x:80,y:260,tx:80,ty:260,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'AI 분석'},
+  {id:'SuiDev',color:'#7B68EE',skin:'#e8c49a',hair:'#4a2080',x:490,y:55,tx:490,ty:55,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'DAO 투표'},
+  {id:'GoldAU',color:'#E23B3B',skin:'#f0b8a0',hair:'#8B1a1a',x:250,y:270,tx:250,ty:270,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'NFT 민팅'},
+  {id:'DotPro',color:'#1ABC9C',skin:'#a8d4c0',hair:'#1a3530',x:500,y:275,tx:500,ty:275,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'채팅 중'},
+  {id:'WeiGo',color:'#9b59b6',skin:'#d4b896',hair:'#2d1a40',x:145,y:165,tx:145,ty:165,vx:0,vy:0,jump:0,jumpV:0,facing:1,running:false,frame:0,act:'대국 중'},
+];
+
+function drawAvatar(av,ts){
+  const x=av.x,y=av.y-av.jump;
+  const f=av.facing,c=av.color,sk=av.skin,hr=av.hair;
+  const run=av.running;
+  const leg=run?Math.sin(av.frame*0.4)*12:0;
+  const arm=run?Math.sin(av.frame*0.4+Math.PI)*14:0;
+  const bob=run?Math.abs(Math.sin(av.frame*0.4))*2:0;
+  avX.save();avX.translate(x,y);if(f<0)avX.scale(-1,1);
+  avX.save();avX.translate(0,bob);
+  avX.beginPath();avX.ellipse(0,22,10,3,0,0,Math.PI*2);avX.fillStyle='rgba(0,0,0,0.2)';avX.fill();
+  avX.save();avX.translate(-4,10);avX.rotate(-leg*Math.PI/180);avX.fillStyle=c+'cc';avX.fillRect(-3,0,6,12);avX.fillStyle=c;avX.fillRect(-4,10,8,4);avX.restore();
+  avX.save();avX.translate(4,10);avX.rotate(leg*Math.PI/180);avX.fillStyle=c+'99';avX.fillRect(-3,0,6,12);avX.fillStyle=c+'cc';avX.fillRect(-4,10,8,4);avX.restore();
+  avX.fillStyle=c;avX.beginPath();avX.roundRect(-8,-4,16,14,3);avX.fill();
+  avX.save();avX.translate(-8,0);avX.rotate(-arm*Math.PI/180);avX.fillStyle=c+'cc';avX.fillRect(-3,0,5,9);avX.fillStyle=sk;avX.fillRect(-3,7,5,4);avX.restore();
+  avX.save();avX.translate(8,0);avX.rotate(arm*Math.PI/180);avX.fillStyle=c+'cc';avX.fillRect(-2,0,5,9);avX.fillStyle=sk;avX.fillRect(-2,7,5,4);avX.restore();
+  avX.fillStyle=sk;avX.fillRect(-3,-7,6,5);
+  avX.fillStyle=sk;avX.beginPath();avX.ellipse(0,-14,9,10,0,0,Math.PI*2);avX.fill();
+  avX.fillStyle=hr;avX.beginPath();avX.ellipse(0,-19,9,5,0,Math.PI,Math.PI*2);avX.fill();
+  avX.beginPath();avX.ellipse(-9,-14,3,5,0,0,Math.PI*2);avX.fill();
+  const blink=Math.floor(ts/3000)%20===0&&Math.floor(ts/100)%3===0;
+  if(!blink){
+    avX.fillStyle='#111';avX.beginPath();avX.ellipse(-3.5,-14,2,2,0,0,Math.PI*2);avX.fill();
+    avX.fillStyle='#111';avX.beginPath();avX.ellipse(3.5,-14,2,2,0,0,Math.PI*2);avX.fill();
+    avX.fillStyle='white';avX.beginPath();avX.ellipse(-2.8,-14.5,.7,.7,0,0,Math.PI*2);avX.fill();
+    avX.fillStyle='white';avX.beginPath();avX.ellipse(4.2,-14.5,.7,.7,0,0,Math.PI*2);avX.fill();
+  } else {
+    avX.strokeStyle='#111';avX.lineWidth=1;
+    avX.beginPath();avX.moveTo(-5.5,-14);avX.lineTo(-1.5,-14);avX.stroke();
+    avX.beginPath();avX.moveTo(1.5,-14);avX.lineTo(5.5,-14);avX.stroke();
+  }
+  avX.strokeStyle='#c0605a';avX.lineWidth=1;avX.lineCap='round';
+  avX.beginPath();avX.moveTo(-3,-10);avX.quadraticCurveTo(0,-8,3,-10);avX.stroke();
+  avX.restore();
+  avX.fillStyle=c;avX.font='bold 8px monospace';avX.textAlign='center';avX.fillText(av.id,0,32);
+  avX.fillStyle='rgba(255,255,255,0.4)';avX.font='7px monospace';avX.fillText(av.act,0,41);
+  avX.beginPath();avX.arc(0,-14,13,0,Math.PI*2);avX.strokeStyle=c+'44';avX.lineWidth=1;avX.stroke();
+  avX.restore();
+}
+
+function updateAv(av){
+  const dx=av.tx-av.x,dy=av.ty-av.y,dist=Math.hypot(dx,dy);
+  if(dist>4){
+    const sp=2.2;av.vx=dx/dist*sp;av.vy=dy/dist*sp;
+    av.x+=av.vx;av.y+=av.vy;av.facing=av.vx>0?1:-1;av.running=true;av.frame+=0.5;
+  } else {av.running=false;if(Math.random()<0.003)av.jumpV=5;}
+  if(av.jumpV>0||av.jump>0){av.jumpV-=0.4;av.jump=Math.max(0,av.jump+av.jumpV);}
+  if(Math.random()<0.006){
+    const z=ZONES[Math.floor(Math.random()*ZONES.length)];
+    av.tx=z.x+24+Math.random()*(z.w-48);av.ty=z.y+24+Math.random()*(z.h-48);
+    av.act=ACTS[Math.floor(Math.random()*ACTS.length)];
+  }
+}
+
+function drawLines(){
+  lines.innerHTML='';
+  for(let i=0;i<AVATARS.length;i++)for(let j=i+1;j<AVATARS.length;j++){
+    const a=AVATARS[i],b=AVATARS[j],d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d<120){const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+      l.setAttribute('x1',a.x);l.setAttribute('y1',a.y-a.jump);l.setAttribute('x2',b.x);l.setAttribute('y2',b.y-b.jump);
+      l.setAttribute('stroke','rgba(0,180,255,'+(((1-d/120)*0.1))+')');l.setAttribute('stroke-width','0.5');lines.appendChild(l);}
+  }
+}
+
+let tips=[];
+function showTip(av){
+  const el=document.createElement('div');el.className='tip';
+  el.style.cssText='left:'+(av.x+14)+'px;top:'+(av.y-av.jump-46)+'px;border-color:'+av.color+';color:'+av.color;
+  el.innerHTML='<b>'+av.id+'</b> · <span style="color:rgba(255,255,255,0.7)">'+av.act+'</span>';
+  tipLayer.appendChild(el);tips.push({el,t:0});
+}
+function cleanTips(){tips=tips.filter(t=>{t.t++;if(t.t>80){t.el.remove();return false;}if(t.t>60)t.el.style.opacity=(1-(t.t-60)/20);return true;});}
+
+const feedEl=document.getElementById('feed');
+const fq=[];
+function feedMsg(m){fq.unshift('[ LIVE ] '+m);if(fq.length>3)fq.pop();feedEl.textContent=fq[0];}
+
+function spawnAv(){
+  const ns=['MetaKim','Boshin','TobStar','NewUser'],cs=['#ff6b9d','#c8ff6b','#6bb5ff','#ffaa6b'],sks=['#f4d0a0','#a9d0e0','#f0c090','#d0b8e0'];
+  const i=Math.floor(Math.random()*4);
+  const av={id:ns[i],color:cs[i],skin:sks[i],hair:'#222',x:200+Math.random()*150,y:100+Math.random()*150,tx:200,ty:150,vx:0,vy:0,jump:0,jumpV:5,facing:1,running:false,frame:0,act:'입장!'};
+  AVATARS.push(av);document.getElementById('cnt').textContent=AVATARS.length;
+  feedMsg('['+av.id+'] A1 입장!');setTimeout(()=>showTip(av),200);
+}
+function doTrade(){const p=Math.floor(5800+Math.random()*300);document.getElementById('au').textContent=p.toLocaleString();const av=AVATARS.find(a=>a.id==='Raphael');if(av){av.act='AU $'+p;av.jumpV=5;showTip(av);}feedMsg('[AU] 금시세: AUD $'+p);}
+function doGame(){const av=AVATARS.find(a=>a.id==='KataGo');if(av){av.act='대국 시작!';av.jumpV=6;showTip(av);}feedMsg('[대국] KataGo AI 대국 시작!');}
+function doMeet(){const av=AVATARS.find(a=>a.id==='SuiDev');if(av){av.act='미팅 입장!';av.jumpV=5;showTip(av);}feedMsg('[미팅] DAO 거버넌스 회의');}
+function doNFT(){const av=AVATARS.find(a=>a.id==='GoldAU');if(av){av.act='민팅 완료!';av.jumpV=7;showTip(av);}feedMsg('[NFT] 아바타 NFT 민팅 완료!');}
+
+avC.addEventListener('click',e=>{
+  const rect=avC.getBoundingClientRect();const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  AVATARS.forEach(av=>{if(Math.hypot(mx-av.x,my-(av.y-av.jump))<18){av.jumpV=7;showTip(av);feedMsg('['+av.id+'] '+av.act);}});
+});
+
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toTimeString().slice(0,8)+' KST';},1000);
+
+(function loop(ts){
+  drawBg();avX.clearRect(0,0,SW,SH);
+  AVATARS.forEach(updateAv);
+  [...AVATARS].sort((a,b)=>a.y-b.y).forEach(av=>drawAvatar(av,ts));
+  drawLines();
+  if(Math.random()<0.03){const av=AVATARS[Math.floor(Math.random()*AVATARS.length)];av.act=ACTS[Math.floor(Math.random()*ACTS.length)];showTip(av);feedMsg('['+av.id+'] '+av.act);}
+  cleanTips();requestAnimationFrame(loop);
+})(0);
+
+feedMsg('A1 Dot 메타버스 — 활성화 완료');
+setTimeout(()=>{AVATARS[0].jumpV=8;showTip(AVATARS[0]);feedMsg('[AAA] 연구소 오픈!');},1500);
+setTimeout(()=>{AVATARS[1].jumpV=6;showTip(AVATARS[1]);feedMsg('[Raphael] AU 거래소 입장');},3000);
+setTimeout(()=>{AVATARS[2].jumpV=7;showTip(AVATARS[2]);feedMsg('[KataGo] AI 엔진 연결 완료');},4500);
+</script>
+
+<script>
+(function(){
+  var lang=new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ko')return;
+  var H={
+    en:{title:'AAA HQ Office',office:'AAA HQ Office',trade:'AU Gold Exchange',meeting:'Meeting Room Alpha',game:'Baduk Stadium',nft:'NFT Gallery',social:'Community Square',back:'← Map',spawn:'+ Spawn',trade_btn:'AU Trade',game_btn:'Game',meet_btn:'Meeting',nft_btn:'NFT Mint',live:'[ LIVE ] A1 Activated'},
+    zh:{title:'AAA 总部办公室',office:'AAA 总部办公室',trade:'AU 金币交易所',meeting:'会议室 Alpha',game:'围棋竞技场',nft:'NFT 画廊',social:'社区广场',back:'← 地图',spawn:'+ 召唤',trade_btn:'AU 交易',game_btn:'对局',meet_btn:'会议',nft_btn:'NFT 铸造',live:'[ 实时 ] A1 已激活'},
+    ja:{title:'AAA 本社オフィス',office:'AAA 本社オフィス',trade:'AU 金貨取引所',meeting:'ミーティングルーム Alpha',game:'囲碁競技場',nft:'NFT ギャラリー',social:'コミュニティ広場',back:'← マップ',spawn:'+ 召喚',trade_btn:'AU 取引',game_btn:'対局',meet_btn:'ミーティング',nft_btn:'NFT 鋳造',live:'[ ライブ ] A1 起動'},
+    ru:{title:'Главный офис AAA',office:'Главный офис AAA',trade:'Биржа золота AU',meeting:'Переговорная Alpha',game:'Стадион Бадук',nft:'Галерея NFT',social:'Площадь сообщества',back:'← Карта',spawn:'+ Призвать',trade_btn:'AU Торговля',game_btn:'Игра',meet_btn:'Встреча',nft_btn:'NFT',live:'[ LIVE ] A1 Активирован'},
+    ar:{title:'مكتب AAA الرئيسي',office:'مكتب AAA الرئيسي',trade:'بورصة الذهب AU',meeting:'غرفة اجتماعات Alpha',game:'ملعب Baduk',nft:'معرض NFT',social:'ساحة المجتمع',back:'← الخريطة',spawn:'+ استدعاء',trade_btn:'تداول AU',game_btn:'لعبة',meet_btn:'اجتماع',nft_btn:'سك NFT',live:'[ مباشر ] A1 مفعّل'},
+  };
+  var t=H[lang];if(!t)return;
+  setTimeout(function(){
+    // 존 타이틀
+    var zones=document.querySelectorAll('.zone');
+    var zkeys=['office','trade','meeting','game','nft','social'];
+    zones.forEach(function(z,i){
+      var zt=z.querySelector('.zt');
+      if(zt&&t[zkeys[i]])zt.textContent=t[zkeys[i]];
+    });
+    // 버튼
+    var btns=document.querySelectorAll('.abtn');
+    var bkeys=['spawn','trade_btn','game_btn','meet_btn','nft_btn'];
+    btns.forEach(function(b,i){if(t[bkeys[i]])b.textContent=t[bkeys[i]];});
+    // 뒤로가기
+    var back=document.querySelector('a.back-btn');
+    if(back)back.textContent=t.back;
+    // HUD URL
+    var hurl=document.getElementById('hurl');
+    if(hurl)hurl.textContent='https://tobmate.com/dot/A1.html?user='+(new URLSearchParams(location.search).get('user')||'guest')+'&lang='+lang;
+    if(lang==='ar')document.body.style.direction='rtl';
+  },500);
+})();
+</script>
+</body>
+</html>

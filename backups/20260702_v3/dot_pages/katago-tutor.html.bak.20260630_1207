@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AI 바둑 선생님 — KataGo Tutor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;overflow:hidden;width:100vw;height:100vh;font-family:monospace;touch-action:none;-webkit-user-select:none;user-select:none}
+#wrap{width:100vw;height:100vh;position:relative;background:#020014}
+.hud{position:absolute;top:0;left:0;right:0;height:38px;background:rgba(0,2,12,0.92);border-bottom:1px solid rgba(39,174,96,0.3);display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:10;font-size:11px;color:#27AE60}
+.back{font-size:9px;color:rgba(39,174,96,0.7);padding:3px 8px;border:1px solid rgba(39,174,96,0.3);border-radius:5px;cursor:pointer;text-decoration:none}
+.back:hover{color:#27AE60;border-color:#27AE60}
+#stage{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:160px;height:160px;cursor:pointer}
+#avatarCanvas{width:160px;height:160px}
+#avatarLabel{position:absolute;left:50%;top:62%;transform:translateX(-50%);font-size:13px;color:#27AE60;text-align:center;width:300px}
+#avatarSub{position:absolute;left:50%;top:68%;transform:translateX(-50%);font-size:10px;color:rgba(255,255,255,0.5);text-align:center;width:300px}
+#bubble{display:none;position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(560px,86vw);background:rgba(10,20,16,0.97);border:1px solid #27AE60;border-radius:14px;padding:16px 20px;z-index:8}
+#bubble.show{display:block;animation:popIn .3s ease}
+@keyframes popIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+#bubbleHead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:#27AE60}
+#bubbleLevel{font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(39,174,96,0.15);color:#27AE60}
+#bubbleText{font-size:13px;line-height:1.7;color:rgba(255,255,255,0.9)}
+#loading{display:none;font-size:12px;color:rgba(39,174,96,0.6);text-align:center}
+.botbar{position:absolute;bottom:0;left:0;right:0;height:54px;background:rgba(0,2,12,0.92);border-top:1px solid rgba(39,174,96,0.15);display:flex;align-items:center;justify-content:center;gap:10px;padding:0 14px;z-index:10}
+.abtn{padding:8px 18px;border-radius:9px;border:1px solid rgba(39,174,96,0.4);color:rgba(39,174,96,0.85);font-size:12px;font-weight:500;cursor:pointer;background:none;font-family:monospace}
+.abtn:hover{border-color:#27AE60;color:#27AE60;background:rgba(39,174,96,0.08)}
+.abtn.primary{background:rgba(39,174,96,0.15);border-color:#27AE60;color:#27AE60}
+</style>
+</head>
+<body>
+<div id="wrap">
+<div class="hud">
+  <span>🧑‍🏫 AI 바둑 선생님 — KataGo Tutor</span>
+  <a class="back" href="/dot.html">← 지도</a>
+</div>
+<div id="bubble">
+  <div id="bubbleHead">
+    <span>🧑‍🏫 선생님</span>
+    <span id="bubbleLevel" class="bubbleLevel">-</span>
+  </div>
+  <div id="bubbleText">아바타를 클릭하면 강의를 시작합니다.</div>
+</div>
+<div id="stage" onclick="askLecture()"><canvas id="avatarCanvas"></canvas></div>
+<div id="avatarLabel">KataGo 선생님</div>
+<div id="avatarSub">클릭해서 오늘의 강의를 들어보세요</div>
+<div class="botbar">
+  <button class="abtn primary" onclick="askLecture()">📖 강의 듣기</button>
+  <button class="abtn" onclick="askLecture(true)">🔄 다음 수 강의</button>
+</div>
+</div>
+<script src="/dot/space-engine.js"></script>
+<script>
+const cv = document.getElementById('avatarCanvas');
+const ctx = cv.getContext('2d');
+let frame = 0, pulsePhase = 0, talking = false, talkPhase = 0;
+let lastTurn = 5, lastWinrate = 0.5;
+
+function resizeCanvas(){
+  cv.width = 160; cv.height = 160;
+}
+resizeCanvas();
+
+const AVATAR_COL = '#27AE60', AVATAR_COL2 = '#7FFF9F';
+
+function drawAvatar(){
+  ctx.clearRect(0,0,160,160);
+  const cx=80, cy=80;
+  pulsePhase += 0.04;
+  const pulse = 0.92 + Math.sin(pulsePhase) * 0.08;
+  const talkPulse = talking ? (0.95 + Math.sin(talkPhase) * 0.1) : 1;
+  talkPhase += 0.25;
+
+  const r = 46 * pulse * talkPulse;
+
+  const g = ctx.createRadialGradient(cx,cy,r*0.5,cx,cy,r*2.2);
+  g.addColorStop(0, AVATAR_COL + (talking?'AA':'66'));
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx,cy,r*2.2,0,Math.PI*2); ctx.fill();
+
+  const sg = ctx.createRadialGradient(cx-r*.3,cy-r*.3,r*.05,cx,cy,r);
+  sg.addColorStop(0,'rgba(255,255,255,0.9)');
+  sg.addColorStop(0.3,AVATAR_COL2);
+  sg.addColorStop(0.7,AVATAR_COL);
+  sg.addColorStop(1,'rgba(10,40,20,0.85)');
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle=sg; ctx.fill();
+  ctx.strokeStyle = AVATAR_COL2+'AA'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // 바둑판 눈 (작은 격자 — 정체성 표현)
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth=1;
+  for(let i=-1;i<=1;i++){
+    ctx.beginPath(); ctx.moveTo(cx-12,cy-6+i*6); ctx.lineTo(cx+12,cy-6+i*6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-12+((i+1)*12),cy-12); ctx.lineTo(cx-12+((i+1)*12),cy); ctx.stroke();
+  }
+  // 흑돌/백돌 점 두 개 (눈처럼)
+  ctx.beginPath(); ctx.arc(cx-7,cy-3,3,0,Math.PI*2); ctx.fillStyle='#111'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+7,cy-3,3,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+
+  // 말하는 중 표시 (작은 점 3개 애니메이션)
+  if(talking){
+    for(let i=0;i<3;i++){
+      const tw = 0.3+Math.sin(talkPhase+i*0.8)*0.5;
+      ctx.beginPath(); ctx.arc(cx-8+i*8, cy+14, 2, 0, Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,'+(0.4+tw*0.5)+')'; ctx.fill();
+    }
+  }
+
+  frame++; requestAnimationFrame(drawAvatar);
+}
+drawAvatar();
+
+async function askLecture(advance){
+  talking = true;
+  document.getElementById('loading');
+  const bubble = document.getElementById('bubble');
+  document.getElementById('bubbleText').textContent = '강의를 준비하는 중...';
+  bubble.classList.add('show');
+
+  if(advance){
+    lastTurn += 1 + Math.floor(Math.random()*3);
+    lastWinrate = Math.max(0.05, Math.min(0.95, lastWinrate + (Math.random()-0.5)*0.18));
+  }
+  const prevWinrate = lastWinrate;
+  const coords = ['Q16','D4','C3','R17','K10','F3','Q4','D16','O3','C14'];
+  const coord = coords[Math.floor(Math.random()*coords.length)];
+
+  try {
+    const bal = await SpaceEngine.loadSauBalance();
+    const tpi = bal ? Math.min(2000, 800 + bal.total) : 1000;
+
+    const url = '/api/lecture?lastMove='+coord+'&playerTPI='+Math.round(tpi)+
+      '&winrate='+lastWinrate.toFixed(2)+'&prevWinrate='+prevWinrate.toFixed(2)+
+      '&turn='+lastTurn+'&lang=ko';
+    const r = await fetch(url);
+    const d = await r.json();
+
+    if(d.ok){
+      document.getElementById('bubbleText').textContent = d.text;
+      document.getElementById('bubbleLevel').textContent = d.level + ' · ' + d.phase + (d.isKeyMove?' · 핵심 수':'');
+      document.getElementById('avatarLabel').textContent = d.coord + ' (' + d.color + ') 강의 완료';
+    } else {
+      document.getElementById('bubbleText').textContent = '강의 생성에 실패했습니다. 다시 시도해주세요.';
+    }
+  } catch(e) {
+    document.getElementById('bubbleText').textContent = '선생님과 연결할 수 없습니다.';
+    console.error(e);
+  }
+  setTimeout(()=>{ talking = false; }, 1500);
+}
+
+window.addEventListener('resize', resizeCanvas);
+</script>
+</body>
+</html>

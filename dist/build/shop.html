@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Metaverse — Tobmate</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e1428;color:#fff;font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#0a0a1a;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0}
+.logo{color:#F5A623;font-weight:700;font-size:15px}
+.url-disp{font-size:11px;color:rgba(255,255,255,0.35);font-family:monospace}
+.toolbar{background:#12122a;padding:6px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.ltabs{display:flex;gap:3px}
+.ltab{font-size:10px;padding:3px 9px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.4);cursor:pointer;background:none}
+.ltab.on{background:#1a2a4a;border-color:#4A90D9;color:#4A90D9}
+.zctrl{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.05);border-radius:14px;padding:2px 7px}
+.zb{width:20px;height:20px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center}
+.zb:hover{background:rgba(255,255,255,0.22)}
+.zsl{width:75px;accent-color:#F5A623}
+.zlbl{font-size:10px;color:#888;min-width:30px;text-align:center}
+.ftypes{display:flex;gap:3px;margin-left:auto}
+.ftype{font-size:10px;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);cursor:pointer;background:none}
+.ftype.on{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.3);color:#fff}
+.avpos{font-size:10px;color:#F5A623;font-family:monospace}
+.content{display:flex;flex:1;overflow:hidden;min-height:0}
+.map-area{flex:1;overflow:auto;padding:10px;display:flex;align-items:center;justify-content:center}
+.map-inner{display:inline-flex;flex-direction:column}
+.col-labels{display:flex;padding-left:20px;margin-bottom:2px}
+.col-lbl{font-size:8px;color:#4A90D9;text-align:center;font-weight:500;flex-shrink:0}
+.row-wrap{display:flex;gap:3px}
+.row-labels{display:flex;flex-direction:column;width:17px}
+.row-lbl{font-size:8px;color:#4A90D9;text-align:right;display:flex;align-items:center;justify-content:flex-end;padding-right:3px;flex-shrink:0}
+.grid{display:grid;grid-template-columns:repeat(18,var(--csz,26px))}
+.cell{width:var(--csz,26px);height:var(--csz,26px);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;border:1px solid rgba(255,255,255,0.16);background:#1c1f3a;transition:all 0.08s;position:relative;overflow:hidden}
+.cell:hover{border-color:#fff!important;transform:scale(1.28);z-index:20}
+.cell.office{background:#0a1828;border-color:#378add!important}
+.cell.shop{background:#1e1200;border-color:#F5A623!important}
+.cell.game{background:#041608;border-color:#27AE60!important}
+.cell.meet{background:#0c0620;border-color:#7B68EE!important}
+.cell.nft{background:#180408;border-color:#E23B3B!important}
+.cell.social{background:#041414;border-color:#1ABC9C!important}
+.cell.sel{outline:2px solid #fff;outline-offset:1px;z-index:15}
+.cicon{font-size:10px;line-height:1}
+.cid{font-size:7px;color:rgba(255,255,255,0.4);line-height:1;margin-top:1px}
+.me-dot{position:absolute;top:1px;left:1px;width:5px;height:5px;border-radius:50%;background:#F5A623;animation:blink 1.5s infinite}
+.av-dot{position:absolute;bottom:1px;right:1px;width:4px;height:4px;border-radius:50%;background:#27AE60}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
+.info-panel{width:195px;background:#0d0d1a;border-left:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;flex-shrink:0}
+.ip-head{padding:10px 11px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.ip-url{font-size:9px;color:#444;font-family:monospace;word-break:break-all;margin-bottom:4px}
+.ip-name{font-size:13px;font-weight:500;color:#fff}
+.ip-badge{font-size:10px;padding:2px 8px;border-radius:8px;display:inline-block;margin-top:4px}
+.ip-body{padding:10px 11px;flex:1;overflow-y:auto}
+.ip-row{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.ip-row span{color:#666}.ip-row span:last-child{color:#ddd}
+.ip-avs{margin-top:8px}
+.ip-avt{font-size:10px;color:#444;margin-bottom:5px}
+.av-row{display:flex;gap:4px;flex-wrap:wrap}
+.av-c{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;color:#fff}
+.mbtn{margin:6px 10px 4px;padding:8px;background:rgba(245,166,35,0.1);border:1px solid #F5A623;border-radius:8px;color:#F5A623;font-size:12px;text-align:center;cursor:pointer}
+.mbtn:hover{background:rgba(245,166,35,0.22)}
+.ebtn{margin:0 10px 8px;padding:8px;background:rgba(55,138,221,0.1);border:1px solid #378add;border-radius:8px;color:#85b7eb;font-size:12px;text-align:center;cursor:pointer}
+.ebtn:hover{background:rgba(55,138,221,0.22)}
+.botbar{display:flex;align-items:center;gap:6px;padding:5px 12px;background:#0a0a1a;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:3px;font-size:9px;color:#666}
+.ld{width:7px;height:7px;border-radius:2px;border:1px solid}
+.bstat{margin-left:auto;font-size:9px;color:#444}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">⬡ Dot Metaverse</div>
+  <div class="url-disp" id="urlDisp">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+</div>
+<div class="toolbar">
+  <div class="ltabs">
+    <button class="ltab on" onclick="setLayer(1,this)">L1 dot.html</button>
+    <button class="ltab" onclick="setLayer(2,this)">L2 dot2.html</button>
+    <button class="ltab" onclick="setLayer(3,this)">L3 dot3.html</button>
+  </div>
+  <div class="zctrl">
+    <button class="zb" onclick="zoom(-1)">-</button>
+    <input type="range" class="zsl" id="zsl" min="1" max="6" value="3" oninput="setZoom(+this.value)">
+    <button class="zb" onclick="zoom(1)">+</button>
+    <span class="zlbl" id="zlbl">26px</span>
+  </div>
+  <div class="ftypes">
+    <button class="ftype on" onclick="doFilter('all',this)">전체</button>
+    <button class="ftype" onclick="doFilter('office',this)">사무실</button>
+    <button class="ftype" onclick="doFilter('shop',this)">상점</button>
+    <button class="ftype" onclick="doFilter('game',this)">게임</button>
+    <button class="ftype" onclick="doFilter('meet',this)">미팅</button>
+    <button class="ftype" onclick="doFilter('nft',this)">NFT</button>
+    <button class="ftype" onclick="doFilter('social',this)">소셜</button>
+  </div>
+  <div class="avpos" id="avpos">A1</div>
+</div>
+<div class="content">
+  <div class="map-area" id="mapArea">
+    <div class="map-inner">
+      <div class="col-labels" id="colLabels"></div>
+      <div class="row-wrap">
+        <div class="row-labels" id="rowLabels"></div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+  </div>
+  <div class="info-panel">
+    <div class="ip-head">
+      <div class="ip-url" id="ipUrl">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+      <div class="ip-name" id="ipName">전체 지도 324칸</div>
+      <div class="ip-badge" id="ipBadge" style="background:rgba(245,166,35,0.1);color:#F5A623">분양 가능</div>
+    </div>
+    <div class="ip-body">
+      <div class="ip-row"><span>소유자</span><span id="ipOwner">-</span></div>
+      <div class="ip-row"><span>방문자</span><span id="ipVisit">-</span></div>
+      <div class="ip-row"><span>언어</span><span id="ipLang">ko</span></div>
+      <div class="ip-row"><span>레이어</span><span id="ipLayer">L1</span></div>
+      <div class="ip-avs"><div class="ip-avt">접속 아바타</div><div class="av-row" id="ipAvs"></div></div>
+    </div>
+    <div class="mbtn" onclick="moveHere()">이 공간으로 이동</div>
+    <div class="ebtn" onclick="enterSpace()">입장 / 편집</div>
+  </div>
+</div>
+<div class="botbar">
+  <div class="leg"><div class="ld" style="background:#0a1828;border-color:#378add"></div>사무실</div>
+  <div class="leg"><div class="ld" style="background:#1e1200;border-color:#F5A623"></div>상점</div>
+  <div class="leg"><div class="ld" style="background:#041608;border-color:#27AE60"></div>게임</div>
+  <div class="leg"><div class="ld" style="background:#0c0620;border-color:#7B68EE"></div>미팅</div>
+  <div class="leg"><div class="ld" style="background:#180408;border-color:#E23B3B"></div>NFT</div>
+  <div class="leg"><div class="ld" style="background:#041414;border-color:#1ABC9C"></div>소셜</div>
+  <div class="bstat" id="bstat">A1~S18 324칸</div>
+</div>
+<script>
+const COLS="ABCDEFGHJKLMNOPQRS".split("");
+const TNAMES={office:"사무실",shop:"Dot 상점",game:"게임룸",meet:"미팅룸",nft:"NFT/ALD",social:"소셜"};
+const TCOLORS={office:"#378add",shop:"#F5A623",game:"#27AE60",meet:"#7B68EE",nft:"#E23B3B",social:"#1ABC9C"};
+const ICONS={office:"🏢",shop:"🛒",game:"🎮",meet:"🤝",nft:"💎",social:"💬"};
+const AVC=["#4A90D9","#F5A623","#27AE60","#7B68EE","#E23B3B","#1ABC9C"];
+const SZ=[13,17,22,26,34,44];
+const GAP=[1,1,2,2,2,3];
+const params=new URLSearchParams(location.search);
+let curUser=params.get("user")||"guest";
+let curLang=params.get("lang")||"ko";
+let layer=1,ft="all",sz=3,sel=null,myPos="A1";
+const cells={};
+const grid=document.getElementById("grid");
+const colL=document.getElementById("colLabels");
+const rowL=document.getElementById("rowLabels");
+function buildLabels(){
+  colL.innerHTML="";rowL.innerHTML="";
+  const px=SZ[sz-1],gap=GAP[sz-1];
+  colL.style.cssText="display:flex;gap:"+gap+"px;padding-left:20px;margin-bottom:"+gap+"px";
+  COLS.forEach(c=>{const d=document.createElement("div");d.className="col-lbl";d.style.width=px+"px";d.style.minWidth=px+"px";d.textContent=c;colL.appendChild(d);});
+  for(let r=1;r<=18;r++){const d=document.createElement("div");d.className="row-lbl";d.style.height=px+"px";d.style.minHeight=px+"px";d.style.marginBottom=r<18?gap+"px":"0";d.textContent=r;rowL.appendChild(d);}
+}
+for(let r=1;r<=18;r++){
+  for(let ci=0;ci<18;ci++){
+    const id=COLS[ci]+r;
+    const el=document.createElement("div");
+    el.className="cell";el.id="cl-"+id;el.title=id;
+    el.addEventListener("click",()=>pick(id));
+    grid.appendChild(el);
+    cells[id]={el,type:null,owner:null,visitors:0,avatars:[],name:null};
+  }
+}
+function makeUrl(id){
+  const lyr=layer>1?layer:"";
+  return id?"https://tobmate.com/dot"+lyr+".html?user="+curUser+"&lang="+curLang+"&cell="+id
+           :"https://tobmate.com/dot"+lyr+".html?user="+curUser+"&lang="+curLang;
+}
+function applyZoom(){
+  const px=SZ[sz-1],gap=GAP[sz-1];
+  grid.style.gridTemplateColumns="repeat(18,"+px+"px)";
+  grid.style.gap=gap+"px";
+  document.querySelectorAll(".cell").forEach(el=>{el.style.width=px+"px";el.style.height=px+"px";});
+  document.getElementById("zlbl").textContent=px+"px";
+  document.getElementById("zsl").value=sz;
+  buildLabels();renderAll();
+}
+function renderAll(){
+  const px=SZ[sz-1];let online=0;
+  Object.entries(cells).forEach(([id,c])=>{
+    const el=c.el;el.innerHTML="";
+    el.style.opacity=(ft!=="all"&&c.type!==ft)?"0.1":"1";
+    el.className="cell"+(c.type?" "+c.type:"")+(id===sel?" sel":"");
+    if(c.type){
+      if(px>=20){const ic=document.createElement("div");ic.className="cicon";ic.style.fontSize=px>=26?"10px":"8px";ic.textContent=ICONS[c.type];el.appendChild(ic);}
+      if(px>=34){const lb=document.createElement("div");lb.className="cid";lb.textContent=id;el.appendChild(lb);}
+      if(c.avatars&&c.avatars.length){const d=document.createElement("div");d.className="av-dot";el.appendChild(d);online+=c.avatars.length;}
+    } else {
+      if(px>=26){const lb=document.createElement("div");lb.className="cid";lb.style.color="rgba(255,255,255,0.15)";lb.textContent=id;el.appendChild(lb);}
+    }
+    if(id===myPos){const m=document.createElement("div");m.className="me-dot";el.appendChild(m);}
+  });
+  document.getElementById("bstat").textContent="324칸 | "+online+"명 접속";
+}
+function pick(id){
+  sel=id;const c=cells[id];
+  const url=makeUrl(id);
+  document.getElementById("urlDisp").textContent=url;
+  document.getElementById("ipUrl").textContent=url;
+  document.getElementById("ipName").textContent=c.name||(id+" 빈 공간");
+  document.getElementById("ipLayer").textContent="L"+layer;
+  document.getElementById("ipLang").textContent=curLang;
+  const b=document.getElementById("ipBadge");
+  if(c.type){b.textContent=TNAMES[c.type];b.style.background=TCOLORS[c.type]+"22";b.style.color=TCOLORS[c.type];}
+  else{b.textContent="분양 가능";b.style.background="rgba(245,166,35,0.1)";b.style.color="#F5A623";}
+  document.getElementById("ipOwner").textContent=c.owner||"미분양";
+  document.getElementById("ipVisit").textContent=(c.visitors||0)+"명";
+  const avs=document.getElementById("ipAvs");avs.innerHTML="";
+  (c.avatars||[]).forEach((av,i)=>{const d=document.createElement("div");d.className="av-c";d.style.background=AVC[i%AVC.length];d.title=av;d.textContent=av[0];avs.appendChild(d);});
+  renderAll();
+}
+function moveHere(){if(!sel)return;myPos=sel;document.getElementById("avpos").textContent=myPos;document.getElementById("urlDisp").textContent=makeUrl(myPos);renderAll();}
+function enterSpace(){if(!sel)return;window.location.href="https://tobmate.com/dot/"+sel+".html?user="+curUser+"&lang="+curLang;}
+function zoom(d){sz=Math.max(1,Math.min(6,sz+d));applyZoom();}
+function setZoom(v){sz=+v;applyZoom();}
+function setLayer(n,el){layer=n;document.querySelectorAll(".ltab").forEach(e=>e.classList.remove("on"));el.classList.add("on");document.getElementById("urlDisp").textContent=makeUrl(sel);}
+function doFilter(t,el){ft=t;document.querySelectorAll(".ftype").forEach(e=>e.classList.remove("on"));el.classList.add("on");renderAll();}
+document.getElementById("mapArea").addEventListener("wheel",e=>{e.preventDefault();zoom(e.deltaY<0?1:-1);},{passive:false});
+applyZoom();
+</script>
+</body>
+</html>

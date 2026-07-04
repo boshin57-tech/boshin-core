@@ -1,0 +1,164 @@
+'use strict';
+const http      = require('http');
+const Anthropic = require('@anthropic-ai/sdk');
+
+const PORT      = 8016;
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const LEVELS = {
+  ko: ['입문','초급','중급','고급','최상급'],
+  en: ['beginner','intermediate','advanced','expert','master'],
+};
+
+const COLOR_NAME = {
+  ko: {0:'흑',1:'백'}, en: {0:'Black',1:'White'},
+};
+
+function getLevel(tpi, lang) {
+  const l = LEVELS[lang] || LEVELS.en;
+  if (tpi < 200) return l[0];
+  if (tpi < 400) return l[1];
+  if (tpi < 600) return l[2];
+  if (tpi < 800) return l[3];
+  return l[4];
+}
+
+function getPhase(turn) {
+  if (turn < 40) return '포석';
+  if (turn < 120) return '중반';
+  return '끝내기';
+}
+
+function getWinrateComment(prev, cur) {
+  const diff = cur - prev;
+  if (Math.abs(diff) < 2) return '';
+  if (diff > 15) return `(흑 승률이 ${diff.toFixed(1)}% 급등한 핵심 수)`;
+  if (diff < -15) return `(백에게 유리한 ${Math.abs(diff).toFixed(1)}% 역전 수)`;
+  if (diff > 5) return `(흑에게 유리한 수, +${diff.toFixed(1)}%)`;
+  if (diff < -5) return `(백에게 유리한 수, ${diff.toFixed(1)}%)`;
+  return '';
+}
+
+function parseQuery(url) {
+  const u = new URL(url, 'http://x');
+  return Object.fromEntries(u.searchParams);
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = req.url || '/';
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200); return res.end();
+  }
+
+  if (url === '/health') {
+    res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
+    return res.end(JSON.stringify({status:'ok', port:PORT}));
+  }
+
+  // GET /lecture
+  if (url.startsWith('/lecture') && req.method === 'GET') {
+    const q       = parseQuery(url);
+    const lang    = q.lang || 'ko';
+    const tpi     = parseInt(q.playerTPI) || 0;
+    const lvl     = getLevel(tpi, lang);
+    const winCur  = parseFloat(q.winrate) || 0.5;
+    const winPrev = parseFloat(q.prevWinrate) || winCur;
+    const coord   = q.lastMove || '?';
+    const turn    = parseInt(q.turn) || 0;
+    const totalMoves = parseInt(q.totalMoves) || turn;
+    const colorName = (COLOR_NAME[lang] || COLOR_NAME.ko)[turn % 2] || '흑';
+    const phase   = getPhase(turn);
+    const winComment = getWinrateComment(winPrev * 100, winCur * 100);
+    const winPct  = (winCur * 100).toFixed(1);
+
+    // 승률 변화가 크면 더 심층 분석
+    const winDiff = Math.abs(winCur - winPrev) * 100;
+    const isKeyMove = winDiff > 8;
+    const maxTok = isKeyMove ? 350 : 220;
+
+    const systemPrompt = `당신은 순장바둑 AI 강사입니다. 반드시 한국어로만 답하세요.
+현재 국면: ${phase} (${turn}수째)
+학생 수준: ${lvl}
+${isKeyMove ? '⚠️ 이 수는 승률이 크게 변한 중요한 착수입니다. 왜 중요한지 핵심을 짚어주세요.' : ''}
+설명 방식:
+- ${lvl} 수준에 맞는 용어 사용
+- 이 수의 목적(방향성/세력/실리/공격/수비)
+- 다음에 주목해야 할 포인트
+- 마크다운 금지, 2~3문장으로 간결하게`;
+
+    const userMsg = `${colorName}이 ${coord}에 착수했습니다 ${winComment}
+현재 흑 승률: ${winPct}% | ${phase} ${turn}수`;
+
+    try {
+      const msg = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: maxTok,
+        system: systemPrompt,
+        messages: [{role:'user', content: userMsg}]
+      });
+      const rawText = msg.content[0]?.text || '';
+      const text = rawText.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
+      console.log(`[lecture][${phase}][${colorName}][${coord}][winDiff:${winDiff.toFixed(1)}%] ${text.slice(0,50)}`);
+      const body = Buffer.from(JSON.stringify({ok:true, text, lang, level:lvl, coord, color:colorName, phase, isKeyMove}), 'utf8');
+      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': body.length});
+      res.end(body);
+    } catch(err) {
+      console.error('[lecture]', err.message);
+      const body = Buffer.from(JSON.stringify({ok:false, error:err.message}), 'utf8');
+      res.writeHead(500, {'Content-Type':'application/json; charset=utf-8'});
+      res.end(body);
+    }
+    return;
+  }
+
+  // POST /review
+  if ((url.startsWith('/review') || url.startsWith('/api/review')) && req.method === 'POST') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', async () => {
+      try {
+        const data  = JSON.parse(body);
+        const lang  = data.lang || 'ko';
+        const moves = data.moves || '';
+        const total = data.total || 0;
+        const tpi   = parseInt(data.playerTPI) || 300;
+        const lvl   = getLevel(tpi, lang);
+
+        const systemPrompt = `당신은 순장바둑 AI 강사입니다. ${lvl} 수준 학생의 ${total}수 대국을 복기합니다.
+다음 구조로 분석하세요:
+1. 전체 흐름 한 줄 평가
+2. 잘한 수 1개 (좌표와 이유)
+3. 아쉬운 수 1개 (좌표와 개선 방향)
+4. 다음 대국 핵심 조언 1가지
+마크다운 금지, 번호 없이 자연스럽게 4~5문장으로.`;
+
+        const msg = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6', max_tokens: 500,
+          system: systemPrompt,
+          messages: [{role:'user', content:`기보: ${moves.slice(0,500)}\n총 ${total}수`}]
+        });
+        const rawText = msg.content[0]?.text || '';
+        const text = rawText.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
+        console.log(`[review][${lang}] ${text.slice(0,50)}`);
+        const rbody = Buffer.from(JSON.stringify({ok:true, text, lang, level:lvl}), 'utf8');
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': rbody.length});
+        res.end(rbody);
+      } catch(err) {
+        console.error('[review]', err.message);
+        const rbody = Buffer.from(JSON.stringify({ok:false, error:err.message}), 'utf8');
+        res.writeHead(500, {'Content-Type':'application/json; charset=utf-8'});
+        res.end(rbody);
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end('Not found');
+});
+
+server.listen(PORT, () => console.log(`[lecture-engine] port ${PORT} ready`));

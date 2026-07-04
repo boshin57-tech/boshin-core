@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TPI 관리자 — Tobmate</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh}
+.header{background:#111;border-bottom:1px solid #C9922A;padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:16px;font-weight:500;color:#C9922A}
+.header .status{font-size:12px;color:#aaa}
+.main{padding:20px 24px;max-width:1200px;margin:0 auto}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#151525;border:1px solid #333;border-radius:8px;padding:14px 16px}
+.stat-label{font-size:11px;color:#888;margin-bottom:6px}
+.stat-val{font-size:24px;font-weight:500}
+.stat-val.danger{color:#E24B4A}
+.stat-val.warning{color:#BA7517}
+.stat-val.ok{color:#1D9E75}
+.stat-val.info{color:#378ADD}
+.section{background:#151525;border:1px solid #333;border-radius:8px;margin-bottom:16px;overflow:hidden}
+.section-header{padding:12px 16px;border-bottom:1px solid #222;display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:13px;font-weight:500;color:#ddd}
+.btn{padding:5px 12px;border-radius:6px;border:none;font-size:12px;cursor:pointer;font-weight:500}
+.btn-danger{background:#E24B4A;color:#fff}
+.btn-ok{background:#1D9E75;color:#fff}
+.btn-info{background:#378ADD;color:#fff}
+.btn-warn{background:#BA7517;color:#fff}
+.btn-gray{background:#333;color:#ccc}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:8px 12px;text-align:left;color:#888;font-weight:400;border-bottom:1px solid #222;white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid #1a1a2e;vertical-align:middle}
+tr:hover{background:#1a1a2e}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-frozen{background:#1a1a3a;color:#378ADD;border:1px solid #378ADD}
+.badge-warn{background:#2a1a0a;color:#BA7517;border:1px solid #BA7517}
+.badge-normal{background:#0a1a0a;color:#1D9E75;border:1px solid #1D9E75}
+.badge-suspect{background:#2a0a0a;color:#E24B4A;border:1px solid #E24B4A}
+.flag-chip{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;margin:1px;background:#222;color:#aaa}
+.flag-chip.spike{background:#2a0a0a;color:#E24B4A}
+.flag-chip.time{background:#1a1a0a;color:#BA7517}
+.flag-chip.wr{background:#0a1a0a;color:#1D9E75}
+.log-area{padding:12px 16px;max-height:200px;overflow-y:auto;font-family:monospace;font-size:11px;color:#aaa;background:#0d0d1a}
+.log-line{margin-bottom:2px;line-height:1.5}
+.log-line.alert{color:#E24B4A}
+.log-line.warn{color:#BA7517}
+.log-line.ok{color:#1D9E75}
+.log-line.info{color:#378ADD}
+.refresh-btn{background:transparent;border:1px solid #333;color:#aaa;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer}
+.refresh-btn:hover{border-color:#C9922A;color:#C9922A}
+.secret-input{background:#0a0a1a;border:1px solid #333;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;width:200px}
+.login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0a1a;display:flex;align-items:center;justify-content:center;z-index:100}
+.login-box{background:#151525;border:1px solid #C9922A;border-radius:12px;padding:32px;text-align:center;min-width:300px}
+.login-box h2{color:#C9922A;margin-bottom:20px;font-size:16px}
+.login-box input{display:block;width:100%;background:#0a0a1a;border:1px solid #333;color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:12px}
+.login-box button{width:100%;padding:8px;background:#C9922A;border:none;color:#000;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <h2>TPI 관리자 로그인</h2>
+    <input type="password" id="secret-in" placeholder="관리자 비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">로그인</button>
+    <div id="login-err" style="color:#E24B4A;font-size:12px;margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="header">
+  <h1>TPI 관리자 대시보드 · Tobmate</h1>
+  <div class="status">
+    <span id="last-refresh">로딩 중...</span>
+    <button class="refresh-btn" onclick="loadAll()" style="margin-left:8px">새로고침</button>
+    <button class="refresh-btn" onclick="toggleAutoRefresh()" id="auto-btn" style="margin-left:4px">자동갱신 ON</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 통계 카드 -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">전체 유저</div>
+      <div class="stat-val info" id="s-total">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">AI 의심</div>
+      <div class="stat-val warning" id="s-suspect">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TPI 동결</div>
+      <div class="stat-val danger" id="s-frozen">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">오늘 대국</div>
+      <div class="stat-val ok" id="s-games">-</div>
+    </div>
+  </div>
+
+  <!-- AI 의심 유저 -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">AI 의심 유저 목록</span>
+      <button class="btn btn-warn" onclick="loadSuspects()">새로고침</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>유저 ID</th><th>TPI</th><th>경고 횟수</th><th>상태</th><th>탐지 유형</th><th>마지막 탐지</th><th>조치</th>
+        </tr>
+      </thead>
+      <tbody id="suspects-tbody">
+        <tr><td colspan="7" style="text-align:center;color:#555;padding:20px">로딩 중...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 전체 TPI 순위 -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">TPI 순위 TOP 20</span>
+      <button class="btn btn-gray" onclick="loadRanking()">새로고침</button>
+    </div>
+    <table>
+      <thead>
+        <tr><th>#</th><th>유저 ID</th><th>TPI</th><th>등급</th><th>승률</th><th>대국수</th><th>상태</th></tr>
+      </thead>
+      <tbody id="ranking-tbody">
+        <tr><td colspan="7" style="text-align:center;color:#555;padding:20px">로딩 중...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 실시간 로그 -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">실시간 탐지 로그</span>
+      <button class="btn btn-gray" onclick="clearLog()">지우기</button>
+    </div>
+    <div class="log-area" id="log-area">
+      <div class="log-line info">[시스템] 관리자 대시보드 시작...</div>
+    </div>
+  </div>
+
+  <!-- 위험 조치 -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">관리자 조치</span>
+    </div>
+    <div style="padding:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <input class="secret-input" id="target-user" placeholder="유저 ID (비워두면 전체)">
+      <button class="btn btn-ok" onclick="unfreezeUser()">동결 해제</button>
+      <button class="btn btn-warn" onclick="resetUserTPI()">TPI 초기화</button>
+      <button class="btn btn-danger" onclick="resetAllTPI()">전체 TPI 초기화</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SECRET = '';
+var autoRefreshTimer = null;
+var isAutoRefresh = true;
+var logs = [];
+
+function doLogin() {
+  var s = document.getElementById('secret-in').value;
+  fetch('/tpi-api/tpi/admin/ai-suspects', {
+    headers: { 'X-Admin-Secret': s }
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok !== undefined) {
+      SECRET = s;
+      document.getElementById('login-overlay').style.display = 'none';
+      addLog('info', '관리자 로그인 성공');
+      loadAll();
+      startAutoRefresh();
+    } else {
+      document.getElementById('login-err').textContent = '비밀번호가 틀렸습니다';
+    }
+  }).catch(function() {
+    SECRET = s;
+    document.getElementById('login-overlay').style.display = 'none';
+    loadAll();
+    startAutoRefresh();
+  });
+}
+
+function addLog(type, msg) {
+  var now = new Date().toLocaleTimeString();
+  logs.unshift({ type, msg, time: now });
+  if (logs.length > 100) logs.pop();
+  renderLog();
+}
+
+function renderLog() {
+  var area = document.getElementById('log-area');
+  area.innerHTML = logs.map(function(l) {
+    return '<div class="log-line '+l.type+'">['+l.time+'] '+l.msg+'</div>';
+  }).join('');
+}
+
+function clearLog() { logs = []; renderLog(); }
+
+function getTierLabel(tpi) {
+  if (tpi >= 800) return '<span style="color:#00BFFF">💎프로급</span>';
+  if (tpi >= 600) return '<span style="color:#FFD700">🥇고급</span>';
+  if (tpi >= 400) return '<span style="color:#C0C0C0">🥈중급</span>';
+  return '<span style="color:#CD7F32">🥉초급</span>';
+}
+
+function loadSuspects() {
+  fetch('/tpi-api/tpi/admin/ai-suspects').then(function(r){return r.json();}).then(function(d) {
+    if (!d.ok) return;
+    document.getElementById('s-suspect').textContent = d.count;
+    document.getElementById('s-frozen').textContent = d.suspects.filter(function(s){return s.frozen;}).length;
+
+    var tbody = document.getElementById('suspects-tbody');
+    if (d.suspects.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:20px">의심 유저 없음 ✓</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.suspects.map(function(s) {
+      var badge = s.frozen
+        ? '<span class="badge badge-frozen">동결</span>'
+        : s.warn_count >= 2 ? '<span class="badge badge-suspect">위험</span>'
+        : '<span class="badge badge-warn">경고</span>';
+
+      var flags = (s.flags||[]).map(function(f) {
+        var cls = f.type==='TPI_SPIKE'?'spike':f.type==='MOVE_TIME_UNIFORM'?'time':'wr';
+        var label = f.type==='TPI_SPIKE'?'TPI급등+'+f.value:f.type==='MOVE_TIME_UNIFORM'?'착수시간균일':'승률급등'+f.rate+'%';
+        return '<span class="flag-chip '+cls+'">'+label+'</span>';
+      }).join('');
+
+      var last = s.last_detected ? new Date(s.last_detected).toLocaleString() : '-';
+
+      return '<tr>' +
+        '<td><strong>'+s.user_id+'</strong></td>' +
+        '<td>'+s.tpi+'</td>' +
+        '<td style="color:'+(s.warn_count>=3?'#E24B4A':'#BA7517')+'">'+s.warn_count+'회</td>' +
+        '<td>'+badge+'</td>' +
+        '<td>'+flags+'</td>' +
+        '<td style="color:#666;font-size:11px">'+last+'</td>' +
+        '<td style="display:flex;gap:4px">' +
+          '<button class="btn btn-ok" onclick="unfreezeUser(\''+s.user_id+'\')">해제</button>' +
+          '<button class="btn btn-warn" onclick="resetUserTPI(\''+s.user_id+'\')">초기화</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    d.suspects.forEach(function(s) {
+      if (s.frozen) addLog('alert', s.user_id + ' TPI 동결 상태');
+      else if (s.warn_count >= 2) addLog('warn', s.user_id + ' 경고 '+s.warn_count+'회 누적');
+    });
+  });
+}
+
+function loadRanking() {
+  fetch('/tpi-api/tpi/ranking').then(function(r){return r.json();}).then(function(d) {
+    if (!d.ok) return;
+    document.getElementById('s-total').textContent = d.total || d.items.length;
+    var tbody = document.getElementById('ranking-tbody');
+    tbody.innerHTML = d.items.map(function(u, i) {
+      var wr = u.recent_games && u.recent_games.length > 0
+        ? Math.round(u.recent_games.filter(function(r){return r===1;}).length / u.recent_games.length * 100) : 0;
+      var status = u.tpi_frozen
+        ? '<span class="badge badge-frozen">동결</span>'
+        : u.ai_warn_count > 0 ? '<span class="badge badge-warn">경고</span>'
+        : '<span class="badge badge-normal">정상</span>';
+      return '<tr>' +
+        '<td style="color:#555">'+(i+1)+'</td>' +
+        '<td><strong>'+u.user_id+'</strong></td>' +
+        '<td style="color:#C9922A;font-weight:500">'+u.tpi+'</td>' +
+        '<td>'+getTierLabel(u.tpi)+'</td>' +
+        '<td>'+wr+'%</td>' +
+        '<td style="color:#666">'+u.total+'국</td>' +
+        '<td>'+status+'</td>' +
+      '</tr>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('ranking-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;color:#555;padding:20px">랭킹 API 로딩 중...</td></tr>';
+  });
+}
+
+function unfreezeUser(userId) {
+  var uid = userId || document.getElementById('target-user').value.trim();
+  if (!uid) { alert('유저 ID를 입력하세요'); return; }
+  fetch('/tpi-api/tpi/admin/unfreeze', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ secret: SECRET, user_id: uid })
+  }).then(function(r){return r.json();}).then(function(d) {
+    if (d.ok) { addLog('ok', uid + ' 동결 해제 완료'); loadSuspects(); }
+    else addLog('alert', '동결 해제 실패: ' + d.reason);
+  });
+}
+
+function resetUserTPI(userId) {
+  var uid = userId || document.getElementById('target-user').value.trim();
+  if (!uid) { alert('유저 ID를 입력하세요'); return; }
+  if (!confirm(uid + '의 TPI를 초기화하시겠습니까?')) return;
+  fetch('/tpi-api/tpi/admin/reset-user', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ secret: SECRET, user_id: uid })
+  }).then(function(r){return r.json();}).then(function(d) {
+    if (d.ok) { addLog('ok', uid + ' TPI 초기화 완료'); loadAll(); }
+    else addLog('alert', '초기화 실패');
+  });
+}
+
+function resetAllTPI() {
+  if (!confirm('모든 유저의 TPI를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다!')) return;
+  if (!confirm('정말로 전체 초기화를 진행합니까?')) return;
+  fetch('/tpi-api/tpi/admin/reset-all', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ secret: SECRET })
+  }).then(function(r){return r.json();}).then(function(d) {
+    if (d.ok) { addLog('ok', '전체 TPI 초기화 완료 — '+d.reset_count+'명'); loadAll(); }
+    else addLog('alert', '초기화 실패');
+  });
+}
+
+function loadAll() {
+  loadSuspects();
+  loadRanking();
+  document.getElementById('s-games').textContent = '-';
+  document.getElementById('last-refresh').textContent = '마지막 갱신: ' + new Date().toLocaleTimeString();
+}
+
+function startAutoRefresh() {
+  autoRefreshTimer = setInterval(function() {
+    if (isAutoRefresh) { loadAll(); addLog('info', '자동 갱신'); }
+  }, 15000);
+}
+
+function toggleAutoRefresh() {
+  isAutoRefresh = !isAutoRefresh;
+  document.getElementById('auto-btn').textContent = '자동갱신 ' + (isAutoRefresh ? 'ON' : 'OFF');
+}
+</script>
+</body>
+</html>

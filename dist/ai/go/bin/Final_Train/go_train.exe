@@ -1,0 +1,5 @@
+#!/bin/bash
+export WINEARCH=win64
+export WINEPREFIX=/home/boshin57/.wine64
+cd /home/boshin57/Tobmate_Live/dist/ai/go/bin/Final_Train/
+exec wine go_train_real.exe "$@"

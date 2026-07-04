@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>순장바둑 - 시선추적 감시</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; color:#fff; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
+#status { font-size:14px; color:#aaa; margin-bottom:16px; }
+#cam-wrap { position:relative; width:320px; height:240px; background:#111; border-radius:10px; overflow:hidden; border:2px solid #222; }
+#cam { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+#overlay { position:absolute; top:0; left:0; width:100%; height:100%; }
+#alert-box { margin-top:20px; padding:14px 28px; background:#dc2626; border-radius:10px; font-size:16px; font-weight:bold; display:none; }
+#indicator { margin-top:12px; font-size:13px; color:#4ade80; }
+.btn { margin-top:16px; padding:10px 24px; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
+#btn-start { background:#2563eb; color:#fff; }
+#btn-stop { background:#374151; color:#aaa; }
+</style>
+</head>
+<body>
+<div id="status">⏳ 모델 로딩 중...</div>
+<div id="cam-wrap">
+  <video id="cam" autoplay muted playsinline></video>
+  <canvas id="overlay"></canvas>
+</div>
+<div id="alert-box">⚠️ 화면 이탈 감지!</div>
+<div id="indicator">대기 중</div>
+<button class="btn" id="btn-start" onclick="startGaze()">👁 감시 시작</button>
+<button class="btn" id="btn-stop" onclick="stopGaze()">⏹ 중지</button>
+
+<script>
+const P = new URLSearchParams(location.search);
+const USER_ID = P.get('user') || '대국자';
+const ROOM_ID = P.get('room') || 'room1';
+const REPORT_URL = P.get('report') || '';
+const THRESHOLD = 3000;
+
+let active = false, offTime = null, warned = false;
+
+async function startGaze() {
+  document.getElementById('status').textContent = '⏳ 모델 로딩 중...';
+  try {
+    const BASE = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(BASE);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(BASE);
+    const stream = await navigator.mediaDevices.getUserMedia({video:true});
+    const cam = document.getElementById('cam');
+    cam.srcObject = stream;
+    await new Promise(r => cam.onloadedmetadata = r);
+    active = true;
+    document.getElementById('status').textContent = '✅ ' + USER_ID + ' 감시 중';
+    document.getElementById('indicator').textContent = '👁 얼굴 감지 대기...';
+    loop();
+  } catch(e) {
+    document.getElementById('status').textContent = '❌ 오류: ' + e.message;
+  }
+}
+
+async function loop() {
+  if (!active) return;
+  const cam = document.getElementById('cam');
+  const canvas = document.getElementById('overlay');
+  const det = await faceapi.detectSingleFace(cam, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks(true);
+  const alert = document.getElementById('alert-box');
+  const ind = document.getElementById('indicator');
+
+  if (!det) {
+    if (!offTime) offTime = Date.now();
+    const elapsed = Date.now() - offTime;
+    ind.textContent = '⚠️ 얼굴 미감지 ' + Math.round(elapsed/1000) + '초';
+    ind.style.color = '#f59e0b';
+    if (elapsed > THRESHOLD && !warned) {
+      warned = true;
+      alert.style.display = 'block';
+      sendAlert('face_missing', elapsed);
+    }
+  } else {
+    offTime = null; warned = false;
+    alert.style.display = 'none';
+    ind.textContent = '✅ 얼굴 감지됨';
+    ind.style.color = '#4ade80';
+
+    // 눈동자 편차
+    const nose = det.landmarks.getNose()[3];
+    const box = det.detection.box;
+    const dev = Math.abs(nose.x - (box.x + box.width/2)) / box.width;
+    if (dev > 0.22) {
+      if (!offTime) offTime = Date.now();
+      const elapsed = Date.now() - offTime;
+      ind.textContent = '👀 시선 이탈 ' + Math.round(elapsed/1000) + '초';
+      ind.style.color = '#f59e0b';
+      if (elapsed > THRESHOLD && !warned) {
+        warned = true;
+        sendAlert('gaze_off', elapsed);
+      }
+    }
+  }
+  setTimeout(loop, 500);
+}
+
+function stopGaze() {
+  active = false;
+  const cam = document.getElementById('cam');
+  if (cam.srcObject) cam.srcObject.getTracks().forEach(t=>t.stop());
+  document.getElementById('status').textContent = '⏹ 중지됨';
+  document.getElementById('indicator').textContent = '-';
+}
+
+function sendAlert(type, elapsed) {
+  console.warn('[치팅감지]', USER_ID, type, elapsed);
+  if (REPORT_URL) {
+    fetch(REPORT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({userId:USER_ID, roomId:ROOM_ID, type, elapsed, ts:Date.now()})
+    }).catch(()=>{});
+  }
+  // 부모창에 postMessage
+  if (window.opener) window.opener.postMessage({type:'cheat', userId:USER_ID, cheatType:type, elapsed}, '*');
+}
+</script>
+</body>
+</html>

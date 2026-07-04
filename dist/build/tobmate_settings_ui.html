@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tobmate — 바둑 설정 / GAME SETTINGS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg:       #0A0A0F;
+  --panel:    #12121A;
+  --card:     #1A1A26;
+  --border:   rgba(0,255,200,0.12);
+  --border2:  rgba(0,255,200,0.06);
+  --accent:   #00FFC8;
+  --accent2:  #00BFFF;
+  --purple:   #9B6DFF;
+  --gold:     #F0C040;
+  --red:      #FF4B6E;
+  --white:    #F0F4FF;
+  --muted:    rgba(240,244,255,0.4);
+  --muted2:   rgba(240,244,255,0.15);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'Noto Sans KR', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 20%, rgba(0,255,200,0.04) 0%,transparent 60%),
+    radial-gradient(ellipse 500px 500px at 80% 80%, rgba(0,191,255,0.04) 0%,transparent 60%);
+  pointer-events:none;
+}
+
+/* ── MODAL CONTAINER ── */
+.modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 0 0 1px rgba(0,255,200,0.06),
+    0 24px 80px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+/* scan line texture */
+.modal::before {
+  content:'';
+  position:absolute;inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,255,200,0.008) 2px,
+    rgba(0,255,200,0.008) 4px
+  );
+  pointer-events:none;z-index:0;
+}
+
+/* ── HEADER ── */
+.modal-header { position: relative;
+  background: linear-gradient(135deg, #1A0A4A, #0A1A3A);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index:1;
+}
+
+.modal-header::after {
+  content:'';
+  position:absolute;bottom:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2),var(--purple));
+}
+
+.modal-title {
+  font-family:'DM Mono',monospace;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.modal-version {
+  font-family:'DM Mono',monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+/* ── BODY ── */
+.modal-body {
+  padding: 20px 24px 24px;
+  position:relative;z-index:1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── FIELD GROUP ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* ── SELECT ── */
+.select-wrap {
+  position: relative;
+}
+
+.sel {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  padding: 11px 36px 11px 14px;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color .2s;
+  outline: none;
+}
+
+.sel:focus, .sel:hover {
+  border-color: rgba(0,255,200,0.4);
+}
+
+.select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* ── SLIDER ── */
+.slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slider-track {
+  position: relative;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+}
+
+.slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transition: width .1s;
+}
+
+input[type=range] {
+  width: 100%;
+  height: 4px;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  z-index:2;
+  margin: 0;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 8px rgba(0,255,200,0.6);
+  margin-top: -6px;
+  transition: transform .15s, box-shadow .15s;
+}
+
+input[type=range]:hover::-webkit-slider-thumb,
+input[type=range]:focus::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 0 14px rgba(0,255,200,0.8);
+}
+
+input[type=range]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 8px rgba(0,255,200,0.5);
+}
+
+.slider-minmax span:hover { color: var(--white) !important; cursor: pointer; }.section-head:hover { color: rgba(0,255,200,0.8) !important; }.komi-note:hover { color: var(--white) !important; }.field-label:hover { color: var(--white) !important; }.slider-minmax {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted2);
+}
+
+/* ── RADIO GROUP ── */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  user-select: none;
+}
+
+.radio-item:hover {
+  border-color: rgba(0,255,200,0.25);
+  background: rgba(0,255,200,0.04);
+}
+
+.radio-item.active {
+  border-color: rgba(0,255,200,0.5);
+  background: rgba(0,255,200,0.07);
+}
+
+.radio-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,255,200,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color .2s;
+}
+
+.radio-item.active .radio-dot {
+  border-color: var(--accent);
+}
+
+.radio-dot::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.radio-item.active .radio-dot::after {
+  opacity: 1;
+}
+
+.radio-text {
+  font-size: 13px;
+  color: var(--white);
+}
+
+.radio-item.active .radio-text {
+  color: var(--accent);
+}
+
+/* ── TOGGLE ── */
+.toggle-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .2s;
+}
+
+.toggle-wrap:hover {
+  border-color: rgba(0,255,200,0.25);
+}
+
+.toggle-wrap.active {
+  border-color: rgba(0,255,200,0.4);
+  background: rgba(0,255,200,0.06);
+}
+
+.toggle-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-label {
+  font-size: 13px;
+  color: var(--white);
+}
+
+.toggle-wrap.active .toggle-label {
+  color: var(--accent);
+}
+
+.toggle-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+.toggle-switch {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  position: relative;
+  transition: background .25s, border-color .25s;
+  flex-shrink: 0;
+}
+
+.toggle-wrap.active .toggle-switch {
+  background: rgba(0,255,200,0.25);
+  border-color: var(--accent);
+}
+
+.toggle-knob {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  top: 2px;
+  left: 2px;
+  transition: left .25s, background .25s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.toggle-wrap.active .toggle-knob {
+  left: 22px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(0,255,200,0.6);
+}
+
+/* ── DIVIDER ── */
+.divider {
+  height: 1px;
+  background: var(--border2);
+  margin: 2px 0;
+}
+
+/* ── FOOTER ── */
+.modal-footer {
+  padding: 0 24px 24px;
+  display: flex;
+  gap: 10px;
+  position:relative;z-index:1;
+}
+
+.btn {
+  flex: 1;
+  padding: 13px;
+  border: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .2s;
+  outline: none;
+}
+
+.btn-start {
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: var(--bg);
+  box-shadow: 0 4px 20px rgba(0,255,200,0.3);
+}
+
+.btn-start:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(0,255,200,0.5);
+}
+
+.btn-start:active {
+  transform: translateY(0);
+}
+
+.btn-reset {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.btn-reset:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--white);
+}
+
+/* ── SECTION HEADER ── */
+.section-head {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 4px;
+  color: rgba(0,255,200,0.35);
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border2);
+  margin-bottom: 2px;
+}
+
+/* ── KOMI SPECIAL ── */
+.komi-note {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+</style>
+</head>
+<body>
+
+<div class="modal" id="modal">
+
+  <!-- HEADER -->
+  <div class="modal-header">
+    <div class="modal-title">바둑 설정 / GAME SETTINGS</div>
+    <div class="modal-version">TOBMATE v1.3.3</div>
+  </div>
+
+  <!-- BODY -->
+  <div class="modal-body">
+
+    <!-- RULE -->
+    <div class="field">
+      <div class="field-label">룰 / Rule</div>
+      <div class="select-wrap">
+        <select class="sel" id="rule" onchange="onRuleChange()">
+          <option value="sunjang">순장바둑 (Sunjang)</option>
+          <option value="japanese">일본룰 (Japanese)</option>
+          <option value="chinese">중국룰 (Chinese)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- BOARD SIZE (버튼형) -->
+    <div class="field">
+      <div class="field-label">
+        <span>크기 / Board Size</span>
+        <span class="field-value" id="boardSizeVal">19 × 19</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="setBoardSize(9,this)" class="board-size-btn" style="flex:1;padding:9px;background:var(--card);border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all .2s">9 × 9</button>
+        <button onclick="setBoardSize(13,this)" class="board-size-btn" style="flex:1;padding:9px;background:var(--card);border:1px solid var(--border2);color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all .2s">13 × 13</button>
+        <button onclick="setBoardSize(19,this)" class="board-size-btn active-board" style="flex:1;padding:9px;background:rgba(0,255,200,0.07);border:1px solid rgba(0,255,200,0.5);color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all .2s">19 × 19</button>
+      </div>
+    </div>
+
+    <!-- HANDICAP -->
+    <div class="field">
+      <div class="field-label">치석 / Handicap</div>
+      <div class="select-wrap">
+        <select class="sel" id="handicap">
+          <option value="even">접바둑 (Even)</option>
+          <option value="hosun" selected>호선 — 16pt (Hosun)</option>
+          <option value="sun">선 — 17pt (Sun)</option>
+          <option value="12">2점 접바둑</option>
+          <option value="13">3점 접바둑</option>
+          <option value="14">4점 접바둑</option>
+          <option value="15">5점 접바둑</option>
+          <option value="16">6점 접바둑</option>
+          <option value="17">7점 접바둑</option>
+          <option value="18">8점 접바둑</option>
+          <option value="19">9점 접바둑</option>
+          <option value="rank">급수에 따라</option>
+          <option value="custom">직접 선택</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+  <div class="section-head">대국 상대 / OPPONENT</div>
+  <div class="field">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,255,200,0.05);border:1px solid rgba(0,255,200,0.3);border-radius:8px;cursor:pointer">
+        <input type="radio" name="opponent" value="pvp" onchange="onOppChange(this)" style="accent-color:#00ffc8">
+        <span style="font-size:20px">&#9679;&#9675;</span>
+        <span style="color:#00ffc8;font-size:12px">사람 vs 사람</span>
+      </label>
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,255,200,0.05);border:1px solid rgba(0,255,200,0.3);border-radius:8px;cursor:pointer">
+        <input type="radio" name="opponent" value="pva" checked onchange="onOppChange(this)" style="accent-color:#00ffc8">
+        <span style="font-size:20px">&#9675;&#129302;</span>
+        <span style="color:#00ffc8;font-size:12px">사람 vs AI</span>
+      </label>
+    </div>
+    <div id="colorPickDiv" style="display:flex;gap:8px;margin-bottom:8px">
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,255,200,0.05);border:1px solid rgba(0,255,200,0.3);border-radius:8px;cursor:pointer">
+        <input type="radio" name="color" value="black" checked style="accent-color:#00ffc8">
+        <span style="font-size:24px">&#9679;</span>
+        <span style="color:#00ffc8;font-size:12px">흑 선택</span>
+      </label>
+      <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;background:rgba(0,255,200,0.05);border:1px solid rgba(0,255,200,0.3);border-radius:8px;cursor:pointer">
+        <input type="radio" name="color" value="white" style="accent-color:#00ffc8">
+        <span style="font-size:24px">&#9675;</span>
+        <span style="color:#00ffc8;font-size:12px">백 선택</span>
+      </label>
+    </div>
+    <div id="aiLevelDiv" style="margin-top:4px">
+      <div style="color:rgba(255,255,255,0.5);font-size:11px;margin-bottom:4px">AI 난이도 / AI LEVEL</div>
+      <select id="aiLevel" class="sel"><option value="1">초급 (Beginner)</option><option value="5">중급 (Intermediate)</option><option value="10" selected>고급 (Advanced)</option><option value="20">프로급 (Pro)</option></select>
+    </div>
+  </div>
+  <div class="div
+ider"></div>
+    <div class="section-head">시간 설정 / Time Settings</div>
+
+    <!-- MAIN TIME -->
+    <div class="field">
+      <div class="field-label">
+        <span>메인 타임 / Main Time</span>
+        <span class="field-value" id="mainTimeVal">10 분</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="mainTime" min="0" max="7" value="1" step="1"
+          oninput="document.getElementById('mainTimeVal').textContent=[5,10,15,20,30,40,50,60][this.value]+' 분'">
+        <div class="slider-minmax"><span>1분</span><span>30분</span><span>60분</span></div>
+      </div>
+    </div>
+
+    <!-- BYO-YOMI SECONDS -->
+    <div class="field">
+      <div class="field-label">
+        <span>보요미 / Byo-yomi</span>
+        <span class="field-value" id="byoSecondsVal">30 초</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="byoSeconds" min="5" max="120" value="30" step="5"
+          oninput="updateSlider('byoSeconds','byoSecondsVal','초')">
+        <div class="slider-minmax"><span>5초</span><span>60초</span><span>120초</span></div>
+      </div>
+    </div>
+
+    <!-- BYO-YOMI PERIODS -->
+    <div class="field">
+      <div class="field-label">
+        <span>보요미 피리어드 / Byo-yomi Periods</span>
+        <span class="field-value" id="byoPeriodsVal">3 회</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="byoPeriods" min="1" max="10" value="3"
+          oninput="updateSlider('byoPeriods','byoPeriodsVal','회')">
+        <div class="slider-minmax"><span>1회</span><span>5회</span><span>10회</span></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-head">점수 설정 / Score Settings</div>
+
+    <!-- KOMI -->
+    <div class="field">
+      <div class="field-label">
+        <span>코미 / Komi</span>
+        <span class="field-value" id="komiVal">6.5 점</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="komi" min="0" max="15" value="6.5" step="0.5"
+          oninput="updateKomi()">
+        <div class="slider-minmax"><span>0점</span><span>7.5점</span><span>15점</span></div>
+      </div>
+      <div class="komi-note">순장바둑 기본: 6.5점 / 맞바둑 기본: 6.5점</div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-head">게임 모드 / Game Mode</div>
+
+    <!-- SUNJANG TOGGLE -->
+    <div class="toggle-wrap active" id="sunjangToggle" onclick="toggleSunjang()">
+      <div class="toggle-label-wrap">
+        <div class="toggle-label">순장바둑 모드</div>
+        <div class="toggle-sub">SUNJANG BADUK · 초기 배치 적용</div>
+      </div>
+      <div class="toggle-switch">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head">대국 타입 / GAME TYPE</div>
+  <div class="field">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div onclick="setGameType('practice',this)" class="game-type-btn" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 8px;background:var(--card);border:1px solid rgba(0,255,200,0.5);border-radius:8px;cursor:pointer;transition:all .2s;aspect-ratio:1">
+        <div style="font-size:28px">🎮</div>
+        <div style="text-align:center"><div style="color:var(--muted);font-size:12px;font-weight:600">연습 대국</div><div style="color:rgba(255,255,255,0.4);font-size:10px">기력 연습</div></div>
+        <div style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:3px 10px;font-size:10px">0 mgAU</div>
+      </div>
+      <div onclick="setGameType('earn',this)" class="game-type-btn active-game" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 8px;background:rgba(0,255,200,0.07);border:1px solid rgba(0,255,200,0.5);border-radius:8px;cursor:pointer;transition:all .2s;aspect-ratio:1">
+        <div style="font-size:28px">🏆</div>
+        <div style="text-align:center"><div style="color:var(--accent);font-size:12px;font-weight:600">AU 보상 대국</div><div style="color:rgba(255,255,255,0.4);font-size:10px">이기면 획득</div></div>
+        <div style="background:rgba(255,200,0,0.2);color:#ffc800;border:1px solid rgba(255,200,0,0.4);border-radius:10px;padding:3px 10px;font-size:10px">+1 mgAU</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head">TPI 분석 / TPI ANALYSIS</div>
+  <div class="field">
+    <div class="toggle-wrap" id="tpiToggle" onclick="toggleTPI()" style="border-radius:8px">
+      <div class="toggle-label-wrap">
+        <div class="toggle-label">TPI 분석 활성화</div>
+        <div class="toggle-sub">TOBMATE PROFICIENCY INDEX · 기력점수 · AU 배율 연동</div>
+      </div>
+      <div class="toggle-switch"><div class="toggle-knob"></div></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head">아바타 강사 / AVATAR LESSON</div>
+  <div class="field">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div onclick="setAvatar('basic',this)" class="avatar-btn active-avatar" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 8px;background:rgba(0,255,200,0.07);border:1px solid rgba(0,255,200,0.5);border-radius:8px;cursor:pointer;transition:all .2s;aspect-ratio:1">
+        <div style="font-size:28px">🤖</div>
+        <div style="text-align:center"><div style="color:var(--accent);font-size:12px;font-weight:600">토봇 기본</div><div style="color:rgba(255,255,255,0.4);font-size:10px">3D 아바타 해설</div></div>
+        <div style="background:rgba(0,255,200,0.2);color:#00ffc8;border:1px solid rgba(0,255,200,0.4);border-radius:10px;padding:3px 10px;font-size:10px">0.1 mgAU</div>
+      </div>
+      <div onclick="setAvatar('premium',this)" class="avatar-btn" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 8px;background:var(--card);border:1px solid rgba(0,255,200,0.5);border-radius:8px;cursor:pointer;transition:all .2s;aspect-ratio:1">
+        <div style="font-size:28px">⭐</div>
+        <div style="text-align:center"><div style="color:var(--muted);font-size:12px;font-weight:600">프리미엄</div><div style="color:rgba(255,255,255,0.4);font-size:10px">고급 AI 강사</div></div>
+        <div style="background:rgba(255,200,0,0.2);color:#ffc800;border:1px solid rgba(255,200,0,0.4);border-radius:10px;padding:3px 10px;font-size:10px">0.5 mgAU</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head">복기 분석 / AI REVIEW</div>
+  <div class="field">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div onclick="setReview('basic',this)" class="review-btn active-review" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 8px;background:rgba(0,255,200,0.07);border:1px solid rgba(0,255,200,0.5);border-radius:8px;cursor:pointer;transition:all .2s;aspect-ratio:1">
+        <div style="font-size:28px">🔍</div>
+        <div style="text-align:center"><div style="color:var(--accent);font-size:12px;font-weight:600">기본 복기</div><div style="color:rgba(255,255,255,0.4);font-size:10px">종료 후 즉시 분석</div></div>
+        <div style="background:rgba(0,255,200,0.2);color:#00ffc8;border:1px solid rgba(0,255,200,0.4);border-radius:10px;padding:3px 10px;font-size:10px">0.1 mgAU</div>
+      </div>
+      <div onclick="setReview('detail',this)" class="review-btn" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 8px;background:var(--card);border:1px solid rgba(0,255,200,0.5);border-radius:8px;cursor:pointer;transition:all .2s;aspect-ratio:1">
+        <div style="font-size:28px">📊</div>
+        <div style="text-align:center"><div style="color:var(--muted);font-size:12px;font-weight:600">상세 분석</div><div style="color:rgba(255,255,255,0.4);font-size:10px">승부처 집중 분석</div></div>
+        <div style="background:rgba(255,200,0,0.2);color:#ffc800;border:1px solid rgba(255,200,0,0.4);border-radius:10px;padding:3px 10px;font-size:10px">0.3 mgAU</div>
+      </div>
+    </div>
+  </div>
+    <!-- FOOTER -->
+  <div class="modal-footer">
+    <button class="btn btn-reset" style="position:absolute;top:14px;right:14px;width:28px;height:28px;padding:0;font-size:16px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;" onclick="if(window.parent)window.parent.postMessage('CLOSE_SETTING','*')">✕</button>
+    <button class="btn btn-start" style="width:100%" onclick="startGame()">▶ 시작</button>
+  </div>
+
+</div>
+
+<script>
+
+const LANG = {
+  kp: {
+    title:'바둑 설정 / GAME SETTINGS', rule:'룰 / RULE', handicap:'치석 / HANDICAP',
+    timeSettings:'시간 설정 / TIME SETTINGS',
+    mainTime:'메인 타임 / MAIN TIME', min:'분',
+    byoYomi:'보요미 / BYO-YOMI', sec:'초',
+    periods:'보요미 피리어드 / BYO-YOMI PERIODS', times:'회',
+    scoreSettings:'점수 설정 / SCORE SETTINGS',
+    komi:'코미 / KOMI', pt:'점',
+    komiNote:'순장바둑 기본: 6.5점 / 맞바둑 기본: 6.5점',
+    boardSize:'크기 / BOARD SIZE',
+    gameMode:'게임 모드 / GAME MODE',
+    sunjang:'순장바둑 모드', sunjangSub:'SUNJANG BADUK · 초기 배치 적용',
+    tpi:'TPI 분석 활성화', tpiSub:'TOBMATE PROFICIENCY INDEX',
+    aiLevel:'AI 레벨 / AI LEVEL',
+    fast:'빠리 — Fast (약한 AI)', normal:'보통 — Normal', slow:'천천히 — Strong (강한 AI)',
+    reset:'리셋', start:'▶ 시작',
+    r0:'순장바둑 (Sunjang)', r2:'일본룰 (Japanese)', r3:'중국룰 (Chinese)',
+    h0:'맞바둑 (Even)', h1:'호선 — 16pt (Hosun)',
+    b0:'19 × 19 (표준)', b1:'13 × 13', b2:'9 × 9'
+  },
+  en: {
+    title:'BADUK SETTINGS', rule:'RULE', handicap:'HANDICAP',
+    timeSettings:'TIME SETTINGS',
+    mainTime:'MAIN TIME', min:'min',
+    byoYomi:'BYO-YOMI', sec:'sec',
+    periods:'BYO-YOMI PERIODS', times:'x',
+    scoreSettings:'SCORE SETTINGS',
+    komi:'KOMI', pt:'pt',
+    komiNote:'Sunjang default: 6.5 / Even default: 6.5',
+    boardSize:'BOARD SIZE',
+    gameMode:'GAME MODE',
+    sunjang:'Sunjang Baduk Mode', sunjangSub:'SUNJANG BADUK · Initial placement',
+    tpi:'TPI Analysis', tpiSub:'TOBMATE PROFICIENCY INDEX',
+    aiLevel:'AI LEVEL',
+    fast:'Fast (Weak AI)', normal:'Normal', slow:'Strong (Strong AI)',
+    reset:'Reset', start:'▶ Start',
+    r0:'Sunjang (Korean)', r2:'Japanese Rule', r3:'Chinese Rule',
+    h0:'Even Game', h1:'Hosun — 16pt',
+    b0:'19 × 19 (Standard)', b1:'13 × 13', b2:'9 × 9'
+  },
+  zh: {
+    title:'围棋设置', rule:'规则', handicap:'让子',
+    timeSettings:'时间设置',
+    mainTime:'主要时间', min:'分',
+    byoYomi:'读秒', sec:'秒',
+    periods:'读秒次数', times:'次',
+    scoreSettings:'计分设置',
+    komi:'贴目', pt:'目',
+    komiNote:'顺将围棋默认: 6.5目 / 分先默认: 6.5目',
+    boardSize:'棋盘大小',
+    gameMode:'游戏模式',
+    sunjang:'顺将围棋模式', sunjangSub:'SUNJANG BADUK · 初始布局',
+    tpi:'TPI分析', tpiSub:'TOBMATE PROFICIENCY INDEX',
+    aiLevel:'AI级别',
+    fast:'快速 (弱AI)', normal:'普通', slow:'慢速 (强AI)',
+    reset:'重置', start:'▶ 开始',
+    r0:'顺将围棋', r2:'日本规则', r3:'中国规则',
+    h0:'分先', h1:'互先 — 16目',
+    b0:'19 × 19 (标准)', b1:'13 × 13', b2:'9 × 9'
+  },
+  ja: {
+    title:'囲碁設定', rule:'ルール', handicap:'置石',
+    timeSettings:'時間設定',
+    mainTime:'持ち時間', min:'分',
+    byoYomi:'秒読み', sec:'秒',
+    periods:'秒読み回数', times:'回',
+    scoreSettings:'スコア設定',
+    komi:'コミ', pt:'目',
+    komiNote:'スンジャン基本: 6.5目 / 互先基本: 6.5目',
+    boardSize:'碁盤サイズ',
+    gameMode:'ゲームモード',
+    sunjang:'スンジャン碁モード', sunjangSub:'SUNJANG BADUK · 初期配置',
+    tpi:'TPI分析', tpiSub:'TOBMATE PROFICIENCY INDEX',
+    aiLevel:'AIレベル',
+    fast:'速い (弱いAI)', normal:'普通', slow:'遅い (強いAI)',
+    reset:'リセット', start:'▶ 開始',
+    r0:'スンジャン碁', r2:'日本ルール', r3:'中国ルール',
+    h0:'互先', h1:'ホスン — 16目',
+    b0:'19 × 19 (標準)', b1:'13 × 13', b2:'9 × 9'
+  },
+  ru: {
+    title:'НАСТРОЙКИ ГО', rule:'ПРАВИЛА', handicap:'ФОРЫ',
+    timeSettings:'НАСТРОЙКИ ВРЕМЕНИ',
+    mainTime:'ОСНОВНОЕ ВРЕМЯ', min:'мин',
+    byoYomi:'БЁ-ЁМИ', sec:'сек',
+    periods:'ПЕРИОДЫ БЁ-ЁМИ', times:'раз',
+    scoreSettings:'НАСТРОЙКИ СЧЁТА',
+    komi:'КОМИ', pt:'оч',
+    komiNote:'Сунджан по умолчанию: 6.5 / Равная игра: 6.5',
+    boardSize:'РАЗМЕР ДОСКИ',
+    gameMode:'РЕЖИМ ИГРЫ',
+    sunjang:'Режим Сунджан Го', sunjangSub:'SUNJANG BADUK · Начальная расстановка',
+    tpi:'Анализ TPI', tpiSub:'TOBMATE PROFICIENCY INDEX',
+    aiLevel:'УРОВЕНЬ ИИ',
+    fast:'Быстрый (Слабый ИИ)', normal:'Нормальный', slow:'Медленный (Сильный ИИ)',
+    reset:'Сброс', start:'▶ Начать',
+    r0:'Сунджан Го', r2:'Японские правила', r3:'Китайские правила',
+    h0:'Равная игра', h1:'Хосун — 16 очков',
+    b0:'19 × 19 (Стандарт)', b1:'13 × 13', b2:'9 × 9'
+  }
+};
+
+window.getLang = function getLang() {
+  var urlLang = new URLSearchParams(window.location.search).get("lang");
+  if (urlLang) {
+    if (urlLang.startsWith("zh")) return "zh";
+    if (urlLang.startsWith("ja")||urlLang.startsWith("jp")) return "ja";
+    if (urlLang.startsWith("ru")) return "ru";
+    if (urlLang.startsWith("en")) return "en";
+    if (urlLang === "kp") return "kp";
+  }
+  try {
+    const lang = window.parent && window.parent.i18next ?
+      window.parent.i18next.language : (navigator.language || 'kp');
+    if (lang.startsWith('zh')) return 'zh';
+    if (lang.startsWith('ja')) return 'ja';
+    if (lang.startsWith('ru')) return 'ru';
+    if (lang.startsWith('en')) return 'en';
+  } catch(e) {}
+  return 'kp';
+}
+
+window.applyLang = function applyLang() {
+  const L = LANG[getLang()] || LANG.kp;
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  // 헤더
+  const title = $$('.modal-title');
+  if (title) title.textContent = L.title;
+
+  // 섹션 헤더
+  $$('.section-head').forEach(el => {
+    const t = el.textContent;
+    if (t.includes('TIME') || t.includes('시간')) el.textContent = L.timeSettings;
+    if (t.includes('SCORE') || t.includes('점수')) el.textContent = L.scoreSettings;
+    if (t.includes('GAME') || t.includes('게임')) el.textContent = L.gameMode;
+  });
+
+  // 필드 레이블
+  $$('.field-label').forEach(el => {
+    const span = el.querySelector('span:first-child');
+    if (!span) return;
+    const t = span.textContent;
+    if (t.includes('Rule') || t.includes('룰')) span.textContent = L.rule;
+    if (t.includes('Handicap') || t.includes('치석')) span.textContent = L.handicap;
+    if (t.includes('MAIN') || t.includes('메인')) span.textContent = L.mainTime;
+    if (t.includes('BYO-YOMI') && !t.includes('PERIOD') || t.includes('보요미') && !t.includes('피리')) span.textContent = L.byoYomi;
+    if (t.includes('PERIOD') || t.includes('피리')) span.textContent = L.periods;
+    if (t.includes('KOMI') || t.includes('코미')) span.textContent = L.komi;
+    if (t.includes('BOARD') || t.includes('크기')) span.textContent = L.boardSize;
+    if (t.includes('AI LEVEL') || t.includes('AI 레벨')) span.textContent = L.aiLevel;
+  });
+
+  // 토글
+  $$('.toggle-label').forEach(el => {
+    const t = el.textContent;
+    if (t.includes('순장') || t.includes('Sunjang') || t.includes('スンジャン')) el.textContent = L.sunjang;
+    if (t.includes('TPI')) el.textContent = L.tpi;
+  });
+  $$('.toggle-sub').forEach(el => {
+    if (el.textContent.includes('SUNJANG')) el.textContent = L.sunjangSub;
+    if (el.textContent.includes('PROFICIENCY')) el.textContent = L.tpiSub;
+  });
+
+  // 라디오
+  $$('.radio-text').forEach(el => {
+    const t = el.textContent;
+    if (t.includes('Fast') || t.includes('빠리') || t.includes('速')) el.textContent = L.fast;
+    if (t.includes('Normal') || t.includes('보통') || t.includes('普通') || t.includes('普')) el.textContent = L.normal;
+    if (t.includes('Strong') || t.includes('천천') || t.includes('遅') || t.includes('慢')) el.textContent = L.slow;
+  });
+
+  // 버튼
+  const resetBtn = $$('.btn-reset:last-of-type');
+  if (resetBtn) resetBtn.textContent = L.reset;
+  const startBtn = $$('.btn-start');
+  if (startBtn) startBtn.textContent = L.start;
+
+  // 코미 노트
+  const komiNote = $$('.komi-note');
+  if (komiNote) komiNote.textContent = L.komiNote;
+
+  // 셀렉트
+  const rule = document.getElementById('rule');
+  if (rule && rule.options.length >= 3) {
+    rule.options[0].text = L.r0;
+    rule.options[1].text = L.r2;
+    rule.options[2].text = L.r3;
+  }
+  const handi = document.getElementById('handicap');
+  if (handi && handi.options.length >= 2) {
+    handi.options[0].text = L.h0;
+    handi.options[1].text = L.h1;
+  }
+  const board = document.getElementById('boardSize');
+  if (board && board.options.length >= 3) {
+    board.options[0].text = L.b0;
+    board.options[1].text = L.b1;
+    board.options[2].text = L.b2;
+  }
+}
+
+// ── 슬라이더 업데이트 ──
+function updateSlider(id, valId, unit) {
+  const val = document.getElementById(id).value;
+  document.getElementById(valId).textContent = val + ' ' + unit;
+}
+
+function updateKomi() {
+  const val = document.getElementById('komi').value;
+  document.getElementById('komiVal').textContent = parseFloat(val).toFixed(1) + ' 점';
+}
+
+// ── 보드 크기 ──
+function onBoardSize() {
+  const val = document.getElementById('boardSize').value;
+  document.getElementById('boardSizeVal').textContent = val + ' × ' + val;
+}
+
+// ── 룰 변경 시 코미 자동 조정 ──
+function onRuleChange() {
+  const rule = document.getElementById('rule').value;
+  const komiSlider = document.getElementById('komi');
+  if (rule==='chinese'){komiSlider.value=7.5;}else{komiSlider.value=6.5;}
+  updateKomi();
+  (function(){var hsel=document.getElementById('handicap');var sO=['hosun','sun'];var nO=['even','2','3','4','5','6','7','8','9','rank','custom'];Array.from(hsel.options).forEach(function(opt){if(rule==='sunjang'){opt.hidden=nO.includes(opt.value);}else{opt.hidden=sO.includes(opt.value);}});var vis=Array.from(hsel.options).find(function(o){return !o.hidden;});if(hsel.options[hsel.selectedIndex].hidden&&vis)hsel.value=vis.value;})();
+  const sunjangToggle=document.getElementById('sunjangToggle');
+  if(rule==='sunjang'){sunjangToggle.classList.add('active');}else{sunjangToggle.classList.remove('active');}
+}
+
+// ── 순장바둑 토글 ──
+function toggleSunjang() {
+  const el = document.getElementById('sunjangToggle');
+  el.classList.toggle('active');
+  const isOn = el.classList.contains('active');
+  // 룰 드롭다운도 연동
+  const ruleSelect = document.getElementById('rule');
+  if (isOn) {
+    ruleSelect.value = 'sunjang';
+  } else if (ruleSelect.value === 'sunjang') {
+    ruleSelect.value = 'korean';
+  }
+}
+
+// ── TPI 토글 ──
+function toggleTPI() {
+  const el = document.getElementById('tpiToggle');
+  el.classList.toggle('active');
+}
+
+// ── 라디오 선택 ──
+function selectRadio(groupId, el, val) {
+  const group = document.getElementById(groupId);
+  group.querySelectorAll('.radio-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  // 레이블 업데이트
+  if (groupId === 'aiLevelGroup') {
+    document.getElementById('aiLevelVal').textContent = val;
+  }
+}
+
+applyLang();
+
+// ── 보드 사이즈 버튼 ──
+function setBoardSize(val, el) {
+  document.querySelectorAll('.board-size-btn').forEach(function(b){
+    b.style.background='var(--card)';b.style.border='1px solid var(--border2)';b.style.color='var(--muted)';
+  });
+  el.style.background='rgba(0,255,200,0.07)';el.style.border='1px solid rgba(0,255,200,0.5)';el.style.color='var(--accent)';
+  document.getElementById('boardSizeVal').textContent=val+' × '+val;
+}
+// ── 대국 타입 ──
+function setGameType(type, el) {
+  document.querySelectorAll('.game-type-btn').forEach(function(b){
+    b.style.background='var(--card)';b.style.border='1px solid var(--border2)';
+  });
+  el.style.background='rgba(0,255,200,0.07)';el.style.border='1px solid rgba(0,255,200,0.5)';
+}
+// ── 아바타 선택 ──
+function setAvatar(type, el) {
+  document.querySelectorAll('.avatar-btn').forEach(function(b){
+    b.style.background='var(--card)';b.style.border='1px solid var(--border2)';
+  });
+  el.style.background='rgba(0,255,200,0.07)';el.style.border='1px solid rgba(0,255,200,0.5)';
+}
+// ── 복기 분석 선택 ──
+function setReview(type, el) {
+  document.querySelectorAll('.review-btn').forEach(function(b){
+    b.style.background='var(--card)';b.style.border='1px solid var(--border2)';
+  });
+  el.style.background='rgba(0,255,200,0.07)';el.style.border='1px solid rgba(0,255,200,0.5)';
+}
+function resetAll() {
+  document.getElementById('rule').value = 'sunjang';
+  document.getElementById('handicap').value = 'hosun';
+  document.getElementById('mainTime').value = 10;
+  document.getElementById('mainTimeVal').textContent = '10 분';
+  document.getElementById('byoSeconds').value = 30;
+  document.getElementById('byoSecondsVal').textContent = '30 초';
+  document.getElementById('byoPeriods').value = 3;
+  document.getElementById('byoPeriodsVal').textContent = '3 회';
+  document.getElementById('komi').value = 6.5;
+  document.getElementById('komiVal').textContent = '6.5 점';
+  document.getElementById('boardSize').value = '19';
+  document.getElementById('boardSizeVal').textContent = '19 × 19';
+  document.getElementById('sunjangToggle').classList.add('active');
+  document.getElementById('tpiToggle').classList.remove('active');
+  document.querySelectorAll('#aiLevelGroup .radio-item').forEach((el, i) => {
+    el.classList.toggle('active', i === 1);
+  });
+  document.getElementById('aiLevelVal').textContent = '보통';
+}
+
+// ── 시작 ──
+function startGame() {
+  applyLang();
+  const settings = {
+    rule:       document.getElementById('rule').value,
+    handicap:   (function(){const v=document.getElementById('handicap').value;if(v==='even'||v==='hosun'||v==='sun'||v==='rank'||v==='custom')return v;const n=parseInt(v);return isNaN(n)?0:n;})(),
+    mainTime:   document.getElementById('mainTime').value,
+    byoSeconds: document.getElementById('byoSeconds').value,
+    byoPeriods: document.getElementById('byoPeriods').value,
+    komi:       document.getElementById('komi').value,
+    boardSize:  document.getElementById('boardSizeVal').textContent.split(' ')[0],
+    sunjang:    document.getElementById('sunjangToggle').classList.contains('active'),
+    tpi:        document.getElementById('tpiToggle').classList.contains('active'),
+    opponent:   document.querySelector('input[name="opponent"]:checked')?.value || 'pva',
+    color:      document.querySelector('input[name="color"]:checked')?.value || 'black',
+    aiLevel:    (document.querySelector('#aiLevelGroup .radio-item.active')||{}).dataset?.val || '10',
+  };
+  console.log('START GAME:', settings);
+  const btn = document.querySelector('.btn-start');
+  btn.textContent = '⬡ 로딩중...';
+  btn.style.opacity = '0.7';
+  setTimeout(() => {
+    btn.textContent='▶ 시작';window.parent.postMessage({type:'START_GAME',settings:settings},'*'); if(window.parent) window.parent.postMessage('CLOSE_SETTING', '*');
+    btn.style.opacity = '1';
+    
+  }, 800);
+}
+</script>
+</body>
+</html>

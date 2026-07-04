@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Space — 시작하기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000408;color:#fff;font-family:monospace;min-height:100vh}
+canvas#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+.wrap{position:relative;z-index:1;max-width:620px;margin:0 auto;padding:20px 16px 60px}
+.logo{text-align:center;padding:36px 0 24px}
+.logo-icon{font-size:44px;margin-bottom:10px}
+.logo-title{font-size:22px;font-weight:500;color:#FFD700;letter-spacing:2px}
+.logo-sub{font-size:11px;color:rgba(255,215,0,0.5);margin-top:5px}
+.pb-row{display:flex;gap:4px;justify-content:center;margin-bottom:28px}
+.pb{width:28px;height:3px;border-radius:2px;background:rgba(255,255,255,0.1);transition:background 0.3s}
+.pb.done{background:#FFD700}.pb.active{background:#F5A623}
+.step{display:none;animation:fi 0.4s ease}.step.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.snum{font-size:10px;color:rgba(255,215,0,0.5);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:7px}
+.stitle{font-size:19px;font-weight:500;color:#FFD700;margin-bottom:7px;line-height:1.3}
+.sdesc{font-size:12px;color:rgba(255,255,255,0.55);line-height:1.7;margin-bottom:16px}
+.box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,215,0,0.15);border-radius:10px;padding:16px;margin-bottom:14px}
+.box-t{font-size:10px;color:rgba(255,215,0,0.5);margin-bottom:12px;letter-spacing:0.08em;text-transform:uppercase}
+.flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.fb{padding:8px 12px;border-radius:7px;border:1px solid;font-size:11px;text-align:center}
+.fa{font-size:16px;color:rgba(255,255,255,0.3)}
+.rbox{background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.25);border-radius:9px;padding:12px;margin-bottom:14px}
+.rbox-t{font-size:11px;color:rgba(255,215,0,0.6);margin-bottom:8px}
+.rrow{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.rl{color:rgba(255,255,255,0.45)}.rr{color:#FFD700;font-weight:500}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+.sg{border-radius:9px;padding:11px;border:2px solid;text-align:center;cursor:pointer;transition:all 0.2s}
+.sg:hover{transform:translateY(-2px)}.sg.sel{box-shadow:0 0 0 2px #FFD700}
+.sg-icon{font-size:26px;margin-bottom:5px}
+.sg-name{font-size:11px;font-weight:500;margin-bottom:3px}
+.sg-desc{font-size:9px;opacity:0.55}
+.sg-bonus{font-size:10px;font-weight:500;margin-top:5px;color:#FFD700}
+.pdemo{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:8px 0}
+.pd{text-align:center;cursor:pointer}
+.pd-c{width:44px;height:44px;border-radius:50%;margin:0 auto 5px;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform 0.2s}
+.pd:hover .pd-c{transform:scale(1.15)}
+.pd-n{font-size:8px;color:rgba(255,255,255,0.45)}
+.pd-s{font-size:9px;font-weight:500;margin-top:1px}
+.slist{display:flex;flex-direction:column;gap:8px}
+.si{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:7px}
+.si-n{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0;margin-top:1px}
+.si-t{font-size:12px;font-weight:500;color:#fff;margin-bottom:2px}
+.si-d{font-size:10px;color:rgba(255,255,255,0.4);line-height:1.5}
+.coord{font-family:monospace;font-size:16px;color:#FFD700;text-align:center;letter-spacing:3px;padding:12px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.2);border-radius:7px;margin:8px 0}
+.ce-row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ce{font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid}
+.tlist{display:flex;flex-direction:column;gap:5px}
+.ti{display:flex;align-items:center;gap:9px;padding:9px 11px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:7px;font-size:11px}
+.ti-icon{font-size:16px;flex-shrink:0}
+.ti-b{flex:1}
+.ti-name{color:#fff;font-weight:500}
+.ti-req{font-size:9px;color:rgba(255,255,255,0.35);margin-top:1px}
+.ti-r{color:#FFD700;font-weight:500;text-align:right;font-size:11px}
+.brow{display:flex;gap:7px;justify-content:space-between;margin-top:16px}
+.btn{padding:10px 18px;border-radius:9px;font-size:12px;cursor:pointer;font-family:monospace;border:none;transition:all 0.2s}
+.btn-p{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.45)}
+.btn-n{background:linear-gradient(135deg,#F5A623,#FFD700);color:#000;font-weight:500;flex:1}
+.btn-n:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(255,215,0,0.3)}
+.btn-s{background:linear-gradient(135deg,#27AE60,#2ecc71);color:#fff;font-weight:500;flex:1;font-size:13px;padding:13px}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="wrap">
+<div class="logo">
+  <div class="logo-icon">⭐</div>
+  <div class="logo-title">Dot Space Layer</div>
+  <div class="logo-sub">별들의 공간 — IAU 공식 외계행성 채굴 플랫폼</div>
+</div>
+<div class="pb-row" id="pbRow"></div>
+<!-- Step1 -->
+<div class="step on" id="s1">
+<div class="snum">Step 1 / 6</div>
+<div class="stitle">우주에서 금을 캐세요</div>
+<div class="sdesc">IAU 공식 명명 외계행성을 탐사·채굴하여 SAU를 획득. SAU→AU→실물 금 교환까지!</div>
+<div class="box"><div class="box-t">채굴 → 교환 구조</div>
+<div class="flow">
+  <div class="fb" style="background:rgba(245,166,35,0.1);border-color:#F5A623;color:#F5A623">⛏ SAU 채굴<br><small>행성 자동</small></div>
+  <div class="fa">→</div>
+  <div class="fb" style="background:rgba(255,215,0,0.1);border-color:#FFD700;color:#FFD700">💱 AU 교환<br><small>100 SAU=1 AU</small></div>
+  <div class="fa">→</div>
+  <div class="fb" style="background:rgba(39,174,96,0.1);border-color:#27AE60;color:#27AE60">🏆 실물 금<br><small>100,000 AU=1g</small></div>
+</div></div>
+<div class="rbox"><div class="rbox-t">🎁 시작 보상</div>
+  <div class="rrow"><span class="rl">가입 즉시</span><span class="rr">79 AU</span></div>
+  <div class="rrow"><span class="rl">튜토리얼 완료</span><span class="rr">500 AU</span></div>
+  <div class="rrow"><span class="rl">스타터 보너스</span><span class="rr">200~500 AU</span></div>
+</div>
+<div class="brow"><button class="btn btn-n" onclick="go(2)">시작하기 →</button></div>
+</div>
+
+<!-- Step2 -->
+<div class="step" id="s2">
+<div class="snum">Step 2 / 6</div>
+<div class="stitle">탐사선을 선택하세요</div>
+<div class="sdesc">탐사선 종류에 따라 특기 행성이 달라집니다!</div>
+<div class="sgrid">
+  <div class="sg" id="sg1" style="background:rgba(255,69,0,0.08);border-color:#FF4500" onclick="pick(1)">
+    <div class="sg-icon">🔴</div><div class="sg-name" style="color:#FF4500">화염 탐사선</div>
+    <div class="sg-desc">화염·가스 행성<br>채굴 +20%</div><div class="sg-bonus">+200 AU</div>
+  </div>
+  <div class="sg sel" id="sg2" style="background:rgba(39,174,96,0.08);border-color:#27AE60" onclick="pick(2)">
+    <div class="sg-icon">🟢</div><div class="sg-name" style="color:#27AE60">생명 탐사선</div>
+    <div class="sg-desc">생명·슈퍼지구<br>채굴 +20%</div><div class="sg-bonus">+300 AU</div>
+  </div>
+  <div class="sg" id="sg3" style="background:rgba(155,89,182,0.08);border-color:#9B59B6" onclick="pick(3)">
+    <div class="sg-icon">🟣</div><div class="sg-name" style="color:#9B59B6">다크 탐사선</div>
+    <div class="sg-desc">다크·수정 행성<br>채굴 +20%</div><div class="sg-bonus">+500 AU</div>
+  </div>
+</div>
+<div class="box" id="sgInfo"><div style="font-size:11px;color:rgba(255,255,255,0.4);text-align:center">탐사선을 선택하세요</div></div>
+<div class="brow"><button class="btn btn-p" onclick="go(1)">← 이전</button><button class="btn btn-n" onclick="go(3)">선택 완료 →</button></div>
+</div>
+
+<!-- Step3 -->
+<div class="step" id="s3">
+<div class="snum">Step 3 / 6</div>
+<div class="stitle">행성 유형 8가지</div>
+<div class="sdesc">행성마다 자원과 SAU 수익이 다릅니다. 클릭해서 확인하세요!</div>
+<div class="pdemo">
+  <div class="pd" onclick="pinfo('hot')"><div class="pd-c" style="background:rgba(255,69,0,0.2);border-color:#FF4500">🔴</div><div class="pd-n">화염</div><div class="pd-s" style="color:#FF4500">12~20</div></div>
+  <div class="pd" onclick="pinfo('giant')"><div class="pd-c" style="background:rgba(245,166,35,0.2);border-color:#F5A623">🟡</div><div class="pd-n">가스</div><div class="pd-s" style="color:#F5A623">11~18</div></div>
+  <div class="pd" onclick="pinfo('super')"><div class="pd-c" style="background:rgba(55,138,221,0.2);border-color:#378add">🔵</div><div class="pd-n">슈퍼지구</div><div class="pd-s" style="color:#378add">9~15</div></div>
+  <div class="pd" onclick="pinfo('habitable')"><div class="pd-c" style="background:rgba(39,174,96,0.2);border-color:#27AE60">🟢</div><div class="pd-n">생명</div><div class="pd-s" style="color:#27AE60">40~80</div></div>
+  <div class="pd" onclick="pinfo('au')"><div class="pd-c" style="background:rgba(255,215,0,0.2);border-color:#FFD700">⭐</div><div class="pd-n">AU금성</div><div class="pd-s" style="color:#FFD700">20~40</div></div>
+  <div class="pd" onclick="pinfo('dark')"><div class="pd-c" style="background:rgba(155,89,182,0.2);border-color:#9B59B6">🟣</div><div class="pd-n">다크</div><div class="pd-s" style="color:#9B59B6">25~50</div></div>
+  <div class="pd" onclick="pinfo('crystal')"><div class="pd-c" style="background:rgba(0,255,255,0.1);border-color:#00FFFF">💎</div><div class="pd-n">수정</div><div class="pd-s" style="color:#00FFFF">28~45</div></div>
+  <div class="pd" onclick="pinfo('ice')"><div class="pd-c" style="background:rgba(135,206,235,0.2);border-color:#87CEEB">❄️</div><div class="pd-n">얼음</div><div class="pd-s" style="color:#87CEEB">8~12</div></div>
+</div>
+<div class="box" id="pInfo"><div style="font-size:11px;color:rgba(255,255,255,0.4);text-align:center">행성을 클릭하세요</div></div>
+<div class="brow"><button class="btn btn-p" onclick="go(2)">← 이전</button><button class="btn btn-n" onclick="go(4)">이해했어요 →</button></div>
+</div>
+
+<!-- Step4 -->
+<div class="step" id="s4">
+<div class="snum">Step 4 / 6</div>
+<div class="stitle">채굴 방법 2가지</div>
+<div class="sdesc">심플 채굴로 빠르게 시작! 익숙해지면 정밀 좌표 채굴로 더 많은 SAU를!</div>
+<div class="slist">
+  <div class="si">
+    <div class="si-n" style="background:rgba(39,174,96,0.2);border:1px solid #27AE60;color:#27AE60">1</div>
+    <div><div class="si-t">⛏ 심플 채굴 — 초보자</div>
+    <div class="si-d">행성 클릭 → 팝업 → [즉시 채굴 시작]<br>자동으로 SAU가 쌓입니다</div></div>
+  </div>
+  <div class="si">
+    <div class="si-n" style="background:rgba(255,215,0,0.15);border:1px solid #FFD700;color:#FFD700">2</div>
+    <div><div class="si-t">🎯 정밀 좌표 채굴 — 고급</div>
+    <div class="si-d">행성 → [정밀 좌표] → L2 광맥 → L3 정밀 선택<br>블록체인 영구 기록 + 수익 더 높음</div></div>
+  </div>
+</div>
+<div class="box" style="margin-top:12px"><div class="box-t">정밀 채굴 좌표 예시</div>
+<div class="coord">A3 › K11 › C5</div>
+<div class="ce-row">
+  <div class="ce" style="background:rgba(155,89,182,0.1);border-color:#9b59b6;color:#9b59b6">A3 = 채굴칸 L1</div>
+  <div class="ce" style="background:rgba(245,166,35,0.1);border-color:#F5A623;color:#F5A623">K11 = 광맥 L2</div>
+  <div class="ce" style="background:rgba(39,174,96,0.1);border-color:#27AE60;color:#27AE60">C5 = 정밀 L3</div>
+</div></div>
+<div class="brow"><button class="btn btn-p" onclick="go(3)">← 이전</button><button class="btn btn-n" onclick="go(5)">다음 →</button></div>
+</div>
+
+<!-- Step5 -->
+<div class="step" id="s5">
+<div class="snum">Step 5 / 6</div>
+<div class="stitle">실물 금으로 교환!</div>
+<div class="sdesc">SAU를 모으면 실제 금(Au)으로 교환! 세계 최초 게임 채굴 → 실물 금 시스템!</div>
+<div class="tlist">
+  <div class="ti"><div class="ti-icon">🥉</div><div class="ti-b"><div class="ti-name">브론즈 탐험가</div><div class="ti-req">1,000 AU</div></div><div class="ti-r">0.1g 인증서</div></div>
+  <div class="ti"><div class="ti-icon">🥈</div><div class="ti-b"><div class="ti-name">실버 채굴사</div><div class="ti-req">10,000 AU</div></div><div class="ti-r">금도금 코인</div></div>
+  <div class="ti"><div class="ti-icon">🥇</div><div class="ti-b"><div class="ti-name">골드 행성주</div><div class="ti-req">100,000 AU</div></div><div class="ti-r">순금 1g!</div></div>
+  <div class="ti"><div class="ti-icon">💎</div><div class="ti-b"><div class="ti-name">다이아몬드</div><div class="ti-req">1,000,000 AU</div></div><div class="ti-r">순금 10g</div></div>
+  <div class="ti"><div class="ti-icon">👑</div><div class="ti-b"><div class="ti-name">은하 창조자</div><div class="ti-req">10,000,000 AU</div></div><div class="ti-r">골드바 100g!</div></div>
+</div>
+<div class="brow"><button class="btn btn-p" onclick="go(4)">← 이전</button><button class="btn btn-n" onclick="go(6)">다음 →</button></div>
+</div>
+
+<!-- Step6 -->
+<div class="step" id="s6">
+<div class="snum">Step 6 / 6</div>
+<div class="stitle">준비 완료! 🚀</div>
+<div class="sdesc">지금 바로 별들의 공간에서 채굴을 시작하세요!</div>
+<div class="rbox"><div class="rbox-t">🎁 시작 보상 합계</div>
+  <div class="rrow"><span class="rl">가입 보너스</span><span class="rr">79 AU</span></div>
+  <div class="rrow"><span class="rl">스타터 탐사선</span><span class="rr" id="sAU">300 AU</span></div>
+  <div class="rrow"><span class="rl">튜토리얼 완료</span><span class="rr">500 AU</span></div>
+  <div class="rrow"><span class="rl">합계</span><span class="rr" id="tAU">879 AU</span></div>
+</div>
+<div class="slist">
+  <div class="si"><div class="si-n" style="background:rgba(255,215,0,0.15);border:1px solid #FFD700;color:#FFD700">1</div><div><div class="si-t">행성 클릭 → 즉시 채굴</div><div class="si-d">화면의 행성을 클릭하면 바로 시작!</div></div></div>
+  <div class="si"><div class="si-n" style="background:rgba(255,215,0,0.15);border:1px solid #FFD700;color:#FFD700">2</div><div><div class="si-t">SAU 100개 → AU 교환</div><div class="si-d">교역소에서 자동 교환</div></div></div>
+  <div class="si"><div class="si-n" style="background:rgba(255,215,0,0.15);border:1px solid #FFD700;color:#FFD700">3</div><div><div class="si-t">목표: 1,000 AU → 브론즈!</div><div class="si-d">첫 금 인증서를 향해 채굴하세요</div></div></div>
+</div>
+<div class="brow"><button class="btn btn-p" onclick="go(5)">← 이전</button><button class="btn btn-s" onclick="startGame()">⭐ 채굴 시작!</button></div>
+</div>
+</div>
+<script>
+let cur=1,sel=2;
+const TOTAL=6;
+const PI={
+  hot:{name:'화염 행성',color:'#FF4500',res:'마그마 크리스탈, 유황',sau:'12~20 SAU',tip:'가장 흔한 행성. 초반 SAU 수집 유리.'},
+  giant:{name:'가스 행성',color:'#F5A623',res:'헬륨-3, 수소',sau:'11~18 SAU',tip:'고리 행성 多. 안정적 수익.'},
+  super:{name:'슈퍼지구',color:'#378add',res:'희토류, 철광석',sau:'9~15 SAU',tip:'다양한 광물 보유.'},
+  habitable:{name:'생명 행성',color:'#27AE60',res:'생명 에너지, 신약',sau:'40~80 SAU',tip:'최고 수익! 거주가능 구역. 희귀.'},
+  au:{name:'AU 금성',color:'#FFD700',res:'순금 AU, 금합금',sau:'20~40 SAU',tip:'전 우주 79개! 고정 고수익.'},
+  dark:{name:'다크 행성',color:'#9B59B6',res:'반물질, 타키온',sau:'25~50 SAU',tip:'최고가 자원. 매우 희귀.'},
+  crystal:{name:'수정 행성',color:'#00FFFF',res:'다이아몬드, 루비',sau:'28~45 SAU',tip:'보석 자원 전문.'},
+  ice:{name:'얼음 행성',color:'#87CEEB',res:'순수 얼음, 메탄',sau:'8~12 SAU',tip:'풍부한 냉각 자원.'},
+};
+
+function updPB(){
+  document.getElementById('pbRow').innerHTML=
+    Array.from({length:TOTAL},(_,i)=>
+      `<div class="pb ${i<cur-1?'done':i===cur-1?'active':''}"></div>`
+    ).join('');
+}
+
+function go(n){
+  document.getElementById('s'+cur).classList.remove('on');
+  cur=n;
+  document.getElementById('s'+cur).classList.add('on');
+  updPB();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function pick(n){
+  sel=n;
+  [1,2,3].forEach(i=>document.getElementById('sg'+i).classList.toggle('sel',i===n));
+  const info={
+    1:{name:'화염 탐사선',desc:'화염·가스 행성 채굴 +20%. 빠른 SAU 수집.',bonus:200,color:'#FF4500'},
+    2:{name:'생명 탐사선',desc:'생명·슈퍼지구 채굴 +20%. 희귀 행성 탐사.',bonus:300,color:'#27AE60'},
+    3:{name:'다크 탐사선',desc:'다크·수정 행성 채굴 +20%. 최고가 자원 전문.',bonus:500,color:'#9B59B6'},
+  }[n];
+  document.getElementById('sgInfo').innerHTML=
+    `<div style="font-size:12px;font-weight:500;color:${info.color};margin-bottom:5px">${info.name}</div>
+     <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5">${info.desc}</div>
+     <div style="margin-top:7px;font-size:12px;color:#FFD700">보너스: +${info.bonus} AU</div>`;
+  document.getElementById('sAU').textContent=info.bonus+' AU';
+  document.getElementById('tAU').textContent=(79+info.bonus+500)+' AU';
+}
+
+function pinfo(t){
+  const p=PI[t];
+  document.getElementById('pInfo').innerHTML=
+    `<div style="font-size:12px;font-weight:500;color:${p.color};margin-bottom:6px">${p.name}</div>
+     <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:3px">자원: ${p.res}</div>
+     <div style="font-size:11px;color:#FFD700;margin-bottom:5px">수익: ${p.sau}/사이클</div>
+     <div style="font-size:10px;color:rgba(255,255,255,0.35)">${p.tip}</div>`;
+}
+
+function startGame(){
+  localStorage.setItem('dot_space_starter',sel);
+  localStorage.setItem('dot_space_intro_done','1');
+  const p=new URLSearchParams(location.search);
+  window.location.href='/dot/space.html?user='+(p.get('user')||'guest')+'&lang='+(p.get('lang')||'ko')+'&starter='+sel+'&newuser=1';
+}
+
+// 별 배경
+const bg=document.getElementById('bg');
+const bx=bg.getContext('2d');
+let stars=[];
+function initBg(){
+  bg.width=window.innerWidth;bg.height=window.innerHeight;
+  stars=Array.from({length:120},()=>({x:Math.random()*bg.width,y:Math.random()*bg.height,r:Math.random()*1.2+0.2,s:Math.random()*0.03+0.01,t:Math.random()*Math.PI*2}));
+}
+function drawBg(){
+  bx.fillStyle='#000408';bx.fillRect(0,0,bg.width,bg.height);
+  stars.forEach(s=>{s.t+=s.s;const a=0.3+Math.sin(s.t)*0.35;bx.beginPath();bx.arc(s.x,s.y,s.r,0,Math.PI*2);bx.fillStyle=`rgba(200,220,255,${a})`;bx.fill();});
+  requestAnimationFrame(drawBg);
+}
+initBg();drawBg();
+window.addEventListener('resize',initBg);
+updPB();pick(2);
+</script>
+</body>
+</html>

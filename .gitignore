@@ -1,0 +1,17 @@
+node_modules/
+*.log
+data/
+datasets/
+models/
+storage/
+backup/
+*.tar.gz
+*.zip
+*.h5
+.env
+*.json
+!package.json
+!firebase.json
+dist/ai/go/bin/Final/weight3.dat
+dist/ai/go/bin/Final_Tob/go_tob_weight.bin.gz
+core

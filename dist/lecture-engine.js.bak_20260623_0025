@@ -1,0 +1,136 @@
+'use strict';
+const http      = require('http');
+const Anthropic = require('@anthropic-ai/sdk');
+
+const PORT      = 8016;
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const LEVELS = {
+  ko: ['입문','초급','중급','고급','최상급'],
+  en: ['beginner','intermediate','advanced','expert','master'],
+  ja: ['入門','初級','中級','上級','最上級'],
+  zh: ['入门','初级','中级','高级','顶级'],
+  ru: ['начинающий','базовый','средний','продвинутый','мастер'],
+};
+
+const SYSTEM = {
+  ko: (lvl,color,coord) => `당신은 순장바둑 AI 강사입니다. 반드시 한국어로만 답하세요. ${color}이 ${coord}에 착수했습니다. ${lvl} 수준 학생에게 2~3문장으로 설명하세요.`,
+  en: (lvl,color,coord) => `You are a Sunjang Baduk AI instructor. Answer ONLY in English. ${color} played at ${coord}. Explain to a ${lvl} student in 2-3 sentences.`,
+  ja: (lvl,color,coord) => `あなたは順場バドクのAI講師です。必ず日本語のみで答えてください。${color}が${coord}に着手しました。${lvl}レベルの生徒に2〜3文で説明してください。`,
+  zh: (lvl,color,coord) => `你是顺场围棋AI讲师。只能用中文回答。${color}落子于${coord}。向${lvl}水平的学生用2-3句话解释。`,
+  ru: (lvl,color,coord) => `Вы AI-инструктор по Сунджан Бадуку. Отвечайте ТОЛЬКО на русском. ${color} сыграл на ${coord}. Объясните студенту уровня ${lvl} в 2-3 предложениях.`,
+};
+
+const REVIEW_SYSTEM = {
+  ko: (lvl,total) => `당신은 순장바둑 AI 강사입니다. 반드시 한국어로만 답하세요. ${lvl} 수준 학생의 ${total}수 대국을 복기 분석합니다. 전체 흐름, 주요 착수 3개, 패착 지점, 개선 방향을 4~6문장으로 설명하세요.`,
+  en: (lvl,total) => `You are a Sunjang Baduk AI instructor. Answer ONLY in English. Analyze a ${total}-move game for a ${lvl} student. Explain overall flow, 3 key moves, mistakes, and improvement in 4-6 sentences.`,
+  ja: (lvl,total) => `あなたは順場バドクのAI講師です。必ず日本語のみで答えてください。${lvl}レベルの生徒の${total}手の対局を検討します。4〜6文で説明してください。`,
+  zh: (lvl,total) => `你是顺场围棋AI讲师。只能用中文回答。分析${lvl}水平学生的${total}手对局。用4-6句话说明。`,
+  ru: (lvl,total) => `Вы AI-инструктор по Сунджан Бадуку. Отвечайте ТОЛЬКО на русском. Проанализируйте партию из ${total} ходов для студента уровня ${lvl}. 4-6 предложений.`,
+};
+
+const COLOR_NAME = {
+  ko: {0:'흑',1:'백'}, en: {0:'Black',1:'White'},
+  ja: {0:'黒',1:'白'}, zh: {0:'黑',1:'白'}, ru: {0:'Чёрные',1:'Белые'},
+};
+
+function getLevel(tpi, lang) {
+  const l = LEVELS[lang] || LEVELS.en;
+  if (tpi < 200) return l[0];
+  if (tpi < 400) return l[1];
+  if (tpi < 600) return l[2];
+  if (tpi < 800) return l[3];
+  return l[4];
+}
+
+function parseQuery(url) {
+  const u = new URL(url, 'http://x');
+  return Object.fromEntries(u.searchParams);
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = req.url || '/';
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200); return res.end();
+  }
+
+  if (url === '/health') {
+    res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
+    return res.end(JSON.stringify({status:'ok', port:PORT}));
+  }
+
+  // GET /lecture
+  if (url.startsWith('/lecture') && req.method === 'GET') {
+    const q     = parseQuery(url);
+    const lang  = q.lang  || 'ko';
+    const tpi   = parseInt(q.playerTPI) || 0;
+    const lvl   = getLevel(tpi, lang);
+    const win   = ((parseFloat(q.winrate)||0.5)*100).toFixed(1);
+    const coord = q.lastMove || '?';
+    const turn  = parseInt(q.turn) || 0;
+    const colorName = (COLOR_NAME[lang] || COLOR_NAME.en)[turn] || '흑';
+
+    try {
+      const msg = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6', max_tokens: 200,
+        system: (SYSTEM[lang] || SYSTEM.en)(lvl, colorName, coord),
+        messages: [{role:'user', content:`착수: ${colorName} ${coord} | 흑 승률: ${win}% | 학생 수준: ${lvl}\n이 수를 설명해주세요.`}]
+      });
+      const rawText = msg.content[0]?.text || '';
+      const text = rawText.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
+      console.log(`[lecture][${lang}][${colorName}][${coord}] ${text.slice(0,40)}`);
+      const body = Buffer.from(JSON.stringify({ok:true, text, lang, level:lvl, coord, color:colorName}), 'utf8');
+      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': body.length});
+      res.end(body);
+    } catch(err) {
+      console.error('[lecture]', err.message);
+      const body = Buffer.from(JSON.stringify({ok:false, error:err.message}), 'utf8');
+      res.writeHead(500, {'Content-Type':'application/json; charset=utf-8'});
+      res.end(body);
+    }
+    return;
+  }
+
+  // POST /review - 복기 분석
+  if ((url.startsWith('/review') || url.startsWith('/api/review')) && req.method === 'POST') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        const lang  = data.lang || 'ko';
+        const moves = data.moves || '';
+        const total = data.total || 0;
+        const tpi   = parseInt(data.playerTPI) || 300;
+        const lvl   = getLevel(tpi, lang);
+
+        const msg = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6', max_tokens: 600,
+          system: (REVIEW_SYSTEM[lang] || REVIEW_SYSTEM.en)(lvl, total),
+          messages: [{role:'user', content:`기보(착수 순서): ${moves.slice(0,500)}\n총 ${total}수 대국입니다. 복기 분석해주세요.`}]
+        });
+        const rawText = msg.content[0]?.text || '';
+      const text = rawText.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
+        console.log(`[review][${lang}] ${text.slice(0,40)}`);
+        const rbody = Buffer.from(JSON.stringify({ok:true, text, lang, level:lvl}), 'utf8');
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': rbody.length});
+        res.end(rbody);
+      } catch(err) {
+        console.error('[review]', err.message);
+        const rbody = Buffer.from(JSON.stringify({ok:false, error:err.message}), 'utf8');
+        res.writeHead(500, {'Content-Type':'application/json; charset=utf-8'});
+        res.end(rbody);
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end('Not found');
+});
+
+server.listen(PORT, () => console.log(`[lecture-engine] port ${PORT} ready`));

@@ -1,0 +1,25 @@
+#!/bin/bash
+export WINEARCH=win64
+export WINEPREFIX=/home/boshin57/.wine64
+cd /home/boshin57/Tobmate_Live/dist/ai/go/bin/Final/
+
+PIPE=$(mktemp -u)
+mkfifo "$PIPE"
+
+wine go_real.exe 2>/dev/null < /dev/stdin > "$PIPE" &
+WINE_PID=$!
+
+python3 -u -c "
+import sys
+with open('$PIPE', 'r') as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        if '!' in line: line = line.split('!')[-1].strip()
+        if not line: continue
+        if line.startswith('----') or line.startswith('###') or line.startswith('patt'): continue
+        sys.stdout.write(line + '\n')
+        sys.stdout.flush()
+"
+wait $WINE_PID
+rm -f "$PIPE"

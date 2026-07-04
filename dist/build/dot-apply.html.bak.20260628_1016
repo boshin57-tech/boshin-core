@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot 분양 신청</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#020818;color:#fff;font-family:sans-serif;min-height:100vh}
+.top{background:#0a0a1a;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(245,166,35,0.2)}
+.logo{color:#F5A623;font-weight:700;font-size:15px}
+.wrap{max-width:640px;margin:24px auto;padding:0 16px}
+.hero{background:linear-gradient(135deg,rgba(245,166,35,0.08),rgba(55,138,221,0.08));border:1px solid rgba(245,166,35,0.2);border-radius:14px;padding:24px;margin-bottom:20px;text-align:center}
+.hero-title{font-size:22px;font-weight:700;color:#F5A623;margin-bottom:8px}
+.hero-sub{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.price-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;text-align:center}
+.price-layer{font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px}
+.price-au{font-size:20px;font-weight:700;color:#F5A623}
+.price-sub{font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px}
+.card{background:#0d0d20;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:500;color:#00b4ff;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;background:#060e1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;font-family:sans-serif}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#F5A623}
+.field textarea{height:70px;resize:vertical}
+.cell-grid{display:inline-flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.col-row-a{display:flex;gap:2px;padding-left:20px;margin-bottom:1px}
+.col-lbl-a{font-size:7px;color:#4A90D9;text-align:center;font-weight:700;flex-shrink:0}
+.row-line-a{display:flex;gap:2px;align-items:center}
+.row-lbl-a{font-size:7px;color:#4A90D9;width:18px;text-align:right;padding-right:3px;flex-shrink:0;font-weight:700}
+.gc{width:26px;height:26px;border-radius:4px;border:1.5px solid;cursor:pointer;font-size:7px;display:flex;align-items:center;justify-content:center;transition:all 0.1s;flex-shrink:0}
+.gc:hover{border-color:#F5A623;color:#F5A623;transform:scale(1.2);z-index:5}
+.gc.sel{border-color:#F5A623;background:rgba(245,166,35,0.2);color:#F5A623}
+.gc.taken{border-color:#E23B3B;background:rgba(226,59,59,0.1);color:#E23B3B;cursor:not-allowed}
+.gc.pending{border-color:#FFD700;background:rgba(255,215,0,0.08);color:#FFD700;cursor:not-allowed}
+.sel-info{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px}
+.sel-info b{color:#F5A623}
+.submit-btn{width:100%;padding:13px;background:rgba(245,166,35,0.15);border:1px solid #F5A623;border-radius:10px;color:#F5A623;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.15s}
+.submit-btn:hover{background:rgba(245,166,35,0.28)}
+.status{margin-top:12px;padding:12px;border-radius:8px;font-size:13px;text-align:center;display:none;line-height:1.5}
+.status.ok{background:rgba(39,174,96,0.12);border:1px solid #27AE60;color:#27AE60;display:block}
+.status.err{background:rgba(226,59,59,0.12);border:1px solid #E23B3B;color:#E23B3B;display:block}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.4)}
+.ld{width:8px;height:8px;border-radius:2px;border:1px solid}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">⬡ Dot 분양 신청</div>
+  <a href="/dot.html" style="font-size:12px;color:rgba(255,255,255,0.4)">← 전체 지도</a>
+</div>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-title">Dot 메타버스 분양 신청</div>
+    <div class="hero-sub">18×18 = 324개 가상공간 중 원하는 칸을 선택하세요<br>사무실·상점·게임룸·미팅룸·NFT·소셜 공간으로 자유롭게 구성</div>
+    <div class="pricing-grid">
+      <div class="price-card"><div class="price-layer">Layer 1</div><div class="price-au">10 AU</div><div class="price-sub">기본 공간<br>월 2 AU</div></div>
+      <div class="price-card" style="border-color:rgba(55,138,221,0.3)"><div class="price-layer">Layer 2</div><div class="price-au" style="color:#378add">20 AU</div><div class="price-sub">확장 공간<br>월 4 AU</div></div>
+      <div class="price-card" style="border-color:rgba(123,104,238,0.3)"><div class="price-layer">Layer 3</div><div class="price-au" style="color:#7B68EE">50 AU</div><div class="price-sub">프리미엄<br>월 8 AU</div></div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.3)">거래 수수료 3% · AU 금화 결제</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📍 칸 선택</div>
+    <div class="cell-grid" id="cellGrid"></div>
+    <div class="sel-info">선택: <b id="selLabel">없음</b> &nbsp;|&nbsp; 상태: <span id="selStatus">-</span></div>
+    <div class="legend">
+      <div class="leg"><div class="ld" style="background:rgba(245,166,35,0.2);border-color:#F5A623"></div>선택됨</div>
+      <div class="leg"><div class="ld" style="background:rgba(226,59,59,0.1);border-color:#E23B3B"></div>분양완료</div>
+      <div class="leg"><div class="ld" style="background:rgba(255,215,0,0.08);border-color:#FFD700"></div>승인대기</div>
+      <div class="leg"><div class="ld" style="background:#060e1a;border-color:rgba(255,255,255,0.1)"></div>분양가능</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✏️ 신청 정보</div>
+    <div class="field"><label>유저 ID</label><input id="fuserId" type="text" placeholder="Tobmate 유저명"></div>
+    <div class="field"><label>공간 이름</label><input id="fname" type="text" placeholder="예: AAA 순장바둑 연구소"></div>
+    <div class="field"><label>공간 유형</label>
+      <select id="ftype">
+        <option value="office">🏢 사무실/오피스</option>
+        <option value="shop">🛒 Dot 상점</option>
+        <option value="game">🎮 게임룸</option>
+        <option value="meet">🤝 미팅룸</option>
+        <option value="nft">💎 NFT/AU 갤러리</option>
+        <option value="social">💬 소셜/커뮤니티</option>
+      </select>
+    </div>
+    <div class="field"><label>레이어</label>
+      <select id="flayer">
+        <option value="1">Layer 1 — 10 AU</option>
+        <option value="2">Layer 2 — 20 AU</option>
+        <option value="3">Layer 3 — 50 AU</option>
+      </select>
+    </div>
+    <div class="field"><label>공간 설명</label><textarea id="fdesc" placeholder="이 공간을 어떻게 활용할지 설명해주세요"></textarea></div>
+    <div class="field"><label>링크 / 연락처</label><input id="flink" type="text" placeholder="https:// 또는 이메일"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 AU 결제 확인</div>
+    <div style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:rgba(255,255,255,0.5)">분양가</span><span id="priceDisp" style="color:#F5A623;font-weight:500">10 AU</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:rgba(255,255,255,0.5)">월 유지비</span><span style="color:#F5A623;font-weight:500" id="monthlyDisp">2 AU/월</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:rgba(255,255,255,0.5)">거래 수수료</span><span style="color:#F5A623;font-weight:500">3%</span></div>
+    </div>
+    <button class="submit-btn" onclick="apply()">분양 신청하기</button>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+const COLS='ABCDEFGHJKLMNOPQRS'.split('');
+const PRICES={1:10,2:20,3:50};
+const MONTHLY={1:2,2:4,3:8};
+let selCell=null;
+let cellData={};
+
+const params=new URLSearchParams(location.search);
+if(params.get('cell'))selCell=params.get('cell');
+
+fetch('/dot-api/cells').then(r=>r.json()).then(d=>{
+  cellData=d;buildGrid();
+}).catch(()=>buildGrid());
+
+const PAL=[
+  {bg:'#1a0808',bd:'#FF4444'},{bg:'#1a0d00',bd:'#FF8C00'},{bg:'#1a1800',bd:'#FFD700'},
+  {bg:'#0a1800',bd:'#7FFF00'},{bg:'#001a08',bd:'#00FF7F'},{bg:'#001a1a',bd:'#00FFFF'},
+  {bg:'#000d1a',bd:'#00BFFF'},{bg:'#00001a',bd:'#4488FF'},{bg:'#0a001a',bd:'#9933FF'},
+  {bg:'#1a001a',bd:'#FF00FF'},{bg:'#1a000d',bd:'#FF1493'},{bg:'#0d1a00',bd:'#AAFF00'},
+  {bg:'#001a14',bd:'#20B2AA'},{bg:'#14001a',bd:'#DA70D6'},{bg:'#1a0a14',bd:'#FF69B4'},
+  {bg:'#0a1400',bd:'#9ACD32'},{bg:'#00141a',bd:'#5FC0C0'},{bg:'#140a00',bd:'#FFA500'},
+];
+const TBGS_A={office:'#0a1828',shop:'#1e1200',game:'#041608',meet:'#0c0620',nft:'#180408',social:'#041414'};
+const TCOLORS_A={office:'#378add',shop:'#F5A623',game:'#27AE60',meet:'#7B68EE',nft:'#E23B3B',social:'#1ABC9C'};
+const ICONS_A={office:'🏢',shop:'🛒',game:'🎮',meet:'🤝',nft:'💎',social:'💬'};
+
+function buildGrid(){
+  const cg=document.getElementById('cellGrid');cg.innerHTML='';
+
+  // 열 라벨
+  const cr=document.createElement('div');cr.className='col-row-a';
+  COLS.forEach(c=>{
+    const d=document.createElement('div');d.className='col-lbl-a';
+    d.style.width='26px';d.style.minWidth='26px';d.textContent=c;cr.appendChild(d);
+  });
+  cg.appendChild(cr);
+
+  for(let r=1;r<=18;r++){
+    const line=document.createElement('div');line.className='row-line-a';
+    const rl=document.createElement('div');rl.className='row-lbl-a';rl.textContent=r;line.appendChild(rl);
+
+    COLS.forEach((c,ci)=>{
+      const id=c+r;
+      const d=cellData[id]||{};
+      const el=document.createElement('div');
+      const p=PAL[(ci*3+r*7)%PAL.length];
+
+      if(d.status==='approved'){
+        el.className='gc taken';
+        el.style.background=TBGS_A[d.type]||'#180408';
+        el.style.borderColor=TCOLORS_A[d.type]||'#E23B3B';
+        el.textContent=ICONS_A[d.type]||'✓';
+      } else if(d.status==='pending'){
+        el.className='gc pending';
+        el.style.background='rgba(255,215,0,0.08)';
+        el.style.borderColor='#FFD700';
+        el.textContent='⏳';
+      } else if(id===selCell){
+        el.className='gc sel';
+        el.style.background='rgba(245,166,35,0.2)';
+        el.style.borderColor='#F5A623';
+        el.textContent=id.length<=2?id:'';
+      } else {
+        el.className='gc';
+        el.style.background=p.bg;
+        el.style.borderColor=p.bd;
+        el.textContent='';
+      }
+
+      el.title=id+(d.status==='approved'?' (분양완료)':d.status==='pending'?' (대기중)':' (분양가능)');
+      el.addEventListener('click',()=>{
+        if(d.status==='approved'||d.status==='pending')return;
+        document.querySelectorAll('.gc').forEach(e=>{
+          const dd=cellData[COLS[Array.from(e.parentNode.children).indexOf(e)-1]+(Array.from(e.parentNode.parentNode.children).indexOf(e.parentNode))]||{};
+        });
+        selCell=id;
+        document.getElementById('selLabel').textContent=id;
+        document.getElementById('selStatus').textContent='분양 가능';
+        buildGrid();
+      });
+      line.appendChild(el);
+    });
+    cg.appendChild(line);
+  }
+}
+
+document.getElementById('flayer').addEventListener('change',function(){
+  const lyr=+this.value;
+  document.getElementById('priceDisp').textContent=PRICES[lyr]+' AU';
+  document.getElementById('monthlyDisp').textContent=MONTHLY[lyr]+' AU/월';
+});
+
+function apply(){
+  if(!selCell){alert('칸을 먼저 선택해주세요!');return;}
+  const userId=document.getElementById('fuserId').value.trim();
+  const name=document.getElementById('fname').value.trim();
+  if(!userId||!name){alert('유저 ID와 공간 이름을 입력해주세요!');return;}
+  const layer=+document.getElementById('flayer').value;
+  const data={
+    cellId:selCell,userId,name,
+    type:document.getElementById('ftype').value,
+    layer,auAmount:PRICES[layer],
+    desc:document.getElementById('fdesc').value,
+    link:document.getElementById('flink').value,
+  };
+  const st=document.getElementById('status');
+  fetch('/dot-api/purchase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+  .then(r=>r.json()).then(d=>{
+    if(d.ok){
+      st.className='status ok';
+      st.textContent='✅ '+selCell+' 분양 신청 완료!\n관리자 승인 후 입주가 확정됩니다.\n납부 AU: '+PRICES[layer]+' AU';
+    } else {
+      st.className='status err';
+      st.textContent='❌ '+d.msg;
+    }
+  }).catch(e=>{st.className='status err';st.textContent='❌ 오류: '+e.message;});
+}
+</script>
+</body>
+</html>

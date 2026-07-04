@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="applyTitle">Dot 분양 신청</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#020818;color:#fff;font-family:sans-serif;min-height:100vh}
+.top{background:#0a0a1a;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(245,166,35,0.2)}
+.logo{color:#F5A623;font-weight:700;font-size:15px}
+.wrap{max-width:640px;margin:24px auto;padding:0 16px}
+.hero{background:linear-gradient(135deg,rgba(245,166,35,0.08),rgba(55,138,221,0.08));border:1px solid rgba(245,166,35,0.2);border-radius:14px;padding:24px;margin-bottom:20px;text-align:center}
+.hero-title{font-size:22px;font-weight:700;color:#F5A623;margin-bottom:8px}
+.hero-sub{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.price-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;text-align:center}
+.price-layer{font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px}
+.price-au{font-size:20px;font-weight:700;color:#F5A623}
+.price-sub{font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px}
+.card{background:#0d0d20;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:500;color:#00b4ff;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;background:#060e1a;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;font-family:sans-serif}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#F5A623}
+.field textarea{height:70px;resize:vertical}
+.cell-grid{display:inline-flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.col-row-a{display:flex;gap:2px;padding-left:20px;margin-bottom:1px}
+.col-lbl-a{font-size:7px;color:#4A90D9;text-align:center;font-weight:700;flex-shrink:0}
+.row-line-a{display:flex;gap:2px;align-items:center}
+.row-lbl-a{font-size:7px;color:#4A90D9;width:18px;text-align:right;padding-right:3px;flex-shrink:0;font-weight:700}
+.gc{width:26px;height:26px;border-radius:4px;border:1.5px solid;cursor:pointer;font-size:7px;display:flex;align-items:center;justify-content:center;transition:all 0.1s;flex-shrink:0}
+.gc:hover{border-color:#F5A623;color:#F5A623;transform:scale(1.2);z-index:5}
+.gc.sel{border-color:#F5A623;background:rgba(245,166,35,0.2);color:#F5A623}
+.gc.taken{border-color:#E23B3B;background:rgba(226,59,59,0.1);color:#E23B3B;cursor:not-allowed}
+.gc.pending{border-color:#FFD700;background:rgba(255,215,0,0.08);color:#FFD700;cursor:not-allowed}
+.sel-info{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px}
+.sel-info b{color:#F5A623}
+.submit-btn{width:100%;padding:13px;background:rgba(245,166,35,0.15);border:1px solid #F5A623;border-radius:10px;color:#F5A623;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.15s}
+.submit-btn:hover{background:rgba(245,166,35,0.28)}
+.status{margin-top:12px;padding:12px;border-radius:8px;font-size:13px;text-align:center;display:none;line-height:1.5}
+.status.ok{background:rgba(39,174,96,0.12);border:1px solid #27AE60;color:#27AE60;display:block}
+.status.err{background:rgba(226,59,59,0.12);border:1px solid #E23B3B;color:#E23B3B;display:block}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,0.4)}
+.ld{width:8px;height:8px;border-radius:2px;border:1px solid}
+</style>
+
+<script>
+const DOT_LANG={
+  ko:{
+    title:'Dot 메타버스',applyTitle:'Dot 분양 신청',adminTitle:'Dot 관리자',
+    map:'Dot 전체 지도',apply:'분양 신청',mySpace:'내 공간',admin:'관리자',
+    selectCell:'칸 선택',cellInfo:'신청 정보',payment:'AU 결제 확인',
+    userId:'유저 ID',spaceName:'공간 이름',spaceType:'공간 유형',
+    layer:'레이어',desc:'공간 설명',link:'링크 / 연락처',
+    submitBtn:'분양 신청하기',saveBtn:'저장 및 입주 완료',
+    office:'사무실/오피스',shop:'Dot 상점',game:'게임룸',
+    meet:'미팅룸',nft:'NFT/AU 갤러리',social:'소셜/커뮤니티',
+    available:'분양 가능',taken:'분양완료',pending:'승인대기',
+    selected:'선택됨',noSelect:'없음',
+    price:'분양가',monthly:'월 유지비',commission:'거래 수수료',
+    applyDone:'분양 신청 완료! 관리자 승인 후 입주 확정',
+    auPaid:'납부 AU',waitApprove:'관리자 승인 대기중',
+    approve:'승인',reject:'거절',viewPage:'페이지 보기',
+    totalApply:'총 신청',waitApprove2:'승인대기',approved:'분양완료',
+    totalRevenue:'총 AU 수입',adminKey:'관리자 키',
+    pendingList:'승인 대기 신청',approvedList:'분양 완료 목록',
+    revenue:'수익 현황',applyIncome:'분양 수입',feeIncome:'거래 수수료 수입',
+    totalIncome:'총 수입',approvedCells:'분양 완료 칸',remaining:'잔여 분양 가능',
+    layer1:'기본 공간',layer2:'확장 공간',layer3:'프리미엄',
+    basic:'기본 공간',expanded:'확장 공간',premium:'프리미엄',
+    feeNote:'거래 수수료 3% · AU 금화 결제',backToMap:'← 전체 지도',
+    applyPage:'분양신청 페이지',applicant:'신청자',type:'유형',applyDate:'신청일',
+    approveDate:'승인일',owner:'소유자',feeRevenue:'수수료수입',
+  },
+  en:{
+    title:'Dot Metaverse',applyTitle:'Dot Space Application',adminTitle:'Dot Admin',
+    map:'Dot Map',apply:'Apply',mySpace:'My Space',admin:'Admin',
+    selectCell:'Select Cell',cellInfo:'Application Info',payment:'AU Payment',
+    userId:'User ID',spaceName:'Space Name',spaceType:'Space Type',
+    layer:'Layer',desc:'Description',link:'Link / Contact',
+    submitBtn:'Apply for Space',saveBtn:'Save & Move In',
+    office:'Office',shop:'Dot Shop',game:'Game Room',
+    meet:'Meeting Room',nft:'NFT/AU Gallery',social:'Social/Community',
+    available:'Available',taken:'Taken',pending:'Pending',
+    selected:'Selected',noSelect:'None',
+    price:'Price',monthly:'Monthly Fee',commission:'Trade Fee',
+    applyDone:'Application Complete! Confirmed after admin approval',
+    auPaid:'AU Paid',waitApprove:'Waiting for admin approval',
+    approve:'Approve',reject:'Reject',viewPage:'View Page',
+    totalApply:'Total',waitApprove2:'Pending',approved:'Approved',
+    totalRevenue:'Total AU Income',adminKey:'Admin Key',
+    pendingList:'Pending Applications',approvedList:'Approved List',
+    revenue:'Revenue',applyIncome:'Space Income',feeIncome:'Trade Fee Income',
+    totalIncome:'Total Income',approvedCells:'Approved Cells',remaining:'Available',
+    layer1:'Basic',layer2:'Extended',layer3:'Premium',
+    basic:'Basic',expanded:'Extended',premium:'Premium',
+    feeNote:'3% trade fee · AU Gold payment',backToMap:'← Map',
+    applyPage:'Apply Page',applicant:'Applicant',type:'Type',applyDate:'Applied',
+    approveDate:'Approved',owner:'Owner',feeRevenue:'Fee Revenue',
+  },
+  zh:{
+    title:'Dot 元宇宙',applyTitle:'Dot 空间申请',adminTitle:'Dot 管理员',
+    map:'Dot 地图',apply:'申请',mySpace:'我的空间',admin:'管理员',
+    selectCell:'选择格子',cellInfo:'申请信息',payment:'AU 支付确认',
+    userId:'用户ID',spaceName:'空间名称',spaceType:'空间类型',
+    layer:'层',desc:'空间描述',link:'链接 / 联系方式',
+    submitBtn:'申请空间',saveBtn:'保存并入住',
+    office:'办公室',shop:'Dot 商店',game:'游戏室',
+    meet:'会议室',nft:'NFT/AU 画廊',social:'社交/社区',
+    available:'可分配',taken:'已分配',pending:'待审批',
+    selected:'已选择',noSelect:'无',
+    price:'分配价格',monthly:'月费',commission:'交易手续费',
+    applyDone:'申请完成！管理员批准后确认入住',
+    auPaid:'已付AU',waitApprove:'等待管理员审批',
+    approve:'批准',reject:'拒绝',viewPage:'查看页面',
+    totalApply:'总申请',waitApprove2:'待审批',approved:'已批准',
+    totalRevenue:'总AU收入',adminKey:'管理员密钥',
+    pendingList:'待审批申请',approvedList:'已批准列表',
+    revenue:'收益',applyIncome:'空间收入',feeIncome:'手续费收入',
+    totalIncome:'总收入',approvedCells:'已批准格子',remaining:'可用',
+    layer1:'基础',layer2:'扩展',layer3:'高级',
+    basic:'基础',expanded:'扩展',premium:'高级',
+    feeNote:'3%交易手续费 · AU黄金支付',backToMap:'← 地图',
+    applyPage:'申请页面',applicant:'申请人',type:'类型',applyDate:'申请日期',
+    approveDate:'批准日期',owner:'所有者',feeRevenue:'手续费收入',
+  },
+  ja:{
+    title:'Dot メタバース',applyTitle:'Dot スペース申請',adminTitle:'Dot 管理者',
+    map:'Dot マップ',apply:'申請',mySpace:'マイスペース',admin:'管理者',
+    selectCell:'セル選択',cellInfo:'申請情報',payment:'AU 支払確認',
+    userId:'ユーザーID',spaceName:'スペース名',spaceType:'スペースタイプ',
+    layer:'レイヤー',desc:'スペース説明',link:'リンク / 連絡先',
+    submitBtn:'スペース申請',saveBtn:'保存して入居',
+    office:'オフィス',shop:'Dot ショップ',game:'ゲームルーム',
+    meet:'ミーティングルーム',nft:'NFT/AU ギャラリー',social:'ソーシャル',
+    available:'分譲可能',taken:'分譲済み',pending:'承認待ち',
+    selected:'選択済み',noSelect:'なし',
+    price:'分譲価格',monthly:'月額料金',commission:'取引手数料',
+    applyDone:'申請完了！管理者承認後に入居確定',
+    auPaid:'支払AU',waitApprove:'管理者承認待ち',
+    approve:'承認',reject:'拒否',viewPage:'ページを見る',
+    totalApply:'総申請',waitApprove2:'承認待ち',approved:'承認済み',
+    totalRevenue:'総AU収入',adminKey:'管理者キー',
+    pendingList:'承認待ち申請',approvedList:'承認済みリスト',
+    revenue:'収益',applyIncome:'スペース収入',feeIncome:'手数料収入',
+    totalIncome:'総収入',approvedCells:'承認済みセル',remaining:'利用可能',
+    layer1:'基本',layer2:'拡張',layer3:'プレミアム',
+    basic:'基本',expanded:'拡張',premium:'プレミアム',
+    feeNote:'3%取引手数料 · AU ゴールド決済',backToMap:'← マップ',
+    applyPage:'申請ページ',applicant:'申請者',type:'タイプ',applyDate:'申請日',
+    approveDate:'承認日',owner:'オーナー',feeRevenue:'手数料収入',
+  },
+  ru:{
+    title:'Dot Метавселенная',applyTitle:'Заявка на пространство Dot',adminTitle:'Dot Админ',
+    map:'Карта Dot',apply:'Подать заявку',mySpace:'Моё пространство',admin:'Админ',
+    selectCell:'Выбор ячейки',cellInfo:'Информация заявки',payment:'Оплата AU',
+    userId:'ID пользователя',spaceName:'Название',spaceType:'Тип',
+    layer:'Слой',desc:'Описание',link:'Ссылка / Контакт',
+    submitBtn:'Подать заявку',saveBtn:'Сохранить и въехать',
+    office:'Офис',shop:'Магазин Dot',game:'Игровая комната',
+    meet:'Переговорная',nft:'NFT/AU Галерея',social:'Социальное',
+    available:'Доступно',taken:'Занято',pending:'Ожидание',
+    selected:'Выбрано',noSelect:'Нет',
+    price:'Цена',monthly:'Ежемесячная плата',commission:'Комиссия',
+    applyDone:'Заявка принята! Подтверждение после одобрения',
+    auPaid:'Оплачено AU',waitApprove:'Ожидание одобрения',
+    approve:'Одобрить',reject:'Отклонить',viewPage:'Просмотр',
+    totalApply:'Всего заявок',waitApprove2:'Ожидание',approved:'Одобрено',
+    totalRevenue:'Доход AU',adminKey:'Ключ админа',
+    pendingList:'Заявки на рассмотрении',approvedList:'Одобренные',
+    revenue:'Доходы',applyIncome:'Доход от аренды',feeIncome:'Доход от комиссий',
+    totalIncome:'Общий доход',approvedCells:'Одобренные ячейки',remaining:'Доступно',
+    layer1:'Базовый',layer2:'Расширенный',layer3:'Премиум',
+    basic:'Базовый',expanded:'Расширенный',premium:'Премиум',
+    feeNote:'Комиссия 3% · Оплата золотом AU',backToMap:'← Карта',
+    applyPage:'Страница заявки',applicant:'Заявитель',type:'Тип',applyDate:'Дата заявки',
+    approveDate:'Дата одобрения',owner:'Владелец',feeRevenue:'Доход от комиссий',
+  },
+  ar:{
+    title:'Dot ميتافيرس',applyTitle:'طلب مساحة Dot',adminTitle:'مدير Dot',
+    map:'خريطة Dot',apply:'تقديم طلب',mySpace:'مساحتي',admin:'المدير',
+    selectCell:'اختر خلية',cellInfo:'معلومات الطلب',payment:'تأكيد دفع AU',
+    userId:'معرف المستخدم',spaceName:'اسم المساحة',spaceType:'نوع المساحة',
+    layer:'طبقة',desc:'وصف المساحة',link:'رابط / تواصل',
+    submitBtn:'تقديم الطلب',saveBtn:'حفظ والانتقال',
+    office:'مكتب',shop:'متجر Dot',game:'غرفة ألعاب',
+    meet:'غرفة اجتماعات',nft:'معرض NFT/AU',social:'اجتماعي',
+    available:'متاح',taken:'محجوز',pending:'قيد الانتظار',
+    selected:'محدد',noSelect:'لا شيء',
+    price:'سعر التخصيص',monthly:'رسوم شهرية',commission:'عمولة التداول',
+    applyDone:'اكتمل الطلب! يتم التأكيد بعد موافقة المدير',
+    auPaid:'AU المدفوع',waitApprove:'في انتظار موافقة المدير',
+    approve:'موافقة',reject:'رفض',viewPage:'عرض الصفحة',
+    totalApply:'إجمالي الطلبات',waitApprove2:'قيد الانتظار',approved:'موافق عليه',
+    totalRevenue:'إجمالي دخل AU',adminKey:'مفتاح المدير',
+    pendingList:'الطلبات المعلقة',approvedList:'قائمة الموافق عليها',
+    revenue:'الإيرادات',applyIncome:'دخل المساحة',feeIncome:'دخل العمولات',
+    totalIncome:'إجمالي الدخل',approvedCells:'الخلايا الموافق عليها',remaining:'متاح',
+    layer1:'أساسي',layer2:'موسع',layer3:'مميز',
+    basic:'أساسي',expanded:'موسع',premium:'مميز',
+    feeNote:'عمولة 3% · دفع بالذهب AU',backToMap:'← الخريطة',
+    applyPage:'صفحة الطلب',applicant:'مقدم الطلب',type:'النوع',applyDate:'تاريخ الطلب',
+    approveDate:'تاريخ الموافقة',owner:'المالك',feeRevenue:'دخل العمولات',
+  },
+};
+
+function getLang(){
+  const p=new URLSearchParams(location.search);
+  const l=p.get('lang')||document.documentElement.lang||'ko';
+  const map={'cn':'zh','jp':'ja'};const ll=map[l]||l;return DOT_LANG[ll]||DOT_LANG.ko;
+}
+
+function applyLang(){
+  const t=getLang();
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n');
+    if(t[key])el.textContent=t[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key=el.getAttribute('data-i18n-placeholder');
+    if(t[key])el.placeholder=t[key];
+  });
+  const lang=new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ar')document.body.style.direction='rtl';
+}
+
+</script>
+</head>
+<body>
+<div class="top">
+  <div class="logo">⬡ <span data-i18n="applyTitle">Dot 분양 신청</span></div>
+  <a href="/dot.html" style="font-size:12px;color:rgba(255,255,255,0.4)" data-i18n="backToMap">← 전체 지도</a>
+</div>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-title">Dot 메타버스 분양 신청</div>
+    <div class="hero-sub">18×18 = 324개 가상공간 중 원하는 칸을 선택하세요<br>사무실·상점·게임룸·미팅룸·NFT·소셜 공간으로 자유롭게 구성</div>
+    <div class="pricing-grid">
+      <div class="price-card"><div class="price-layer">Layer 1</div><div class="price-au">10 AU</div><div class="price-sub">기본 공간<br>월 2 AU</div></div>
+      <div class="price-card" style="border-color:rgba(55,138,221,0.3)"><div class="price-layer">Layer 2</div><div class="price-au" style="color:#378add">20 AU</div><div class="price-sub">확장 공간<br>월 4 AU</div></div>
+      <div class="price-card" style="border-color:rgba(123,104,238,0.3)"><div class="price-layer">Layer 3</div><div class="price-au" style="color:#7B68EE">50 AU</div><div class="price-sub">프리미엄<br>월 8 AU</div></div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.3)">거래 수수료 3% · AU 금화 결제</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📍 <span data-i18n="selectCell">칸 선택</span></div>
+    <div class="cell-grid" id="cellGrid"></div>
+    <div class="sel-info">선택: <b id="selLabel">없음</b> &nbsp;|&nbsp; 상태: <span id="selStatus">-</span></div>
+    <div class="legend">
+      <div class="leg"><div class="ld" style="background:rgba(245,166,35,0.2);border-color:#F5A623"></div>선택됨</div>
+      <div class="leg"><div class="ld" style="background:rgba(226,59,59,0.1);border-color:#E23B3B"></div>분양완료</div>
+      <div class="leg"><div class="ld" style="background:rgba(255,215,0,0.08);border-color:#FFD700"></div>승인대기</div>
+      <div class="leg"><div class="ld" style="background:#060e1a;border-color:rgba(255,255,255,0.1)"></div>분양가능</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✏️ <span data-i18n="cellInfo">신청 정보</span></div>
+    <div class="field"><label data-i18n="userId">유저 ID</label><input id="fuserId" type="text" placeholder="Tobmate 유저명"></div>
+    <div class="field"><label data-i18n="spaceName">공간 이름</label><input id="fname" type="text" placeholder="예: AAA 순장바둑 연구소"></div>
+    <div class="field"><label data-i18n="spaceType">공간 유형</label>
+      <select id="ftype">
+        <option value="office">🏢 사무실/오피스</option>
+        <option value="shop">🛒 Dot 상점</option>
+        <option value="game">🎮 게임룸</option>
+        <option value="meet">🤝 미팅룸</option>
+        <option value="nft">💎 NFT/AU 갤러리</option>
+        <option value="social">💬 소셜/커뮤니티</option>
+      </select>
+    </div>
+    <div class="field"><label data-i18n="layer">레이어</label>
+      <select id="flayer">
+        <option value="1">Layer 1 — 10 AU</option>
+        <option value="2">Layer 2 — 20 AU</option>
+        <option value="3">Layer 3 — 50 AU</option>
+      </select>
+    </div>
+    <div class="field"><label data-i18n="desc">공간 설명</label><textarea id="fdesc" placeholder="이 공간을 어떻게 활용할지 설명해주세요"></textarea></div>
+    <div class="field"><label data-i18n="link">링크 / 연락처</label><input id="flink" type="text" placeholder="https:// 또는 이메일"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 <span data-i18n="payment">AU 결제 확인</span></div>
+    <div style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:rgba(255,255,255,0.5)">분양가</span><span id="priceDisp" style="color:#F5A623;font-weight:500">10 AU</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:rgba(255,255,255,0.5)">월 유지비</span><span style="color:#F5A623;font-weight:500" id="monthlyDisp">2 AU/월</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:rgba(255,255,255,0.5)">거래 수수료</span><span style="color:#F5A623;font-weight:500">3%</span></div>
+    </div>
+    <button class="submit-btn" onclick="apply()"><span data-i18n="submitBtn">분양 신청하기</span></button>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+  applyLang();
+  // 언어 변경시 재적용
+  setInterval(applyLang,500);
+});
+const COLS='ABCDEFGHJKLMNOPQRS'.split('');
+const PRICES={1:10,2:20,3:50};
+const MONTHLY={1:2,2:4,3:8};
+let selCell=null;
+let cellData={};
+
+const params=new URLSearchParams(location.search);
+if(params.get('cell'))selCell=params.get('cell');
+
+fetch('/dot-api/cells').then(r=>r.json()).then(d=>{
+  cellData=d;buildGrid();
+}).catch(()=>buildGrid());
+
+const PAL=[
+  {bg:'#1a0808',bd:'#FF4444'},{bg:'#1a0d00',bd:'#FF8C00'},{bg:'#1a1800',bd:'#FFD700'},
+  {bg:'#0a1800',bd:'#7FFF00'},{bg:'#001a08',bd:'#00FF7F'},{bg:'#001a1a',bd:'#00FFFF'},
+  {bg:'#000d1a',bd:'#00BFFF'},{bg:'#00001a',bd:'#4488FF'},{bg:'#0a001a',bd:'#9933FF'},
+  {bg:'#1a001a',bd:'#FF00FF'},{bg:'#1a000d',bd:'#FF1493'},{bg:'#0d1a00',bd:'#AAFF00'},
+  {bg:'#001a14',bd:'#20B2AA'},{bg:'#14001a',bd:'#DA70D6'},{bg:'#1a0a14',bd:'#FF69B4'},
+  {bg:'#0a1400',bd:'#9ACD32'},{bg:'#00141a',bd:'#5FC0C0'},{bg:'#140a00',bd:'#FFA500'},
+];
+const TBGS_A={office:'#0a1828',shop:'#1e1200',game:'#041608',meet:'#0c0620',nft:'#180408',social:'#041414'};
+const TCOLORS_A={office:'#378add',shop:'#F5A623',game:'#27AE60',meet:'#7B68EE',nft:'#E23B3B',social:'#1ABC9C'};
+const ICONS_A={office:'🏢',shop:'🛒',game:'🎮',meet:'🤝',nft:'💎',social:'💬'};
+
+function buildGrid(){
+  const cg=document.getElementById('cellGrid');cg.innerHTML='';
+
+  // 열 라벨
+  const cr=document.createElement('div');cr.className='col-row-a';
+  COLS.forEach(c=>{
+    const d=document.createElement('div');d.className='col-lbl-a';
+    d.style.width='26px';d.style.minWidth='26px';d.textContent=c;cr.appendChild(d);
+  });
+  cg.appendChild(cr);
+
+  for(let r=1;r<=18;r++){
+    const line=document.createElement('div');line.className='row-line-a';
+    const rl=document.createElement('div');rl.className='row-lbl-a';rl.textContent=r;line.appendChild(rl);
+
+    COLS.forEach((c,ci)=>{
+      const id=c+r;
+      const d=cellData[id]||{};
+      const el=document.createElement('div');
+      const p=PAL[(ci*3+r*7)%PAL.length];
+
+      if(d.status==='approved'){
+        el.className='gc taken';
+        el.style.background=TBGS_A[d.type]||'#180408';
+        el.style.borderColor=TCOLORS_A[d.type]||'#E23B3B';
+        el.textContent=ICONS_A[d.type]||'✓';
+      } else if(d.status==='pending'){
+        el.className='gc pending';
+        el.style.background='rgba(255,215,0,0.08)';
+        el.style.borderColor='#FFD700';
+        el.textContent='⏳';
+      } else if(id===selCell){
+        el.className='gc sel';
+        el.style.background='rgba(245,166,35,0.2)';
+        el.style.borderColor='#F5A623';
+        el.textContent=id.length<=2?id:'';
+      } else {
+        el.className='gc';
+        el.style.background=p.bg;
+        el.style.borderColor=p.bd;
+        el.textContent='';
+      }
+
+      el.title=id+(d.status==='approved'?' (분양완료)':d.status==='pending'?' (대기중)':' (분양가능)');
+      el.addEventListener('click',()=>{
+        if(d.status==='approved'||d.status==='pending')return;
+        document.querySelectorAll('.gc').forEach(e=>{
+          const dd=cellData[COLS[Array.from(e.parentNode.children).indexOf(e)-1]+(Array.from(e.parentNode.parentNode.children).indexOf(e.parentNode))]||{};
+        });
+        selCell=id;
+        document.getElementById('selLabel').textContent=id;
+        document.getElementById('selStatus').textContent='분양 가능';
+        buildGrid();
+      });
+      line.appendChild(el);
+    });
+    cg.appendChild(line);
+  }
+}
+
+document.getElementById('flayer').addEventListener('change',function(){
+  const lyr=+this.value;
+  document.getElementById('priceDisp').textContent=PRICES[lyr]+' AU';
+  document.getElementById('monthlyDisp').textContent=MONTHLY[lyr]+' AU/월';
+});
+
+function apply(){
+  if(!selCell){alert('칸을 먼저 선택해주세요!');return;}
+  const userId=document.getElementById('fuserId').value.trim();
+  const name=document.getElementById('fname').value.trim();
+  if(!userId||!name){alert('유저 ID와 공간 이름을 입력해주세요!');return;}
+  const layer=+document.getElementById('flayer').value;
+  const data={
+    cellId:selCell,userId,name,
+    type:document.getElementById('ftype').value,
+    layer,auAmount:PRICES[layer],
+    desc:document.getElementById('fdesc').value,
+    link:document.getElementById('flink').value,
+  };
+  const st=document.getElementById('status');
+  fetch('/dot-api/purchase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+  .then(r=>r.json()).then(d=>{
+    if(d.ok){
+      st.className='status ok';
+      st.textContent='✅ '+selCell+' 분양 신청 완료!\n관리자 승인 후 입주가 확정됩니다.\n납부 AU: '+PRICES[layer]+' AU';
+    } else {
+      st.className='status err';
+      st.textContent='❌ '+d.msg;
+    }
+  }).catch(e=>{st.className='status err';st.textContent='❌ 오류: '+e.message;});
+}
+</script>
+
+<script>
+(function(){
+  var lang=new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ko')return;
+  var H={
+    zh:{title:'Dot 元宇宙空间申请',sub:'从18×18=324个虚拟空间中选择 办公室·商店·游戏·会议·NFT·社交',fee:'3%交易手续费·AU黄金支付',l1:'基础',l2:'扩展',l3:'高级',m1:'月2 AU',m2:'月4 AU',m3:'月8 AU',btn:'申请空间',uid:'用户ID',name:'空间名称',type:'空间类型',layer:'层',desc:'描述',link:'链接',back:'← 地图',sel:'选择格子',info:'申请信息',pay:'AU支付确认'},
+    ja:{title:'Dot メタバーススペース申請',sub:'18×18=324の仮想空間から選択 オフィス·ショップ·ゲーム·会議·NFT·ソーシャル',fee:'3%手数料·AUゴールド決済',l1:'基本',l2:'拡張',l3:'プレミアム',m1:'月額2 AU',m2:'月額4 AU',m3:'月額8 AU',btn:'スペース申請',uid:'ユーザーID',name:'スペース名',type:'タイプ',layer:'レイヤー',desc:'説明',link:'リンク',back:'← マップ',sel:'セル選択',info:'申請情報',pay:'AU支払確認'},
+    en:{title:'Dot Metaverse Application',sub:'Choose from 18×18=324 virtual spaces Office·Shop·Game·Meeting·NFT·Social',fee:'3% trade fee·AU Gold',l1:'Basic',l2:'Extended',l3:'Premium',m1:'2 AU/mo',m2:'4 AU/mo',m3:'8 AU/mo',btn:'Apply for Space',uid:'User ID',name:'Space Name',type:'Space Type',layer:'Layer',desc:'Description',link:'Link',back:'← Map',sel:'Select Cell',info:'Application Info',pay:'AU Payment'},
+    ru:{title:'Заявка на пространство Dot',sub:'Выберите из 324 пространств',fee:'Комиссия 3%·AU',l1:'Базовый',l2:'Расширенный',l3:'Премиум',m1:'2 AU/мес',m2:'4 AU/мес',m3:'8 AU/мес',btn:'Подать заявку',uid:'ID пользователя',name:'Название',type:'Тип',layer:'Слой',desc:'Описание',link:'Ссылка',back:'← Карта',sel:'Выбор ячейки',info:'Информация',pay:'Оплата AU'},
+    ar:{title:'طلب مساحة Dot',sub:'اختر من 324 مساحة افتراضية',fee:'عمولة 3%·AU',l1:'أساسي',l2:'موسع',l3:'مميز',m1:'شهرياً 2 AU',m2:'شهرياً 4 AU',m3:'شهرياً 8 AU',btn:'تقديم الطلب',uid:'معرف المستخدم',name:'اسم المساحة',type:'النوع',layer:'طبقة',desc:'وصف',link:'رابط',back:'← الخريطة',sel:'اختر خلية',info:'معلومات الطلب',pay:'تأكيد AU'},
+  };
+  var t=H[lang];if(!t)return;
+  function s(sel,txt){var el=document.querySelector(sel);if(el)el.textContent=txt;}
+  function sa(sel,txt){document.querySelectorAll(sel).forEach(function(el){el.textContent=txt;});}
+  function runLang(){
+    s('.hero-title',t.title);
+    s('.hero-sub',t.sub);
+    s('.submit-btn',t.btn);
+    document.querySelectorAll('.card-title span').forEach(function(el,i){
+      var keys=['sel','info','pay'];if(t[keys[i]])el.textContent=t[keys[i]];
+    });
+    document.querySelectorAll('label').forEach(function(el){
+      var map={
+        '유저 ID':'uid','공간 이름':'name','공간 유형':'type',
+        '레이어':'layer','공간 설명':'desc','링크 / 연락처':'link'
+      };
+      var k=map[el.textContent.trim()];if(k&&t[k])el.textContent=t[k];
+    });
+    document.querySelectorAll('.price-sub').forEach(function(el,i){
+      var ms=['m1','m2','m3'],ls=['l1','l2','l3'];
+      if(t[ls[i]]&&t[ms[i]])el.innerHTML=t[ls[i]]+'<br>'+t[ms[i]];
+    });
+    var fee=document.querySelector('.hero>div:last-child');
+    if(fee&&fee.textContent.includes('수수료'))fee.textContent=t.fee;
+    var back=document.querySelector('a[href="/dot.html"]');
+    if(back)back.textContent=t.back;
+    var logo=document.querySelector('.logo span');
+    if(logo)logo.textContent=t.title;
+    if(lang==='ar')document.body.style.direction='rtl';
+    
+};
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',runLang);
+  } else {
+    runLang();
+    setTimeout(runLang,500);
+    setTimeout(runLang,1500);
+  }
+})();
+</script>
+</body>
+</html>

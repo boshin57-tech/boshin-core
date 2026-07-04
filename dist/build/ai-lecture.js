@@ -1,0 +1,197 @@
+(function(){
+  window._lastGameMove = null;
+  window._lastWinrate = 0.5;
+  window._lastTurn = 0;
+  var LECTURE_COST = 0.05;
+
+  function moveToCoord(move) {
+    if(move === null || move === undefined) return 'unknown';
+    if(typeof move === 'string') return move;
+    if(move === 8224) return 'pass';
+    var x = move & 255;
+    var y = (move >> 8) & 255;
+    return String.fromCharCode(97+x) + String.fromCharCode(97+y);
+  }
+
+  window.aiLectureRequest = function(){
+    // 모달이 열려있을 때만 자동 강의
+    var m = document.getElementById('ai-lecture-modal');
+    if(!m || m.style.display === 'none') return;
+
+    var lang = (document.getElementById('ai-m-lang')||{}).value || 'ko';
+    var out  = document.getElementById('ai-m-out');
+    var info = document.getElementById('ai-m-info');
+    var btn  = document.getElementById('ai-m-btn');
+    var move = window._lastGameMove;
+    var turn = window._lastTurn || 0;
+    var coord = moveToCoord(move);
+    var winrate = window._lastWinrate || 0.5;
+    var color = turn === 0 ? '흑' : '백';
+
+    if(info) info.textContent = '마지막 착수: ' + color + ' ' + coord + ' | 승률: ' + Math.round(winrate*100) + '%';
+    if(out)  out.textContent  = '강의 불러오는 중...';
+    if(btn){ btn.style.background='#555'; btn.textContent='강의중...'; btn.disabled=true; }
+
+    var prevWinrate = window._prevWinrate || winrate;
+    var totalMoves = window._totalMoves || 0;
+    var boardStr = window._lastBoardStr || '';
+    var colsStr = ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R','S','T'];
+    // board string을 사람이 읽기 쉬운 형태로 변환 (최근 착수 주변 5x5)
+    var nearBoard = '';
+    if(boardStr && move !== null) {
+      var bx = move & 255, by = (move >> 8) & 255;
+      var lines = [];
+      for(var dy=-2; dy<=2; dy++) {
+        var row = '';
+        for(var dx=-2; dx<=2; dx++) {
+          var nx=bx+dx, ny=by+dy;
+          if(nx<0||nx>=19||ny<0||ny>=19){ row+='?'; continue; }
+          var idx=ny*19+nx;
+          var ch=boardStr[idx]||'e';
+          row += ch==='b'?'●': ch==='w'?'○': '+';
+        }
+        lines.push((colsStr[by+dy]||'?')+(by+dy<9?' ':'')+' '+row);
+      }
+      nearBoard = lines.join(' / ');
+    }
+    var rule = window._lastRule || 0;
+    var roomId = window._currentRoomId || 'default';
+    window._prevWinrate = winrate;
+    fetch('/api/lecture?lastMove='+encodeURIComponent(coord)+'&playerTPI=300&winrate='+winrate+'&prevWinrate='+prevWinrate+'&lang='+lang+'&turn='+turn+'&totalMoves='+totalMoves+'&nearBoard='+encodeURIComponent(nearBoard)+'&rule='+rule+'&roomId='+encodeURIComponent(roomId))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(out) out.textContent = d.text || d.error;
+        if(btn){ btn.style.background='#0077b6'; btn.textContent='강의'; btn.disabled=false; }
+      })
+      .catch(function(e){
+        if(out) out.textContent = '오류: '+e.message;
+        if(btn){ btn.style.background='#c0392b'; btn.textContent='재시도'; btn.disabled=false; }
+      });
+  };
+
+  function ensureModal(){
+    var m = document.getElementById('ai-lecture-modal');
+    if(!m){
+      m = document.createElement('div');
+      m.id = 'ai-lecture-modal';
+      m.style.cssText = 'position:fixed;left:0;bottom:18vh;width:22vw;background:rgba(20,20,40,0.95);z-index:2001;display:none;flex-direction:column;padding:12px;border-radius:0 8px 8px 0;';
+      m.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        + '<span style="color:#60d0ff;font-weight:bold;font-size:13px">🤖 AI 바둑 강의</span>'
+        + '<button onclick="document.getElementById(\'ai-lecture-modal\').style.display=\'none\'" style="background:none;border:none;color:white;cursor:pointer;font-size:18px">✕</button>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;margin-bottom:6px">'
+        + '<select id="ai-m-lang" style="flex:1;padding:4px;border-radius:4px;background:#1a1a2e;color:white;border:1px solid #555">'
+        + '<option value="ko">한국어</option>'
+        + '<option value="en">English</option>'
+        + '<option value="ja">日本語</option>'
+        + '<option value="zh">中文</option>'
+        + '<option value="ru">Русский</option>'
+        + '</select>'
+        + '<button id="ai-m-btn" onclick="window.aiLectureRequest()" style="padding:4px 10px;background:#0077b6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px">강의</button>'
+        + '</div>'
+        + '<div id="ai-m-info" style="color:#aaa;font-size:11px;margin-bottom:6px">착수 후 자동으로 강의가 시작됩니다.</div>'
+        + '<div id="ai-m-out" style="color:#e0e0e0;font-size:12px;line-height:1.6;min-height:60px;max-height:28vh;overflow-y:auto;white-space:pre-wrap;background:rgba(255,255,255,0.05);padding:8px;border-radius:4px"></div>';
+      document.body.appendChild(m);
+    }
+    return m;
+  }
+
+  function createAIBtn(){
+    if(document.getElementById('ai-lecture-fab')) return;
+    var btn = document.createElement('button');
+    btn.id = 'ai-lecture-fab';
+    btn.textContent = '🤖 AI 강의';
+    btn.style.cssText = 'position:fixed;left:0;bottom:10vh;width:13vw;padding:8px;background:rgba(0,119,182,0.9);color:white;border:none;font-size:13px;font-weight:bold;cursor:pointer;z-index:2000;';
+    btn.onclick = function(){
+      var m = ensureModal();
+      if(m.style.display === 'none'){
+        m.style.display = 'flex';
+        // 모달 열릴 때 최신 착수 강의 자동 실행
+        if(window._lastGameMove !== null) window.aiLectureRequest();
+      } else {
+        m.style.display = 'none';
+      }
+    };
+    document.body.appendChild(btn);
+  }
+
+  function checkAndCreate(){
+    if(window.location.href.indexOf('go_room') > -1) createAIBtn();
+    else {
+      var fab = document.getElementById('ai-lecture-fab');
+      var modal = document.getElementById('ai-lecture-modal');
+      if(fab) fab.remove();
+      if(modal) modal.remove();
+    }
+  }
+
+  var lastUrl = location.href;
+  setInterval(function(){
+    if(location.href !== lastUrl){
+      lastUrl = location.href;
+      var fab = document.getElementById('ai-lecture-fab');
+      if(fab) fab.remove();
+      setTimeout(checkAndCreate, 1000);
+    }
+    checkAndCreate();
+  }, 2000);
+
+  setTimeout(checkAndCreate, 2000);
+})();
+
+// 프로기사 화상강의 + AI 아바타 버튼 추가
+(function() {
+  function addLectureButtons() {
+    var existing = document.getElementById('webrtc-lecture-btn');
+    if (existing) return;
+
+    // 기존 "강의 시작" 버튼 찾기
+    var btns = document.querySelectorAll('button');
+    var targetBtn = null;
+    btns.forEach(function(b) {
+      var t = b.textContent.trim();
+      if (t.includes('강의 시작')||t.includes('Start Lecture')||t.includes('开始讲课')||t.includes('講義開始')||t.includes('Начать лекцию')||t.includes('بدء المحاضرة')) targetBtn = b;
+    });
+    if (!targetBtn) return;
+
+    // 프로기사 화상강의 버튼
+    var webrtcBtn = document.createElement('button');
+    webrtcBtn.id = 'webrtc-lecture-btn';
+    webrtcBtn.textContent = '📹 프로기사 화상강의';
+    webrtcBtn.style.cssText = 'display:block;width:100%;margin-top:8px;padding:10px 16px;background:linear-gradient(135deg,#1a237e,#283593);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;';
+    webrtcBtn.onclick = function() {
+      var _lngIdx=localStorage.getItem('lang');var _lngMap={'0':'en','1':'ko','2':'zh','3':'ja','4':'ru','5':'ar'};var _lng=(window.i18next&&window.i18next.language)||localStorage.getItem('i18nextLng')||(_lngIdx!==null?_lngMap[_lngIdx]:null)||(navigator.language||'ko').split('-')[0]; window.open('/lecture.html?room=pro-room-1&role=student&user=' + (window.__userId||'student')+'&lang='+_lng.split('-')[0], '_blank');
+    };
+
+    // AI 아바타 강의 버튼
+    var avatarBtn = document.createElement('button');
+    avatarBtn.id = 'avatar-lecture-btn';
+    avatarBtn.textContent = '🤖 AI 아바타 강의';
+    avatarBtn.style.cssText = 'display:block;width:100%;margin-top:6px;padding:10px 16px;background:linear-gradient(135deg,#4a148c,#6a1b9a);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;';
+    avatarBtn.onclick = function() {
+      var _lngIdx2=localStorage.getItem('lang');var _lngMap2={'0':'en','1':'ko','2':'zh','3':'ja','4':'ru','5':'ar'};var _lng2=(window.i18next&&window.i18next.language)||localStorage.getItem('i18nextLng')||(_lngIdx2!==null?_lngMap2[_lngIdx2]:null)||(navigator.language||'ko').split('-')[0]; window.open('/lecture.html?room=avatar-room-1&role=student&mode=avatar&user=' + (window.__userId||'student')+'&lang='+_lng2.split('-')[0], '_blank');
+    };
+
+    targetBtn.parentNode.appendChild(webrtcBtn);
+    targetBtn.parentNode.appendChild(avatarBtn);
+  }
+
+  // setInterval로 버튼 추가 및 텍스트 업데이트
+  setInterval(function(){
+    addLectureButtons();
+    var wb=document.getElementById('webrtc-lecture-btn');
+    var ab=document.getElementById('avatar-lecture-btn');
+    if(wb && window._tobLng){
+      var _lngMap={'0':'en','1':'ko','2':'zh','3':'ja','4':'ru','5':'ar'};
+      var _lngIdx=localStorage.getItem('lang');
+      var _lng=window._tobLng||(_lngIdx!==null?_lngMap[_lngIdx]:null)||'ko';
+      var _proMap={ko:'📹 프로기사 화상강의',en:'📹 Pro Teacher Live',zh:'📹 职业棋手直播',ja:'📹 プロ棋士ライブ',ru:'📹 Прямая трансляция Pro',ar:'📹 بث مباشر Pro'};
+      var _avMap={ko:'🤖 AI 아바타 강의',en:'🤖 AI Avatar Lecture',zh:'🤖 AI头像讲课',ja:'🤖 AIアバター講義',ru:'🤖 AI Аватар Лекция',ar:'🤖 محاضرة AI Avatar'};
+      var pt=_proMap[_lng]||_proMap.en;
+      var at=_avMap[_lng]||_avMap.en;
+      if(wb.textContent!==pt) wb.textContent=pt;
+      if(ab && ab.textContent!==at) ab.textContent=at;
+    }
+  }, 1000);
+})();

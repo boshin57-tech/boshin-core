@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="background:#000;color:#fff">
+<canvas id="c" width="800" height="600" style="border:1px solid #FFD700"></canvas>
+<div id="log" style="color:#0f0;font-size:12px;padding:10px"></div>
+<script>
+function log(m){document.getElementById('log').innerHTML+=m+'<br>';}
+log('시작');
+const c=document.getElementById('c');
+const x=c.getContext('2d');
+log('canvas OK: '+c.width+'x'+c.height);
+x.fillStyle='#000408';x.fillRect(0,0,800,600);
+// 별
+for(let i=0;i<50;i++){
+  x.beginPath();x.arc(Math.random()*800,Math.random()*600,1.5,0,Math.PI*2);
+  x.fillStyle='rgba(200,220,255,0.8)';x.fill();
+}
+// 행성
+x.beginPath();x.arc(400,300,40,0,Math.PI*2);x.fillStyle='#27AE60';x.fill();
+x.fillStyle='#fff';x.font='12px monospace';x.textAlign='center';
+x.fillText('Proxima Centauri b',400,355);
+log('그리기 완료!');
+
+fetch('/dot/space/planets.json')
+  .then(r=>r.json())
+  .then(d=>{log('planets.json OK: '+d.length+'개');})
+  .catch(e=>{log('planets.json 오류: '+e);});
+</script>
+</body>
+</html>

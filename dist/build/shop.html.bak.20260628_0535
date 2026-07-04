@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tobmate Shop — AU 금화 마켓</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#fff;font-family:-apple-system,sans-serif;min-height:100vh}
+.topbar{background:#111;border-bottom:1px solid #222;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#fff}
+.logo-gold{color:#f59e0b}
+.balance{background:#1a1a1a;border:1px solid #f59e0b33;border-radius:8px;padding:6px 14px;font-size:13px;color:#f59e0b}
+.search-bar{padding:16px 20px;background:#111;border-bottom:1px solid #1a1a1a}
+.search-bar input{width:100%;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px 16px;color:#fff;font-size:14px;outline:none}
+.search-bar input::placeholder{color:#555}
+.cats{display:flex;gap:8px;padding:14px 20px;overflow-x:auto;background:#111;border-bottom:1px solid #1a1a1a}
+.cats::-webkit-scrollbar{display:none}
+.cat{background:#1a1a1a;border:1px solid #333;border-radius:20px;padding:6px 14px;font-size:12px;color:#aaa;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.cat.active{background:#f59e0b;border-color:#f59e0b;color:#000;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:16px}
+.card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .2s}
+.card:hover{border-color:#f59e0b55}
+.card-img{width:100%;height:130px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:48px}
+.card-body{padding:10px}
+.card-name{font-size:13px;color:#fff;font-weight:500;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-cat{font-size:11px;color:#666;margin-bottom:6px}
+.card-price{font-size:13px;color:#f59e0b;font-weight:600}
+.card-price span{font-size:10px;color:#888}
+.modal{display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.modal-box{background:#111;border:1px solid #333;border-radius:14px;padding:24px;width:90%;max-width:420px;max-height:90vh;overflow-y:auto}
+.modal-img{width:100%;height:180px;background:#1a1a1a;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:72px;margin-bottom:16px}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.modal-cat{font-size:12px;color:#666;margin-bottom:12px}
+.modal-desc{font-size:13px;color:#aaa;line-height:1.6;margin-bottom:16px}
+.modal-price{background:#1a1a1a;border:1px solid #f59e0b33;border-radius:8px;padding:12px;margin-bottom:16px;text-align:center}
+.modal-price .au{font-size:22px;color:#f59e0b;font-weight:700}
+.modal-price .unit{font-size:12px;color:#888}
+.btn-buy{width:100%;background:#f59e0b;color:#000;border:none;padding:12px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-buy:hover{background:#e08c00}
+.btn-close{background:#374151;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;width:100%;margin-top:8px}
+.empty{text-align:center;padding:60px 20px;color:#444}
+.badge-new{background:#2563eb;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px}
+.badge-hot{background:#dc2626;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px}
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid #f59e0b;border-radius:8px;padding:12px 20px;font-size:13px;color:#f59e0b;z-index:300;display:none}
+/* 관리자 폼 */
+.admin-btn{position:fixed;bottom:20px;right:20px;background:#f59e0b;color:#000;border:none;width:48px;height:48px;border-radius:50%;font-size:20px;cursor:pointer;z-index:100}
+.admin-modal{display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:center;justify-content:center}
+.admin-modal.open{display:flex}
+.admin-box{background:#111;border:1px solid #333;border-radius:14px;padding:24px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto}
+input,textarea,select{width:100%;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:8px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:8px}
+label{font-size:12px;color:#888;margin-bottom:4px;display:block}
+* { font-weight: 600 !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">🪙 <span class="logo-gold">AU</span> Shop</div>
+  <div class="balance" id="balance-display">로딩중...</div>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="search-input" placeholder="🔍 상품 검색..." oninput="filterProducts()">
+</div>
+
+<div class="cats" id="cat-list"></div>
+<div class="grid" id="product-grid"></div>
+<div class="empty" id="empty-msg" style="display:none"></div>
+
+<!-- 상품 상세 모달 -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-img" id="modal-img"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-cat" id="modal-cat"></div>
+    <div class="modal-desc" id="modal-desc"></div>
+    <div class="modal-price">
+      <div class="au" id="modal-price"></div>
+      <div class="unit" id="modal-unit"></div>
+    </div>
+    <button class="btn-buy" id="btn-buy" onclick="buyProduct()">💰 AU로 구매</button>
+    <button class="btn-close" onclick="closeModal()">닫기</button>
+  </div>
+</div>
+
+<!-- 관리자 상품 등록 모달 -->
+<div class="admin-modal" id="admin-modal">
+  <div class="admin-box">
+    <h3 style="margin-bottom:16px;color:#f59e0b">상품 등록</h3>
+    <label>상품명</label><input id="p-name" placeholder="상품명">
+    <label>카테고리</label>
+    <select id="p-cat">
+      <option value="강의">📚 강의/수강권</option>
+      <option value="바둑">⚫ 바둑용품</option>
+      <option value="건강">💊 건강/미용</option>
+      <option value="생활">🏠 생활용품</option>
+      <option value="디지털">💾 디지털콘텐츠</option>
+      <option value="기타">📦 기타</option>
+    </select>
+    <label>이모지 (상품 이미지 대체)</label><input id="p-emoji" placeholder="예: 📚 🏆 💊" maxlength="4">
+    <label>가격 (grain AU)</label><input id="p-price" type="number" placeholder="예: 480 = 1 트로이온스">
+    <label>설명</label><textarea id="p-desc" rows="3" placeholder="상품 설명"></textarea>
+    <label>재고 수량 (-1 = 무제한)</label><input id="p-stock" type="number" value="-1">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="submitProduct()" style="flex:1;background:#f59e0b;color:#000;border:none;padding:10px;border-radius:6px;cursor:pointer;font-weight:700">등록</button>
+      <button onclick="document.getElementById('admin-modal').classList.remove('open')" style="background:#374151;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer">취소</button>
+    </div>
+  </div>
+</div>
+
+<button class="admin-btn" onclick="document.getElementById('admin-modal').classList.add('open')" title="상품 등록">＋</button>
+<div class="toast" id="toast"></div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const USER_ID = P.get('user') || 'guest';
+const API = '/shop';
+
+let products = [];
+let currentProduct = null;
+let currentCat = '전체';
+let userBalance = 0;
+
+const CATS = ['전체','강의','바둑','건강','생활','디지털','기타'];
+
+// AU 단위 변환
+function formatAU(grain) {
+  var _units={'ko':' AU (트로이온스)',' dwt':' dwt','en':' AU (troy oz)','zh':' AU (金衡盎司)','ja':' AU (トロイオンス)','ru':' AU (тройская унция)','ar':' AU (أوقية ترويّة)'};
+  var _l=_shopLng();
+  var _oz=_units[_l]||' AU (troy oz)';
+  if(grain >= 480) return (grain/480).toFixed(2) + _oz;
+  if(grain >= 24) return (grain/24).toFixed(1) + ' dwt';
+  return grain + ' grain';
+}
+
+function showToast(msg, color='#f59e0b') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.color = color;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+async function loadBalance() {
+  try {
+    const res = await fetch(API + '/balance?user=' + USER_ID);
+    const d = await res.json();
+    userBalance = d.coin || 0;
+    document.getElementById('balance-display').textContent = '💰 ' + formatAU(userBalance);
+  } catch(e) {
+    document.getElementById('balance-display').textContent = _st('login');
+  }
+}
+
+async function loadProducts(cat='') {
+  try {
+    const url = cat && cat !== '전체' ? API + '/products?cat=' + encodeURIComponent(cat) : API + '/products';
+    const res = await fetch(url);
+    products = await res.json();
+    renderProducts(products);
+  } catch(e) {
+    console.error('[Shop]', e.message);
+  }
+}
+
+function renderProducts(list) {
+  const grid = document.getElementById('product-grid');
+  const empty = document.getElementById('empty-msg');
+  if(list.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = list.map(p => `
+    <div class="card" onclick="openModal('${p._id}')">
+      <div class="card-img">${p.emoji || '📦'}</div>
+      <div class="card-body">
+        <div class="card-name">${p.name}${p.is_new ? '<span class="badge-new">NEW</span>' : ''}${p.is_hot ? '<span class="badge-hot">HOT</span>' : ''}</div>
+        <div class="card-cat">${p.category}</div>
+        <div class="card-price">${formatAU(p.price_grain)} <span>AU</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCats() {
+  const el = document.getElementById('cat-list');
+  var _t=_SHOP_I18N[_shopLng()]||_SHOP_I18N.ko;
+  el.innerHTML = CATS.map(c => `<div class="cat ${c===currentCat?'active':''}" data-cat="${c}" onclick="selectCat('${c}')">${_t.cat_labels[c]||c}</div>`).join('');
+}
+
+function selectCat(cat) {
+  currentCat = cat;
+  renderCats();
+  loadProducts(cat);
+}
+
+function filterProducts() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const filtered = products.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
+  renderProducts(filtered);
+}
+
+function openModal(id) {
+  const p = products.find(x => x._id === id);
+  if(!p) return;
+  currentProduct = p;
+  document.getElementById('modal-img').textContent = p.emoji || '📦';
+  document.getElementById('modal-title').textContent = p.name;
+  document.getElementById('modal-cat').textContent = p.category + (p.stock === 0 ? ' · 품절' : p.stock > 0 ? ' · 재고 '+p.stock+'개' : '');
+  document.getElementById('modal-desc').textContent = p.description || '상품 설명이 없습니다.';
+  document.getElementById('modal-price').textContent = formatAU(p.price_grain);
+  document.getElementById('modal-unit').textContent = p.price_grain + ' grain = ' + (p.price_grain/480*3300).toFixed(0) + ' USD 상당';
+  document.getElementById('btn-buy').disabled = p.stock === 0;
+  document.getElementById('btn-buy').textContent = p.stock === 0 ? '품절' : '💰 AU로 구매';
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  currentProduct = null;
+}
+
+async function buyProduct() {
+  if(!currentProduct) return;
+  if(userBalance < currentProduct.price_grain) {
+    showToast('AU가 부족합니다! 필요: ' + formatAU(currentProduct.price_grain), '#dc2626');
+    return;
+  }
+  if(!confirm(currentProduct.name + '을(를) ' + formatAU(currentProduct.price_grain) + '에 구매하시겠습니까?')) return;
+  try {
+    const res = await fetch(API + '/buy', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({userId: USER_ID, productId: currentProduct._id})
+    });
+    const result = await res.json();
+    if(result.ok) {
+      showToast('✅ 구매 완료! 잔액: ' + formatAU(result.balance), '#4ade80');
+      userBalance = result.balance;
+      document.getElementById('balance-display').textContent = '💰 ' + formatAU(userBalance);
+      closeModal();
+      loadProducts(currentCat);
+    } else {
+      showToast('❌ ' + (result.error || '구매 실패'), '#dc2626');
+    }
+  } catch(e) {
+    showToast('❌ 오류: ' + e.message, '#dc2626');
+  }
+}
+
+async function submitProduct() {
+  const name = document.getElementById('p-name').value;
+  const category = document.getElementById('p-cat').value;
+  const emoji = document.getElementById('p-emoji').value || '📦';
+  const price_grain = parseInt(document.getElementById('p-price').value);
+  const description = document.getElementById('p-desc').value;
+  const stock = parseInt(document.getElementById('p-stock').value);
+  if(!name || !price_grain) { alert('상품명과 가격을 입력해주세요.'); return; }
+  try {
+    const res = await fetch(API + '/products', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name, category, emoji, price_grain, description, stock})
+    });
+    const result = await res.json();
+    if(result.ok) {
+      showToast('✅ 상품 등록 완료!', '#4ade80');
+      document.getElementById('admin-modal').classList.remove('open');
+      document.getElementById('p-name').value = '';
+      document.getElementById('p-price').value = '';
+      document.getElementById('p-desc').value = '';
+      loadProducts(currentCat);
+    }
+  } catch(e) { alert('오류: ' + e.message); }
+}
+
+// 초기화
+// 초기화 - i18n 스크립트 로드 후 실행
+setTimeout(function(){ renderCats(); loadBalance(); loadProducts(); }, 100);
+</script>
+
+<script>
+// Shop 다국어 지원 - localStorage에서 언어 읽기
+var _SHOP_I18N={
+  ko:{search:'🔍 상품 검색...',login:'💰 로그인 필요',
+    cats:['전체','강의','바둑','건강','생활','디지털','기타'],
+    cat_labels:{'전체':'전체','강의':'📚 강의/수강권','바둑':'⚫ 바둑용품','건강':'💊 건강','생활':'🏠 생활','디지털':'💻 디지털','기타':'📦 기타'},
+    buy:'구매',price:'가격',stock:'재고',shop:'Dot'},
+  en:{search:'🔍 Search products...',login:'💰 Login required',
+    cats:['All','Lecture','Baduk','Health','Life','Digital','Other'],
+    cat_labels:{'전체':'All','강의':'📚 Lectures','바둑':'⚫ Baduk','건강':'💊 Health','생활':'🏠 Lifestyle','디지털':'💻 Digital','기타':'📦 Other'},
+    buy:'Buy',price:'Price',stock:'Stock',shop:'Dot'},
+  zh:{search:'🔍 搜索商品...',login:'💰 需要登录',
+    cats:['全部','讲课','围棋','健康','生活','数字','其他'],
+    cat_labels:{'전체':'全部','강의':'📚 讲课','바둑':'⚫ 围棋','건강':'💊 健康','생활':'🏠 生活','디지털':'💻 数字','기타':'📦 其他'},
+    buy:'购买',price:'价格',stock:'库存',shop:'点'},
+  ja:{search:'🔍 商品検索...',login:'💰 ログイン必要',
+    cats:['全て','講義','囲碁','健康','生活','デジタル','その他'],
+    cat_labels:{'전체':'全て','강의':'📚 講義','바둑':'⚫ 囲碁','건강':'💊 健康','생활':'🏠 生活','디지털':'💻 デジタル','기타':'📦 その他'},
+    buy:'購入',price:'価格',stock:'在庫',shop:'ドット'},
+  ru:{search:'🔍 Поиск товаров...',login:'💰 Требуется вход',
+    cats:['Все','Лекция','Бадук','Здоровье','Жизнь','Цифровой','Другое'],
+    cat_labels:{'전체':'Все','강의':'📚 Лекции','바둑':'⚫ Бадук','건강':'💊 Здоровье','생활':'🏠 Жизнь','디지털':'💻 Цифровой','기타':'📦 Другое'},
+    buy:'Купить',price:'Цена',stock:'Склад',shop:'Дот'},
+  ar:{search:'🔍 البحث عن المنتجات...',login:'💰 يجب تسجيل الدخول',
+    cats:['الكل','محاضرة','بادوك','صحة','حياة','رقمي','أخرى'],
+    cat_labels:{'전체':'الكل','강의':'📚 محاضرات','바둑':'⚫ بادوك','건강':'💊 صحة','생활':'🏠 حياة','디지털':'💻 رقمي','기타':'📦 أخرى'},
+    buy:'شراء',price:'السعر',stock:'المخزون',shop:'نقطة'}
+};
+function _shopLng(){
+  // URL 파라미터
+  var url=new URLSearchParams(window.location.search).get('lang');
+  if(url) return url.split('-')[0];
+  // localStorage lang 인덱스 (0=en,1=ko,2=cn,3=jp,4=ru,5=ar)
+  var idx=localStorage.getItem('lang');
+  if(idx!==null){var map=['en','ko','zh','ja','ru','ar'];return map[parseInt(idx)]||'ko';}
+  var l=localStorage.getItem('i18nextLng')||'ko';
+  return l.split('-')[0];
+}
+function _st(k){ return (_SHOP_I18N[_shopLng()]||_SHOP_I18N.ko)[k]||k; }
+function applyShopI18n(){
+  var t=_SHOP_I18N[_shopLng()]||_SHOP_I18N.ko;
+  // 검색창
+  var si=document.getElementById('search-input');
+  if(si) si.placeholder=t.search;
+  // 로그인
+  var bd=document.getElementById('balance-display');
+  if(bd&&bd.textContent.includes('로그인')) bd.textContent=t.login;
+  // 카테고리 버튼
+  document.querySelectorAll('.cat-btn').forEach(function(b){
+    var ko_cat=b.dataset.cat;
+    if(ko_cat&&t.cat_labels[ko_cat]) b.textContent=t.cat_labels[ko_cat];
+  });
+  // empty-msg
+  var em=document.getElementById('empty-msg');
+  if(em) em.textContent={'ko':'상품이 없습니다','en':'No products found','zh':'没有商品','ja':'商品がありません','ru':'Нет товаров','ar':'لا توجد منتجات'}[_shopLng()]||'No products found';
+  // RTL
+  document.body.style.direction=_shopLng()==='ar'?'rtl':'ltr';
+  // Shop 타이틀 & 로고
+  var title=document.querySelector('h1,.shop-title');
+  if(title) title.textContent=t.shop;
+  var logo=document.querySelector('.logo');
+  if(logo) logo.innerHTML='🪙 <span class="logo-gold">AU</span> '+({'ko':'Shop','en':'Shop','zh':'商店','ja':'ショップ','ru':'Магазин','ar':'متجر'}[_shopLng()]||'Shop');
+}
+window.addEventListener('DOMContentLoaded',function(){ setTimeout(applyShopI18n,300); });
+</script>
+</body>
+</html>
