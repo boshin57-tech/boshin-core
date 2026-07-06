@@ -2055,10 +2055,8 @@ function showMoveConfirm(onConfirm) {
     var cell=(W-pad*2)/(bs-1);
     var rad=cell*0.46;
     function ap(x,y){return y*bs+x;}
-    var img=new Image();
-    img.src='/assets/img/board.jpg';
-    img.onload=function(){
-      ctx.drawImage(img,0,0,W,W);
+    function paintBoard(){
+      ctx.fillStyle='#e3b06a'; ctx.fillRect(0,0,W,W);
       ctx.strokeStyle='rgba(0,0,0,0.55)';ctx.lineWidth=0.8;
       for(var i=0;i<bs;i++){
         ctx.beginPath();ctx.moveTo(pad+i*cell,pad);ctx.lineTo(pad+i*cell,pad+(bs-1)*cell);ctx.stroke();
@@ -2087,6 +2085,15 @@ function showMoveConfirm(onConfirm) {
         ctx.fillRect(mx-ms,my-ms,ms*2,ms*2);
         if(territory[ti]===WHITE){ctx.strokeStyle='#777';ctx.lineWidth=0.7;ctx.strokeRect(mx-ms,my-ms,ms*2,ms*2);}
       }
+      // ===== 집경계선 (흑측/백측 영역 경계) =====
+      function sideAt(x,y){ var i=ap(x,y); var s=board[i]; if(s===BLACK)return 1; if(s===WHITE)return 2; var t=territory[i]; return t===BLACK?1:t===WHITE?2:0; }
+      ctx.strokeStyle='rgba(220,20,20,0.95)'; ctx.lineWidth=2.5; ctx.lineCap='round';
+      for(var by=0;by<bs;by++)for(var bxx=0;bxx<bs;bxx++){
+        var s0=sideAt(bxx,by); if(s0===0) continue;
+        var cx0=pad+bxx*cell, cy0=pad+by*cell;
+        if(bxx+1<bs){ var s1=sideAt(bxx+1,by); if(s1!==0&&s1!==s0){ var ex=cx0+cell/2; ctx.beginPath();ctx.moveTo(ex,cy0-cell/2);ctx.lineTo(ex,cy0+cell/2);ctx.stroke(); } }
+        if(by+1<bs){ var s2=sideAt(bxx,by+1); if(s2!==0&&s2!==s0){ var ey=cy0+cell/2; ctx.beginPath();ctx.moveTo(cx0-cell/2,ey);ctx.lineTo(cx0+cell/2,ey);ctx.stroke(); } }
+      }
       if(bCount!==undefined){
         var wFinal=wCount+komi;
         var diff=bCount-wFinal;
@@ -2098,7 +2105,8 @@ function showMoveConfirm(onConfirm) {
         ctx.textAlign='center';ctx.fillStyle='#ffd700';ctx.font='bold 15px sans-serif';
         ctx.fillText(resultTxt,W/2,W-pad-8);
       }
-    };
+    }
+    paintBoard();
   }
   window.showSJTerri=function(){
     var recordId=window.location.pathname.split(':')[1];
@@ -2137,7 +2145,7 @@ function showMoveConfirm(onConfirm) {
           }
         }
         // drawTerritoryOnCanvas 활용 (집 안 돌 제거)
-        if(typeof drawTerritoryOnCanvas==='function'){
+        if(false){
           drawTerritoryOnCanvas(res.board,territory,res.bs,bCount,wCount,data.komi||6.5,res.rule,null);
         } else {
           drawTerritory(res.board,territory,res.bs,bCount,wCount,data.komi||6.5);
