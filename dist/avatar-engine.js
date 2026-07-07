@@ -89,11 +89,17 @@ function elevenSpeak(text, voiceId) {
 }
 
 const server = http.createServer(async (req, res) => {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    return res.end();
+  }
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.writeHead(200); return res.end(); }
-
   if (req.url === '/health') {
     res.writeHead(200, {'Content-Type':'application/json'});
     return res.end(JSON.stringify({status:'ok', port:PORT}));

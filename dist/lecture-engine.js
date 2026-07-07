@@ -1,6 +1,7 @@
+process.on("uncaughtException",e=>{console.log("[UNCAUGHT]",e.stack);});process.on("unhandledRejection",e=>{console.log("[REJECT]",(e&&e.stack)||e);});
 'use strict';
 const http      = require('http');
-const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const PORT      = 8016;
 
@@ -32,7 +33,21 @@ function classifyBoardPoint(coord, boardsize){
   return null;
 }
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+
+// === Gemini 헬퍼 (Claude 호환 래퍼) ===
+async function askGemini(system, userContent, maxTok){
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash-lite',
+    systemInstruction: system || undefined,
+    generationConfig: { maxOutputTokens: maxTok || 500, thinkingConfig: { thinkingBudget: 0 } }
+  });
+  const result = await model.generateContent(userContent);
+  const text = result.response.text() || '';
+  // Claude 응답 형식(msg.content[0].text)과 호환되게 반환
+  return { content: [{ text }] };
+}
+
 
 // 대화 히스토리 저장 (room별)
 const chatHistory = {};
@@ -142,18 +157,15 @@ const server = http.createServer(async (req, res) => {
     const userG = `학생이 '${g.name}' 게임에서 ${evDesc}. 이 게임의 바둑 개념은 '${g.concept}'입니다 (${g.desc}). 상황에 맞는 멘트를 해주세요.`;
     (async () => {
       try {
-        const msg = await anthropic.messages.create({
-          model: 'claude-sonnet-4-6', max_tokens: 200,
-          system: sysG, messages: [{role:'user', content: userG}]
-        });
+        const msg = await askGemini(sysG, userG, 200);
         const text = (msg.content[0]?.text || '').replace(/\*\*(.+?)\*\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
         console.log(`[lecture-game][${game}][${event}][${score}] ${text.slice(0,40)}`);
         const body = Buffer.from(JSON.stringify({ok:true, text}), 'utf8');
-        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': body.length});
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
         res.end(body);
       } catch(err) {
         const body = Buffer.from(JSON.stringify({ok:false, text:''}), 'utf8');
-        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': body.length});
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
         res.end(body);
       }
     })();
@@ -254,12 +266,7 @@ ${isKeyMove
     messages.push({role:'user', content: currentUserMsg});
 
     try {
-      const msg = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: maxTok,
-        system: systemPrompt,
-        messages: messages
-      });
+      const msg = await askGemini(systemPrompt, messages.map(function(m){return (m.role==='user'?'사용자: ':'해설: ')+m.content;}).join('\n'), maxTok);
       const rawText = msg.content[0]?.text || '';
       const text = rawText.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
 
@@ -276,10 +283,10 @@ ${isKeyMove
 
       console.log(`[lecture][${phase}][${colorName}][${coord}][${winDiff.toFixed(1)}%] ${text.slice(0,50)}`);
       const body = Buffer.from(JSON.stringify({ok:true, text, lang, gender, level:lvl, coord, color:colorName, phase, isKeyMove}), 'utf8');
-      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': body.length});
+      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
       res.end(body);
     } catch(err) {
-      console.error('[lecture]', err.message);
+      console.error('[lecture-STACK]', err.stack);
       const body = Buffer.from(JSON.stringify({ok:false, error:err.message}), 'utf8');
       res.writeHead(500, {'Content-Type':'application/json; charset=utf-8'});
       res.end(body);
@@ -332,18 +339,14 @@ ${isKeyMove
 4. 다음 대국 핵심 조언 1가지
 마크다운 금지, 4~5문장으로 자연스럽게.`;
 
-        const msg = await anthropic.messages.create({
-          model: 'claude-sonnet-4-6', max_tokens: 500,
-          system: systemPrompt,
-          messages: [{role:'user', content:`기보: ${moves.slice(0,500)}\n총 ${total}수`}]
-        });
+        const msg = await askGemini(systemPrompt, `기보: ${moves.slice(0,500)}\n총 ${total}수`, 500);
         const rawText = msg.content[0]?.text || '';
         const text = rawText.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/#{1,6}\s+/g,'').trim();
         console.log(`[review][${lang}] ${text.slice(0,50)}`);
         // 복기 후 히스토리 초기화
         chatHistory[roomId] = [];
         const rbody = Buffer.from(JSON.stringify({ok:true, text, lang, level:lvl}), 'utf8');
-        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8', 'Content-Length': rbody.length});
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
         res.end(rbody);
       } catch(err) {
         console.error('[review]', err.message);

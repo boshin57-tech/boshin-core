@@ -15,3 +15,7 @@ backup/
 dist/ai/go/bin/Final/weight3.dat
 dist/ai/go/bin/Final_Tob/go_tob_weight.bin.gz
 core
+*.bak
+*.bak_*
+.env
+.env.bak*

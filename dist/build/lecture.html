@@ -522,9 +522,9 @@ function _drawBoardOn(cvId){
   const cv=document.getElementById(cvId);if(!cv)return;
   const{cs,pad}=getCS(boardSize);cv.width=cs;cv.height=cs;
   const ctx=cv.getContext('2d'),n=boardSize,cell=(cs-pad*2)/(n-1);
-  var _boardImg=new Image();_boardImg.src='/assets/img/board.jpg';
-  if(_boardImg.complete){ctx.drawImage(_boardImg,0,0,cs,cs);}
-  else{ctx.fillStyle='#c8922a';ctx.fillRect(0,0,cs,cs);_boardImg.onload=function(){drawBoard();};}
+  if(!window._BOARD_IMG){window._BOARD_IMG=new Image();window._BOARD_IMG.onload=function(){window._BOARD_IMG_READY=true;drawBoard();};window._BOARD_IMG.src='/assets/img/board.jpg';}
+  if(window._BOARD_IMG_READY){ctx.drawImage(window._BOARD_IMG,0,0,cs,cs);}
+  else{ctx.fillStyle='#c8922a';ctx.fillRect(0,0,cs,cs);}
   ctx.strokeStyle='rgba(0,0,0,0.65)';ctx.lineWidth=2.5;
   for(let i=0;i<n;i++){
     ctx.beginPath();ctx.moveTo(pad+i*cell,pad);ctx.lineTo(pad+i*cell,cs-pad);ctx.stroke();
