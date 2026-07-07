@@ -3,7 +3,7 @@ require('dns').setDefaultResultOrder('ipv4first');
 const http = require('http');
 const io = require('/home/boshin57/Tobmate_Live/node_modules/socket.io-client');
 
-const KATAGO = '/home/boshin57/katago_cuda/squashfs-root/usr/bin/katago';
+const KATAGO = '/home/boshin57/katago_opencl/katago';
 const MODEL = '/home/boshin57/katago_cuda/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz';
 const CFG = '/home/boshin57/katago_cuda/default_gtp.cfg';
 const GOROOM_URL = 'http://localhost';
@@ -32,7 +32,7 @@ function coord2wpos(coord) {
 const roomStates = {};
 
 function createKataGoGTP() {
-    const gtp = spawn(KATAGO, ['gtp', '-config', CFG, '-model', MODEL]);
+    const gtp = spawn(KATAGO, ['gtp', '-config', CFG, '-model', MODEL], { env: Object.assign({}, process.env, { HOME: '/home/boshin57', OCL_ICD_VENDORS: '/etc/OpenCL/vendors', LD_LIBRARY_PATH: '/usr/lib/x86_64-linux-gnu:' + (process.env.LD_LIBRARY_PATH||'') }) });
     let buf = '';
     const pending = [];
     gtp.stdout.on('data', function(d) {

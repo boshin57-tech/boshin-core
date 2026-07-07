@@ -1,0 +1,5 @@
+# 봇 복구 메모 (2026-07-07)
+KATAGO=/home/boshin57/katago_opencl/katago (OpenCL 전환, cuDNN 회피)
+spawn env: HOME=/home/boshin57 (튜닝캐시 로드 위함)
+cfg: searchFactor* = 1.0, maxVisits=500
+GPU: dkms 재빌드(535.261.03) / linux-headers-cloud-amd64 설치
