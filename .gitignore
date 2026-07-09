@@ -19,3 +19,10 @@ core
 *.bak_*
 .env
 .env.bak*
+
+# 작업 중 임시 백업 파일
+*.bak
+*.bak.*
+*_bak
+*.emergency_bak
+*.final_bak
