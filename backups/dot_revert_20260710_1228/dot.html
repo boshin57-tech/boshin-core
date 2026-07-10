@@ -1,0 +1,1456 @@
+
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Metaverse — Tobmate</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#020818;color:#fff;font-family:monospace}
+#app{display:flex;flex-direction:column;height:100vh}
+.topbar{background:#0a0a1a;padding:7px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,180,255,0.15);flex-shrink:0}
+.logo{color:#F5A623;font-weight:700;font-size:14px}
+.url-disp{font-size:10px;color:rgba(0,180,255,0.6)}
+.toolbar{background:#0d0d20;padding:5px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.ltabs{display:flex;gap:3px}
+.ltab{font-size:10px;padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);cursor:pointer;background:none}
+.ltab.on{background:#1a2a4a;border-color:#4A90D9;color:#4A90D9}
+.zctrl{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.05);border-radius:14px;padding:2px 7px}
+.zb{width:20px;height:20px;border-radius:50%;border:none;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:13px}
+.zb:hover{background:rgba(255,255,255,0.2)}
+.zsl{width:70px;accent-color:#F5A623}
+.zlbl{font-size:10px;color:#888;min-width:28px;text-align:center}
+.ftypes{display:flex;gap:3px;margin-left:auto}
+.ftype{font-size:10px;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.3);cursor:pointer;background:none}
+.ftype.on{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.3);color:#fff}
+.avpos{font-size:10px;color:#F5A623}
+.main{display:flex;flex:1;overflow:hidden;min-height:0;height:0}
+.map-wrap{flex:1;overflow:auto;padding:10px;background:#020818}
+.map-inner{display:inline-flex;flex-direction:column;gap:2px}
+.col-row{display:flex;gap:2px;padding-left:22px;margin-bottom:1px}
+.col-lbl{font-size:7px;color:#4A90D9;text-align:center;flex-shrink:0;font-weight:700}
+.row-line{display:flex;gap:2px;align-items:center}
+.row-lbl{font-size:7px;color:#4A90D9;width:18px;text-align:right;padding-right:3px;flex-shrink:0;font-weight:700}
+.grid-row{display:flex;gap:2px}
+.cell-space{background:rgba(155,89,182,0.25) !important;border-color:rgba(155,89,182,0.6) !important;}
+.cell-portal{background:rgba(255,215,0,0.15) !important;border-color:#FFD700 !important;animation:portalPulse 2s infinite;}
+@keyframes portalPulse{0%,100%{box-shadow:0 0 4px rgba(255,215,0,0.4)}50%{box-shadow:0 0 12px rgba(255,215,0,0.9)}}
+.cell{border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;border:1.5px solid;transition:all 0.1s;position:relative;overflow:hidden;flex-shrink:0}
+.cell:hover{transform:scale(1.3);z-index:20;filter:brightness(1.8)}
+.cell.sel{outline:2px solid #fff;outline-offset:1px;z-index:15}
+.cell.me::before{content:'';position:absolute;top:2px;left:2px;width:4px;height:4px;border-radius:50%;background:#F5A623;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
+.cid{color:rgba(255,255,255,0.4);line-height:1;margin-top:1px;pointer-events:none}
+.cico{line-height:1;pointer-events:none}
+.info{width:185px;background:#0a0a1a;border-left:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;flex-shrink:0;min-height:0;overflow:hidden}
+.ih{padding:9px 11px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.ih-url{font-size:8px;color:#444;word-break:break-all;margin-bottom:3px}
+.ih-name{font-size:12px;font-weight:500;color:#fff}
+.ih-badge{font-size:9px;padding:2px 7px;border-radius:7px;display:inline-block;margin-top:3px}
+.ib{padding:8px 11px;flex:1;overflow-y:auto;min-height:0}
+.ir{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.ir span{color:#555}.ir span:last-child{color:#ccc}
+.iav{margin-top:7px}
+.iav-t{font-size:9px;color:#444;margin-bottom:4px}
+.av-row{display:flex;gap:3px;flex-wrap:wrap}
+.av-c{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;color:#fff}
+.act-group{flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px}
+.mbtn{margin:5px 9px 3px;padding:9px;background:rgba(245,166,35,0.12);border:1px solid #F5A623;border-radius:7px;color:#F5A623;font-size:12px;font-weight:500;text-align:center;cursor:pointer}
+.mbtn:hover{background:rgba(245,166,35,0.25)}
+.ebtn{margin:0 9px 9px;padding:9px;background:rgba(55,138,221,0.12);border:1px solid #378add;border-radius:7px;color:#9fc7f0;font-size:12px;font-weight:500;text-align:center;cursor:pointer}
+.ebtn:hover{background:rgba(55,138,221,0.25)}
+.botbar{display:flex;align-items:center;gap:5px;padding:5px 12px;background:#0a0a1a;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:3px;font-size:8px;color:#555}
+.ld{width:7px;height:7px;border-radius:2px;border:1px solid}
+.bstat{margin-left:auto;font-size:9px;color:#444}
+</style>
+
+<style id="brightFix">
+/* 가독성 강화판 — 전 영역 밝게 */
+body{color:#eef2f8}
+.ir{color:#f5f8fc !important;font-weight:bold;font-size:13px !important}
+.ir span:first-child{color:#d7e0ee !important}
+.ih-badge{font-weight:bold !important;font-size:12px !important;filter:brightness(1.5)}
+#ihName{color:#ffffff !important;font-weight:bold;font-size:16px !important;text-shadow:0 1px 3px rgba(0,0,0,0.8)}
+#ihUrl,.url-disp,#urlDisp{color:#9fdcff !important;font-size:11px !important}
+.col-lbl,.row-lbl{color:#e8eef8 !important;font-weight:bold !important}
+#cellActions div{color:#f0f4fa !important}
+#cellActions button{filter:brightness(1.25);font-size:13px !important}
+.ltab{color:#dfe6f0 !important;font-weight:bold}
+.ltab.on{color:#fff !important}
+button,.ftab,.tab{color:#e5ebf5 !important}
+input::placeholder,textarea::placeholder{color:#9aa8bc !important}
+#avpos,.av-lbl{color:#e8eef8 !important}
+.iav-t{color:#d7e0ee !important;font-weight:bold}
+.bstat,#bstat{color:#d7e0ee !important;font-weight:bold}
+.leg{color:#d7e0ee !important;font-weight:bold}
+.iav{color:#c8d2e2 !important}
+.legend,.legend *,.lg,.lg *{color:#d7e0ee !important}
+.map-info,.grid-info,.coord-info{color:#c8d2e2 !important}
+body > div:last-child span,footer,footer *{color:#c8d2e2 !important}
+/* 접속 아바타 라벨 포함 — 남은 흐린 텍스트 전부 */
+.ih-sub,.sub,.dim,.muted,small{color:#c8d2e2 !important}
+#ihAvs,.av-row{color:#dfe6f0 !important}
+[style*="opacity:0.4"],[style*="opacity:0.5"],[style*="opacity: 0.4"],[style*="opacity: 0.5"]{opacity:0.85 !important}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="topbar"><button id="view-toggle-btn" class="ltab" style="margin-left: 15px; background: #1a2a4a; color: #4A90D9; border-color: #4A90D9; font-weight: bold; cursor: pointer; padding: 4px 10px; border-radius: 6px;" onclick="if(typeof toggleDimensionView === 'function'){ toggleDimensionView(); }else{ alert('3D 엔진 초기화 중...'); }">3D 지구본보기</button>
+  <div class="logo">⬡ Dot Metaverse</div>
+  <div class="url-disp" id="urlDisp">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+</div>
+<div class="toolbar">
+  <div class="ltabs">
+    <button class="ltab on" onclick="setLayer(1,this)">L1</button>
+    <button class="ltab" onclick="setLayer(2,this)">L2</button>
+    <button class="ltab" onclick="setLayer(3,this)">L3</button>
+  </div>
+  <div class="zctrl">
+    <button class="zb" onclick="zoom(-1)">-</button>
+    <input type="range" class="zsl" id="zsl" min="1" max="8" value="3" step="1" oninput="setZoom(+this.value)">
+    <button class="zb" onclick="zoom(1)">+</button>
+    <span class="zlbl" id="zlbl">22px</span>
+  </div>
+  <div class="ftypes">
+    <button class="ftype on" onclick="doFilter('all',this)">전체</button>
+    <button class="ftype" onclick="doFilter('office',this)">사무실</button>
+    <button class="ftype" onclick="doFilter('shop',this)">상점</button>
+    <button class="ftype" onclick="doFilter('game',this)">게임</button>
+    <button class="ftype" onclick="doFilter('meet',this)">미팅</button>
+    <button class="ftype" onclick="doFilter('nft',this)">NFT</button>
+    <button class="ftype" onclick="doFilter('social',this)">소셜</button>
+  </div>
+  <div class="avpos" id="avpos">A1</div>
+</div>
+<div class="main">
+  <div class="map-wrap" id="mapWrap">
+    <div class="map-inner" id="mapInner"></div>
+  </div>
+  <div class="info">
+    <div class="ih">
+      <div class="ih-url" id="ihUrl">https://tobmate.com/dot.html?user=guest&lang=ko</div>
+      <div class="ih-name" id="ihName">전체 지도 324칸</div>
+      <div class="ih-badge" id="ihBadge" style="background:rgba(245,166,35,0.1);color:#F5A623">분양 가능</div>
+    </div>
+    <div class="ib">
+      <div class="ir"><span>소유자</span><span id="ihOwner">-</span></div>
+      <div class="ir"><span>방문자</span><span id="ihVisit">-</span></div>
+      <div class="ir"><span>언어</span><span id="ihLang">ko</span></div>
+      <div class="ir"><span>레이어</span><span id="ihLayer">L1</span></div>
+      <div class="iav"><div class="iav-t">접속 아바타</div><div class="av-row" id="ihAvs"></div></div>
+    </div>
+    <div class="act-group">
+      <div class="mbtn" onclick="moveHere()">이동</div>
+      <div class="ebtn" onclick="enterSpace()">입장 / 편집</div>
+    </div>
+  </div>
+</div>
+<div class="botbar">
+  <div class="leg"><div class="ld" style="background:#0a1828;border-color:#378add"></div>사무실</div>
+  <div class="leg"><div class="ld" style="background:#1e1200;border-color:#F5A623"></div>상점</div>
+  <div class="leg"><div class="ld" style="background:#041608;border-color:#27AE60"></div>게임</div>
+  <div class="leg"><div class="ld" style="background:#0c0620;border-color:#7B68EE"></div>미팅</div>
+  <div class="leg"><div class="ld" style="background:#180408;border-color:#E23B3B"></div>NFT</div>
+  <div class="leg"><div class="ld" style="background:#041414;border-color:#1ABC9C"></div>소셜</div>
+  <div class="bstat" id="bstat">A1~S18 324칸</div>
+</div>
+</div>
+<script>
+const COLS='ABCDEFGHJKLMNOPQRS'.split('');
+const TNAMES={office:'사무실',shop:'Dot 상점',game:'게임룸',meet:'미팅룸',nft:'NFT/AU',social:'소셜',portal:'3D 포털'};
+const TCOLORS={office:'#378add',shop:'#F5A623',game:'#27AE60',meet:'#7B68EE',nft:'#E23B3B',social:'#1ABC9C',portal:'#00d4ff'};
+const TBGS={office:'#0a1828',shop:'#1e1200',game:'#041608',meet:'#0c0620',nft:'#180408',social:'#041414',portal:'#001a24'};
+const ICONS={office:'🏢',shop:'🛒',game:'🎮',meet:'🤝',nft:'💎',social:'💬',portal:'🌐'};
+const AVC=['#4A90D9','#F5A623','#27AE60','#7B68EE','#E23B3B','#1ABC9C'];
+const OWN=['AAA','Boshin','TobUser','GoldAU','SuiDev','KataGo','DotPro','MetaKim'];
+const SZ=[12,16,20,26,34,44,56,70];
+const PAL=[
+  {bg:'#1a0808',bd:'#FF4444'},{bg:'#1a0d00',bd:'#FF8C00'},{bg:'#1a1800',bd:'#FFD700'},
+  {bg:'#0a1800',bd:'#7FFF00'},{bg:'#001a08',bd:'#00FF7F'},{bg:'#001a1a',bd:'#00FFFF'},
+  {bg:'#000d1a',bd:'#00BFFF'},{bg:'#00001a',bd:'#4488FF'},{bg:'#0a001a',bd:'#9933FF'},
+  {bg:'#1a001a',bd:'#FF00FF'},{bg:'#1a000d',bd:'#FF1493'},{bg:'#0d1a00',bd:'#AAFF00'},
+  {bg:'#001a14',bd:'#20B2AA'},{bg:'#14001a',bd:'#DA70D6'},{bg:'#1a0a14',bd:'#FF69B4'},
+  {bg:'#0a1400',bd:'#9ACD32'},{bg:'#00141a',bd:'#5FC0C0'},{bg:'#140a00',bd:'#FFA500'},
+];
+const params=new URLSearchParams(location.search);
+let curUser=params.get('user')||'guest';
+let curLang=params.get('lang')||document.documentElement.lang||'ko';
+let layer=1,ft='all',sz=3,sel=null,myPos='A1';
+const cells={};
+const presetsByLayer={
+  1:[
+    {id:'A1',type:'office',owner:'AAA',name:'AAA 본사'},
+    {id:'C3',type:'shop',owner:'GoldAU',name:'AU 금화 상점'},
+    {id:'F6',type:'game',owner:'KataGo',name:'순장바둑 AI'},
+    {id:'G6',type:'game',owner:'Tobmate',name:'우주 게임 센터'},
+    {id:'D3',type:'portal',owner:'Tobmate',name:'🌐 3D 교실'},
+    {id:'J9',type:'meet',owner:'TobUser',name:'Tobmate 회의실'},
+    {id:'L12',type:'nft',owner:'SuiDev',name:'Sui NFT 갤러리'},
+    {id:'P15',type:'social',owner:'DotPro',name:'커뮤니티 광장'},
+    {id:'B4',type:'shop',owner:'Boshin',name:'바둑 용품점'},
+    {id:'E8',type:'office',owner:'MetaKim',name:'메타버스 스튜디오'},
+    {id:'H11',type:'game',owner:'GoldAU',name:'퍼즐 게임룸'},
+    {id:'K5',type:'meet',owner:'AAA',name:'투자자 미팅룸'},
+    {id:'N14',type:'nft',owner:'TobUser',name:'아트 갤러리'},
+    {id:'Q2',type:'social',owner:'KataGo',name:'바둑 커뮤니티'},
+    {id:'D16',type:'office',owner:'SuiDev',name:'Sui 오피스'},
+    {id:'G7',type:'shop',owner:'MetaKim',name:'디지털 상점'},
+    {id:'M13',type:'game',owner:'Boshin',name:'토너먼트'},
+    {id:'N3',type:'meet',owner:'DotPro',name:'강의실 A'},
+    {id:'S18',type:'nft',owner:'AAA',name:'⭐ 우주 포털·명예의 전당'},
+    {id:'A18',type:'social',owner:'GoldAU',name:'글로벌 광장'},
+    {id:'S1',type:'office',owner:'RaphaelS',name:'특허 오피스'},
+    {id:'H1',type:'shop',owner:'WeiGo',name:'위고 상점'},
+    {id:'P8',type:'game',owner:'KataGo',name:'AI 토너먼트 (태양풍 수확)'},
+    {id:'C15',type:'meet',owner:'MetaKim',name:'강의실 B'},
+    {id:'N6',type:'nft',owner:'GoldAU',name:'AU NFT'},
+    {id:'F16',type:'social',owner:'Boshin',name:'바둑 커뮤니티'},
+  ],
+  2:[
+    {id:'P8',type:'game',owner:'KataGo',name:'신호 해독 게임 (L2 전용)'},
+    {id:'A1',type:'office',owner:'AAA',name:'AAA 본사 — 확장동'},
+    {id:'F6',type:'game',owner:'KataGo',name:'항성 항법 게임'},
+    {id:'C3',type:'shop',owner:'GoldAU',name:'프리미엄 AU 상점'},
+    {id:'M13',type:'game',owner:'Boshin',name:'중력 슬링샷 게임'},
+    {id:'S18',type:'nft',owner:'AAA',name:'L2 명예의 전당'},
+    {id:'J9',type:'meet',owner:'TobUser',name:'VIP 회의실'},
+    {id:'L12',type:'nft',owner:'SuiDev',name:'Sui NFT 갤러리 L2'},
+  ],
+  3:[
+    {id:'A1',type:'office',owner:'AAA',name:'AAA 본사 — 프리미엄동'},
+    {id:'F6',type:'game',owner:'KataGo',name:'순장바둑 토너먼트 L3'},
+    {id:'S18',type:'nft',owner:'AAA',name:'L3 명예의 전당'},
+  ],
+};
+function loadLayerPresets(){
+  for(const k in cells)delete cells[k];
+  const presets=presetsByLayer[layer]||[];
+  presets.forEach(p=>{
+    if(!cells[p.id])cells[p.id]={};
+    Object.assign(cells[p.id],{type:p.type,owner:p.owner,name:p.name,
+      visitors:Math.floor(Math.random()*80)+5,
+      avatars:OWN.slice(0,Math.floor(Math.random()*4)+1)});
+  });
+}
+loadLayerPresets();
+function makeUrl(id){
+  const lyr=layer>1?layer:'';
+  return id?'https://tobmate.com/dot'+lyr+'.html?user='+curUser+'&lang='+curLang+'&cell='+id
+           :'https://tobmate.com/dot'+lyr+'.html?user='+curUser+'&lang='+curLang;
+}
+function buildGrid(){
+  const mi=document.getElementById('mapInner');
+  mi.innerHTML='';
+  const px=SZ[sz-1];
+  const cr=document.createElement('div');
+  cr.className='col-row';
+  COLS.forEach(c=>{const d=document.createElement('div');d.className='col-lbl';d.style.width=px+'px';d.style.minWidth=px+'px';d.textContent=c;cr.appendChild(d);});
+  mi.appendChild(cr);
+  for(let r=1;r<=18;r++){
+    const line=document.createElement('div');line.className='row-line';
+    const rl=document.createElement('div');rl.className='row-lbl';rl.textContent=r;line.appendChild(rl);
+    const gr=document.createElement('div');gr.className='grid-row';
+    for(let ci=0;ci<18;ci++){
+      const id=COLS[ci]+r;
+      const c=cells[id]||{};cells[id]=c;
+      // S18 = 공공 우주 포털 (소유 불가)
+      if(id==='S18'){
+        c.isPortal=true;c.type='portal';
+        c.owner='Tobmate';c.name='⭐ 우주 포털';
+        c.locked=true;
+      }
+      const el=document.createElement('div');
+      el.className='cell'+(id===sel?' sel':'')+(id===myPos?' me':'')+(c.isPortal?' cell-portal':'');
+      el.id='cl-'+id;el.title=id;
+      el.style.width=px+'px';el.style.height=px+'px';
+      if(c.type){
+        el.style.background=TBGS[c.type];el.style.borderColor=TCOLORS[c.type];
+        if(px>=20){const ic=document.createElement('div');ic.className='cico';ic.style.fontSize=px>=34?'12px':'9px';ic.textContent=(id==='S18'?'⭐':ICONS[c.type]);el.appendChild(ic);}
+        if(px>=36){const lb=document.createElement('div');lb.className='cid';lb.style.fontSize='7px';lb.textContent=id;el.appendChild(lb);}
+      } else {
+        const p=PAL[(ci*3+r*7)%PAL.length];
+        el.style.background=p.bg;el.style.borderColor=p.bd;
+        if(px>=34){const lb=document.createElement('div');lb.className='cid';lb.style.fontSize='7px';lb.style.color=p.bd;lb.style.opacity='0.6';lb.textContent=id;el.appendChild(lb);}
+      }
+      el.style.opacity=(ft!=='all'&&c.type!==ft)?'0.07':'1';
+      el.addEventListener('click',()=>{
+        if(id==='S18'){
+          if(localStorage.getItem('dot_space_intro_done')==='1'){
+            window.location.href='/dot/space.html?user='+curUser+'&lang='+curLang+'&skip_intro=1';
+          } else {
+            window.location.href='/dot/space/intro.html?user='+curUser+'&lang='+curLang;
+          }
+          return;
+        }
+        pick(id);if(id==='A1')openA1();
+      });
+      c.el=el;gr.appendChild(el);
+    }
+    line.appendChild(gr);mi.appendChild(line);
+  }
+  document.getElementById('zlbl').textContent=px+'px';
+}
+function pick(id){
+  if(sel){const p=document.getElementById('cl-'+sel);if(p)p.classList.remove('sel');}
+  sel=id;
+  const el=document.getElementById('cl-'+id);if(el)el.classList.add('sel');
+  const c=cells[id]||{};
+  const url=makeUrl(id);
+  document.getElementById('urlDisp').textContent=url;
+  document.getElementById('ihUrl').textContent=url;
+  document.getElementById('ihName').textContent=c.name||(id+' 빈 공간');
+  document.getElementById('ihLayer').textContent='L'+layer;
+  document.getElementById('ihLang').textContent=curLang;
+  const b=document.getElementById('ihBadge');
+  if(c.type){b.textContent=TNAMES[c.type];b.style.background=TCOLORS[c.type]+'22';b.style.color=TCOLORS[c.type];}
+  else{b.textContent='분양 가능';b.style.background='rgba(245,166,35,0.1)';b.style.color='#F5A623';}
+  document.getElementById('ihOwner').textContent=c.owner||'미분양';
+  document.getElementById('ihVisit').textContent=(c.visitors||0)+'명';
+  const avs=document.getElementById('ihAvs');avs.innerHTML='';
+  (c.avatars||[]).forEach((av,i)=>{const d=document.createElement('div');d.className='av-c';d.style.background=AVC[i%AVC.length];d.title=av;d.textContent=av[0];avs.appendChild(d);});
+}
+function openA1(){
+  var old=document.getElementById('a1modal');if(old){old.style.display='flex';return;}
+  var m=document.createElement('div');m.id='a1modal';
+  m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='position:relative;width:92vw;max-width:980px;height:86vh;border-radius:14px;overflow:hidden;border:1.5px solid rgba(0,180,255,0.35)';
+  var bar=document.createElement('div');
+  bar.style.cssText='position:absolute;top:0;left:0;right:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:rgba(2,8,24,0.98);border-bottom:1px solid rgba(0,180,255,0.2);z-index:10';
+  bar.innerHTML='<span style="font-size:11px;color:#00b4ff">https://tobmate.com/dot/A1.html</span>';
+  var cb=document.createElement('button');cb.textContent='X 닫기';
+  cb.style.cssText='background:rgba(226,59,59,0.12);border:1px solid #E23B3B;color:#E23B3B;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:11px';
+  cb.onclick=function(){m.style.display='none';};bar.appendChild(cb);
+  var fr=document.createElement('iframe');fr.src='/dot/A1.html?user='+curUser+'&lang='+curLang;
+  fr.style.cssText='width:100%;height:100%;border:none;padding-top:34px';
+  box.appendChild(bar);box.appendChild(fr);m.appendChild(box);
+  m.addEventListener('click',function(e){if(e.target===m)m.style.display='none';});
+  document.body.appendChild(m);
+}
+function moveHere(){if(!sel)return;myPos=sel;document.getElementById('avpos').textContent=myPos;buildGrid();}
+function enterSpace(){
+  if(!sel)return;
+  if(sel==='A1'){openA1();return;}
+    if(sel==='P8'){
+      if(layer===1){window.location.href='/dot/star_solar.html?user='+curUser+'&lang='+curLang;}
+      else if(layer===2){window.location.href='/dot/star_signal.html?user='+curUser+'&lang='+curLang;}
+      else{window.location.href='/dot/star_solar.html?user='+curUser+'&lang='+curLang;}
+      return;
+    }
+    if(sel==='F6'&&layer===2){window.location.href='/dot/star_nav.html?user='+curUser+'&lang='+curLang;return;}
+    if(sel==='F6'&&layer===1){window.location.href='/lecture.html?mode=avatar&room=tutor-'+curUser+'&user='+curUser+'&lang='+curLang;return;}
+    if(sel==='G6'){window.location.href='/dot/games.html';return;}
+    if(sel==='D3'){window.location.href='/dot/classroom3d.html?user='+curUser+'&lang='+curLang;return;}
+    if(sel==='M13'&&layer===2){window.location.href='/dot/star_gravity.html?user='+curUser+'&lang='+curLang;return;}
+  if(sel==='S18'){
+    if(localStorage.getItem('dot_space_intro_done')==='1'){
+      window.location.href='/dot/space.html?user='+curUser+'&lang='+curLang+'&skip_intro=1';
+    } else {
+      window.location.href='/dot/space/intro.html?user='+curUser+'&lang='+curLang;
+    }
+    return;
+  }
+  const c=cells[sel];
+  if(!c||!c.type){
+    alert('이 칸은 아직 분양되지 않았습니다. 분양 신청 후 이용 가능합니다.');
+    return;
+  }
+  window.location.href='https://tobmate.com/dot/'+sel+'.html?user='+curUser+'&lang='+curLang;
+}
+function zoom(d){sz=Math.max(1,Math.min(8,sz+d));buildGrid();}
+function setZoom(v){sz=+v;buildGrid();}
+function setLayer(n,el){
+  layer=n;
+  document.querySelectorAll('.ltab').forEach(e=>e.classList.remove('on'));
+  el.classList.add('on');
+  sel=null;
+  loadLayerPresets();
+  buildGrid();
+  document.getElementById('ihUrl').textContent='https://tobmate.com/dot.html?user='+curUser+'&lang='+curLang;
+  document.getElementById('ihName').textContent='전체 지도 324칸 (Layer '+layer+')';
+  document.getElementById('ihBadge').textContent='분양 가능';
+  document.getElementById('ihBadge').style.background='rgba(245,166,35,0.1)';
+  document.getElementById('ihBadge').style.color='#F5A623';
+  document.getElementById('ihOwner').textContent='-';
+  document.getElementById('ihVisit').textContent='-';
+  document.getElementById('ihLayer').textContent='L'+layer;
+  document.getElementById('ihAvs').innerHTML='';
+  document.getElementById('bstat').textContent='Layer '+layer+' · A1~S18 324칸';
+}
+function doFilter(t,el){ft=t;document.querySelectorAll('.ftype').forEach(e=>e.classList.remove('on'));el.classList.add('on');buildGrid();}
+document.getElementById('mapWrap').addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1:-1);},{passive:false});
+buildGrid();
+
+// S18 포털 잠금 처리
+function checkPortalLock(id){
+  if(id!=='S18')return false;
+  const popup=document.querySelector('.popup-content')||document.querySelector('.ebtn');
+  return true;
+}
+
+</script>
+<script>
+const DOT_LANG={
+  ko:{
+    title:'Dot 메타버스',applyTitle:'Dot 분양 신청',adminTitle:'Dot 관리자',
+    map:'Dot 전체 지도',apply:'분양 신청',mySpace:'내 공간',admin:'관리자',
+    selectCell:'칸 선택',cellInfo:'신청 정보',payment:'AU 결제 확인',
+    userId:'유저 ID',spaceName:'공간 이름',spaceType:'공간 유형',
+    layer:'레이어',desc:'공간 설명',link:'링크 / 연락처',
+    submitBtn:'분양 신청하기',saveBtn:'저장 및 입주 완료',
+    office:'사무실/오피스',shop:'Dot 상점',game:'게임룸',
+    meet:'미팅룸',nft:'NFT/AU 갤러리',social:'소셜/커뮤니티',
+    available:'분양 가능',taken:'분양완료',pending:'승인대기',
+    selected:'선택됨',noSelect:'없음',
+    price:'분양가',monthly:'월 유지비',commission:'거래 수수료',
+    applyDone:'분양 신청 완료! 관리자 승인 후 입주 확정',
+    auPaid:'납부 AU',waitApprove:'관리자 승인 대기중',
+    approve:'승인',reject:'거절',viewPage:'페이지 보기',
+    totalApply:'총 신청',waitApprove2:'승인대기',approved:'분양완료',
+    totalRevenue:'총 AU 수입',adminKey:'관리자 키',
+    pendingList:'승인 대기 신청',approvedList:'분양 완료 목록',
+    revenue:'수익 현황',applyIncome:'분양 수입',feeIncome:'거래 수수료 수입',
+    totalIncome:'총 수입',approvedCells:'분양 완료 칸',remaining:'잔여 분양 가능',
+    layer1:'기본 공간',layer2:'확장 공간',layer3:'프리미엄',
+    basic:'기본 공간',expanded:'확장 공간',premium:'프리미엄',
+    feeNote:'거래 수수료 3% · AU 금화 결제',backToMap:'← 전체 지도',
+    applyPage:'분양신청 페이지',applicant:'신청자',type:'유형',applyDate:'신청일',
+    approveDate:'승인일',owner:'소유자',feeRevenue:'수수료수입',
+  },
+  en:{
+    title:'Dot Metaverse',applyTitle:'Dot Space Application',adminTitle:'Dot Admin',
+    map:'Dot Map',apply:'Apply',mySpace:'My Space',admin:'Admin',
+    selectCell:'Select Cell',cellInfo:'Application Info',payment:'AU Payment',
+    userId:'User ID',spaceName:'Space Name',spaceType:'Space Type',
+    layer:'Layer',desc:'Description',link:'Link / Contact',
+    submitBtn:'Apply for Space',saveBtn:'Save & Move In',
+    office:'Office',shop:'Dot Shop',game:'Game Room',
+    meet:'Meeting Room',nft:'NFT/AU Gallery',social:'Social/Community',
+    available:'Available',taken:'Taken',pending:'Pending',
+    selected:'Selected',noSelect:'None',
+    price:'Price',monthly:'Monthly Fee',commission:'Trade Fee',
+    applyDone:'Application Complete! Confirmed after admin approval',
+    auPaid:'AU Paid',waitApprove:'Waiting for admin approval',
+    approve:'Approve',reject:'Reject',viewPage:'View Page',
+    totalApply:'Total',waitApprove2:'Pending',approved:'Approved',
+    totalRevenue:'Total AU Income',adminKey:'Admin Key',
+    pendingList:'Pending Applications',approvedList:'Approved List',
+    revenue:'Revenue',applyIncome:'Space Income',feeIncome:'Trade Fee Income',
+    totalIncome:'Total Income',approvedCells:'Approved Cells',remaining:'Available',
+    layer1:'Basic',layer2:'Extended',layer3:'Premium',
+    basic:'Basic',expanded:'Extended',premium:'Premium',
+    feeNote:'3% trade fee · AU Gold payment',backToMap:'← Map',
+    applyPage:'Apply Page',applicant:'Applicant',type:'Type',applyDate:'Applied',
+    approveDate:'Approved',owner:'Owner',feeRevenue:'Fee Revenue',
+  },
+  zh:{
+    title:'Dot 元宇宙',applyTitle:'Dot 空间申请',adminTitle:'Dot 管理员',
+    map:'Dot 地图',apply:'申请',mySpace:'我的空间',admin:'管理员',
+    selectCell:'选择格子',cellInfo:'申请信息',payment:'AU 支付确认',
+    userId:'用户ID',spaceName:'空间名称',spaceType:'空间类型',
+    layer:'层',desc:'空间描述',link:'链接 / 联系方式',
+    submitBtn:'申请空间',saveBtn:'保存并入住',
+    office:'办公室',shop:'Dot 商店',game:'游戏室',
+    meet:'会议室',nft:'NFT/AU 画廊',social:'社交/社区',
+    available:'可分配',taken:'已分配',pending:'待审批',
+    selected:'已选择',noSelect:'无',
+    price:'分配价格',monthly:'月费',commission:'交易手续费',
+    applyDone:'申请完成！管理员批准后确认入住',
+    auPaid:'已付AU',waitApprove:'等待管理员审批',
+    approve:'批准',reject:'拒绝',viewPage:'查看页面',
+    totalApply:'总申请',waitApprove2:'待审批',approved:'已批准',
+    totalRevenue:'总AU收入',adminKey:'管理员密钥',
+    pendingList:'待审批申请',approvedList:'已批准列表',
+    revenue:'收益',applyIncome:'空间收入',feeIncome:'手续费收入',
+    totalIncome:'总收入',approvedCells:'已批准格子',remaining:'可用',
+    layer1:'基础',layer2:'扩展',layer3:'高级',
+    basic:'基础',expanded:'扩展',premium:'高级',
+    feeNote:'3%交易手续费 · AU黄金支付',backToMap:'← 地图',
+    applyPage:'申请页面',applicant:'申请人',type:'类型',applyDate:'申请日期',
+    approveDate:'批准日期',owner:'所有者',feeRevenue:'手续费收入',
+  },
+  ja:{
+    title:'Dot メタバース',applyTitle:'Dot スペース申請',adminTitle:'Dot 管理者',
+    map:'Dot マップ',apply:'申請',mySpace:'マイスペース',admin:'管理者',
+    selectCell:'セル選択',cellInfo:'申請情報',payment:'AU 支払確認',
+    userId:'ユーザーID',spaceName:'スペース名',spaceType:'スペースタイプ',
+    layer:'レイヤー',desc:'スペース説明',link:'リンク / 連絡先',
+    submitBtn:'スペース申請',saveBtn:'保存して入居',
+    office:'オフィス',shop:'Dot ショップ',game:'ゲームルーム',
+    meet:'ミーティングルーム',nft:'NFT/AU ギャラリー',social:'ソーシャル',
+    available:'分譲可能',taken:'分譲済み',pending:'承認待ち',
+    selected:'選択済み',noSelect:'なし',
+    price:'分譲価格',monthly:'月額料金',commission:'取引手数料',
+    applyDone:'申請完了！管理者承認後に入居確定',
+    auPaid:'支払AU',waitApprove:'管理者承認待ち',
+    approve:'承認',reject:'拒否',viewPage:'ページを見る',
+    totalApply:'総申請',waitApprove2:'承認待ち',approved:'承認済み',
+    totalRevenue:'総AU収入',adminKey:'管理者キー',
+    pendingList:'承認待ち申請',approvedList:'承認済みリスト',
+    revenue:'収益',applyIncome:'スペース収入',feeIncome:'手数料収入',
+    totalIncome:'総収入',approvedCells:'承認済みセル',remaining:'利用可能',
+    layer1:'基本',layer2:'拡張',layer3:'プレミアム',
+    basic:'基本',expanded:'拡張',premium:'プレミアム',
+    feeNote:'3%取引手数料 · AU ゴールド決済',backToMap:'← マップ',
+    applyPage:'申請ページ',applicant:'申請者',type:'タイプ',applyDate:'申請日',
+    approveDate:'承認日',owner:'オーナー',feeRevenue:'手数料収入',
+  },
+  ru:{
+    title:'Dot Метавселенная',applyTitle:'Заявка на пространство Dot',adminTitle:'Dot Админ',
+    map:'Карта Dot',apply:'Подать заявку',mySpace:'Моё пространство',admin:'Админ',
+    selectCell:'Выбор ячейки',cellInfo:'Информация заявки',payment:'Оплата AU',
+    userId:'ID пользователя',spaceName:'Название',spaceType:'Тип',
+    layer:'Слой',desc:'Описание',link:'Ссылка / Контакт',
+    submitBtn:'Подать заявку',saveBtn:'Сохранить и въехать',
+    office:'Офис',shop:'Магазин Dot',game:'Игровая комната',
+    meet:'Переговорная',nft:'NFT/AU Галерея',social:'Социальное',
+    available:'Доступно',taken:'Занято',pending:'Ожидание',
+    selected:'Выбрано',noSelect:'Нет',
+    price:'Цена',monthly:'Ежемесячная плата',commission:'Комиссия',
+    applyDone:'Заявка принята! Подтверждение после одобрения',
+    auPaid:'Оплачено AU',waitApprove:'Ожидание одобрения',
+    approve:'Одобрить',reject:'Отклонить',viewPage:'Просмотр',
+    totalApply:'Всего заявок',waitApprove2:'Ожидание',approved:'Одобрено',
+    totalRevenue:'Доход AU',adminKey:'Ключ админа',
+    pendingList:'Заявки на рассмотрении',approvedList:'Одобренные',
+    revenue:'Доходы',applyIncome:'Доход от аренды',feeIncome:'Доход от комиссий',
+    totalIncome:'Общий доход',approvedCells:'Одобренные ячейки',remaining:'Доступно',
+    layer1:'Базовый',layer2:'Расширенный',layer3:'Премиум',
+    basic:'Базовый',expanded:'Расширенный',premium:'Премиум',
+    feeNote:'Комиссия 3% · Оплата золотом AU',backToMap:'← Карта',
+    applyPage:'Страница заявки',applicant:'Заявитель',type:'Тип',applyDate:'Дата заявки',
+    approveDate:'Дата одобрения',owner:'Владелец',feeRevenue:'Доход от комиссий',
+  },
+  ar:{
+    title:'Dot ميتافيرس',applyTitle:'طلب مساحة Dot',adminTitle:'مدير Dot',
+    map:'خريطة Dot',apply:'تقديم طلب',mySpace:'مساحتي',admin:'المدير',
+    selectCell:'اختر خلية',cellInfo:'معلومات الطلب',payment:'تأكيد دفع AU',
+    userId:'معرف المستخدم',spaceName:'اسم المساحة',spaceType:'نوع المساحة',
+    layer:'طبقة',desc:'وصف المساحة',link:'رابط / تواصل',
+    submitBtn:'تقديم الطلب',saveBtn:'حفظ والانتقال',
+    office:'مكتب',shop:'متجر Dot',game:'غرفة ألعاب',
+    meet:'غرفة اجتماعات',nft:'معرض NFT/AU',social:'اجتماعي',
+    available:'متاح',taken:'محجوز',pending:'قيد الانتظار',
+    selected:'محدد',noSelect:'لا شيء',
+    price:'سعر التخصيص',monthly:'رسوم شهرية',commission:'عمولة التداول',
+    applyDone:'اكتمل الطلب! يتم التأكيد بعد موافقة المدير',
+    auPaid:'AU المدفوع',waitApprove:'في انتظار موافقة المدير',
+    approve:'موافقة',reject:'رفض',viewPage:'عرض الصفحة',
+    totalApply:'إجمالي الطلبات',waitApprove2:'قيد الانتظار',approved:'موافق عليه',
+    totalRevenue:'إجمالي دخل AU',adminKey:'مفتاح المدير',
+    pendingList:'الطلبات المعلقة',approvedList:'قائمة الموافق عليها',
+    revenue:'الإيرادات',applyIncome:'دخل المساحة',feeIncome:'دخل العمولات',
+    totalIncome:'إجمالي الدخل',approvedCells:'الخلايا الموافق عليها',remaining:'متاح',
+    layer1:'أساسي',layer2:'موسع',layer3:'مميز',
+    basic:'أساسي',expanded:'موسع',premium:'مميز',
+    feeNote:'عمولة 3% · دفع بالذهب AU',backToMap:'← الخريطة',
+    applyPage:'صفحة الطلب',applicant:'مقدم الطلب',type:'النوع',applyDate:'تاريخ الطلب',
+    approveDate:'تاريخ الموافقة',owner:'المالك',feeRevenue:'دخل العمولات',
+  },
+};
+
+function getLang(){
+  const p=new URLSearchParams(location.search);
+  const l=p.get('lang')||document.documentElement.lang||'ko';
+  const map={'cn':'zh','jp':'ja','zh':'zh','ja':'ja'};const ll=map[l]||l;return DOT_LANG[ll]||DOT_LANG.ko;
+}
+
+function applyLang(){
+  const t=getLang();
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n');
+    if(t[key])el.textContent=t[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key=el.getAttribute('data-i18n-placeholder');
+    if(t[key])el.placeholder=t[key];
+  });
+  const lang=new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ar')document.body.style.direction='rtl';
+}
+
+(function(){
+  var lang=curLang||new URLSearchParams(location.search).get('lang')||'ko';
+  if(lang==='ko')return;
+  var TM={
+    all:{en:'All',zh:'全部',ja:'全て',ru:'Все',ar:'الكل'},
+    office:{en:'Office',zh:'办公室',ja:'オフィス',ru:'Офис',ar:'مكتب'},
+    shop:{en:'Shop',zh:'商店',ja:'ショップ',ru:'Магазин',ar:'متجر'},
+    game:{en:'Game',zh:'游戏',ja:'ゲーム',ru:'Игра',ar:'ألعاب'},
+    meet:{en:'Meet',zh:'会议',ja:'ミーティング',ru:'Встреча',ar:'اجتماع'},
+    nft:{en:'NFT',zh:'NFT',ja:'NFT',ru:'NFT',ar:'NFT'},
+    social:{en:'Social',zh:'社交',ja:'ソーシャル',ru:'Социальное',ar:'اجتماعي'},
+  };
+  var IL={
+    '소유자':{en:'Owner',zh:'所有者',ja:'オーナー',ru:'Владелец',ar:'المالك'},
+    '방문자':{en:'Visitors',zh:'访客',ja:'訪問者',ru:'Посетители',ar:'الزوار'},
+    '언어':{en:'Language',zh:'语言',ja:'言語',ru:'Язык',ar:'اللغة'},
+    '레이어':{en:'Layer',zh:'层',ja:'レイヤー',ru:'Слой',ar:'طبقة'},
+    '접속 아바타':{en:'Online',zh:'在线',ja:'オンライン',ru:'Онлайн',ar:'متصل'},
+    '이동':{en:'Move',zh:'移动',ja:'移動',ru:'Перейти',ar:'انتقل'},
+    '입장 / 편집':{en:'Enter/Edit',zh:'进入/编辑',ja:'入場/編集',ru:'Войти',ar:'دخول'},
+    '분양 가능':{en:'Available',zh:'可用',ja:'利用可能',ru:'Доступно',ar:'متاح'},
+  };
+  function applyAll(){
+    var KEYS=['all','office','shop','game','meet','nft','social'];
+    document.querySelectorAll('.ftype').forEach(function(el,i){
+      if(TM[KEYS[i]]&&TM[KEYS[i]][lang])el.textContent=TM[KEYS[i]][lang];
+    });
+    document.querySelectorAll('.ir span:first-child,.iav-t,.mbtn,.ebtn,.ih-badge').forEach(function(el){
+      var txt=el.textContent.trim();
+      if(IL[txt]&&IL[txt][lang])el.textContent=IL[txt][lang];
+    });
+    var ihn=document.querySelector('.ih-name');
+    if(ihn&&ihn.textContent.includes('324')){
+      var map={en:'Full Map 324',zh:'全图324格',ja:'全マップ324',ru:'Карта 324',ar:'خريطة 324'};
+      if(map[lang])ihn.textContent=map[lang];
+    }
+    var bs=document.querySelector('.bstat');
+    if(bs){var map={en:'A1~S18 324 cells',zh:'A1~S18 324格',ja:'A1~S18 324マス',ru:'A1~S18 324',ar:'A1~S18 324'};if(map[lang])bs.textContent=map[lang];}
+    if(lang==='ar')document.body.style.direction='rtl';
+  }
+  if(document.readyState==='complete'){applyAll();setTimeout(applyAll,1000);}
+  else{window.addEventListener('load',function(){applyAll();setTimeout(applyAll,500);});}
+  setInterval(applyAll,2000);
+})();
+</script>
+
+<script>
+// === 셀 분양 확장 (서버 연동 + 패널 버튼 + 그리드 표시 + 검색) ===
+(function(){
+const CAPI='/sau-api';
+const CL={
+ ko:{search:'🔍 셀 검색 (L2/B3·이름·빈셀)',buy:'분양받기 (50 mAU)',guest:'로그인 후 분양 가능합니다',confirm:'{c} 셀을 50 mAU에 분양받으시겠습니까?\n(30일 내 꾸미기 필수 — 미이행 시 50% 환급 후 회수)',bought:'분양 완료! 이제 셀을 꾸며 활성화하세요 (30일 이내)',saved:'저장 완료 — 셀이 활성화되었습니다!',cust:'🎨 내 셀 꾸미기',name:'셀 이름',intro:'소개문 (200자)',icon:'아이콘(이모지)',save:'저장 & 활성화',enter:'🚪 입장',dday:'활성화까지 D-',owned:'분양 완료',err:{insufficient_balance:'잔액이 부족합니다 (50 mAU 필요)',already_owned:'이미 분양된 셀입니다',reserved:'예약된 기능 셀입니다',layer_not_open:'아직 열리지 않은 레이어입니다',name_and_intro_required:'이름과 소개문을 입력해주세요',not_owner:'소유자가 아닙니다'}},
+ en:{search:'🔍 Search (L2/B3·name·empty)',buy:'Buy Cell (50 mAU)',guest:'Login required to buy',confirm:'Buy cell {c} for 50 mAU?\n(Customize within 30 days or 50% refund & reclaim)',bought:'Purchased! Customize within 30 days to activate.',saved:'Saved — cell activated!',cust:'🎨 Customize My Cell',name:'Cell name',intro:'Intro (200 chars)',icon:'Icon (emoji)',save:'Save & Activate',enter:'🚪 Enter',dday:'Activate in D-',owned:'Owned',err:{insufficient_balance:'Insufficient balance (need 50 mAU)',already_owned:'Already owned',reserved:'Reserved cell',layer_not_open:'Layer not open yet',name_and_intro_required:'Name and intro required',not_owner:'Not the owner'}},
+ zh:{search:'🔍 搜索 (L2/B3·名称·空格)',buy:'购买格子 (50 mAU)',guest:'请登录后购买',confirm:'以 50 mAU 购买 {c}?\n(30天内需装饰,否则退还50%并回收)',bought:'购买成功!请在30天内装饰激活。',saved:'已保存 — 格子已激活!',cust:'🎨 装饰我的格子',name:'格子名称',intro:'简介 (200字)',icon:'图标(表情)',save:'保存并激活',enter:'🚪 进入',dday:'激活期限 D-',owned:'已拥有',err:{insufficient_balance:'余额不足 (需要 50 mAU)',already_owned:'已被购买',reserved:'保留格子',layer_not_open:'该层尚未开放',name_and_intro_required:'请输入名称和简介',not_owner:'非所有者'}},
+ ja:{search:'🔍 セル検索 (L2/B3·名前·空き)',buy:'分譲を受ける (50 mAU)',guest:'ログイン後に購入できます',confirm:'{c} を 50 mAU で購入しますか?\n(30日以内に装飾必須 — 未実施は50%返金し回収)',bought:'購入完了!30日以内に装飾して有効化してください。',saved:'保存完了 — セルが有効化されました!',cust:'🎨 マイセル装飾',name:'セル名',intro:'紹介文 (200字)',icon:'アイコン(絵文字)',save:'保存して有効化',enter:'🚪 入場',dday:'有効化まで D-',owned:'所有済み',err:{insufficient_balance:'残高不足です (50 mAU 必要)',already_owned:'既に所有されています',reserved:'予約セルです',layer_not_open:'未開放レイヤーです',name_and_intro_required:'名前と紹介文が必要です',not_owner:'所有者ではありません'}},
+ ru:{search:'🔍 Поиск (L2/B3·имя·пусто)',buy:'Купить ячейку (50 mAU)',guest:'Требуется вход',confirm:'Купить {c} за 50 mAU?\n(Оформить за 30 дней, иначе возврат 50% и изъятие)',bought:'Куплено! Оформите за 30 дней.',saved:'Сохранено — ячейка активирована!',cust:'🎨 Оформить ячейку',name:'Название',intro:'Описание (200)',icon:'Иконка (эмодзи)',save:'Сохранить и активировать',enter:'🚪 Войти',dday:'Активация: D-',owned:'Занято',err:{insufficient_balance:'Недостаточно средств (50 mAU)',already_owned:'Уже занято',reserved:'Зарезервировано',layer_not_open:'Слой ещё закрыт',name_and_intro_required:'Нужны имя и описание',not_owner:'Не владелец'}},
+ ar:{search:'🔍 بحث (L2/B3·اسم·فارغ)',buy:'شراء الخلية (50 mAU)',guest:'يلزم تسجيل الدخول',confirm:'شراء {c} مقابل 50 mAU؟\n(زيّنها خلال 30 يوماً وإلا استرداد 50% واستعادة)',bought:'تم الشراء! زيّن الخلية خلال 30 يوماً.',saved:'تم الحفظ — الخلية مفعّلة!',cust:'🎨 تزيين خليتي',name:'اسم الخلية',intro:'نبذة (200)',icon:'أيقونة',save:'حفظ وتفعيل',enter:'🚪 دخول',dday:'التفعيل خلال D-',owned:'مملوكة',err:{insufficient_balance:'رصيد غير كافٍ (50 mAU)',already_owned:'مملوكة بالفعل',reserved:'خلية محجوزة',layer_not_open:'الطبقة غير مفتوحة',name_and_intro_required:'الاسم والنبذة مطلوبان',not_owner:'لست المالك'}}
+};
+const L=CL[curLang]||CL.ko;
+if(typeof ICONS==='object')ICONS.owned='🏠';
+if(typeof TBGS==='object')TBGS.owned='rgba(245,166,35,0.08)';
+if(typeof TCOLORS==='object')TCOLORS.owned='#F5A623';
+if(typeof TNAMES==='object')TNAMES.owned=L.owned;
+
+window._cellsLoaded=false;
+async function loadServerCells(){
+ try{
+  const r=await fetch(CAPI+'/cells/'+layer);const j=await r.json();
+  if(!j.ok)return;
+  window.srvCells={};
+  (j.cells||[]).forEach(sc=>{
+   const id=sc.cell_id.split('/')[1];
+   window.srvCells[id]={type:'owned',_srv:true,owner:sc.owner,icon:sc.icon,color:sc.color,intro:sc.intro,activated:sc.activated,deadline:sc.deadline,
+    name:(sc.icon?sc.icon+' ':'')+(sc.name||sc.cell_id)};
+  });
+  window._openLayers=j.open_layers;window._cellsLoaded=true;
+  buildGrid();if(sel)pick(sel);
+ }catch(e){}
+}
+function styleOwned(){
+ const sv=window.srvCells||{};
+ for(const k in sv){const s=sv[k];
+  const el=document.getElementById('cl-'+k);if(!el)continue;
+  const col=/^#[0-9a-fA-F]{6}$/.test(s.color||'')?s.color:'#F5A623';
+  el.style.borderColor=col;el.style.boxShadow='0 0 6px '+col;
+  let ic=el.querySelector('.cico');
+  if(!ic){ic=document.createElement('div');ic.className='cico';ic.style.fontSize='11px';el.appendChild(ic);}
+  ic.textContent=s.icon||'🏠';
+ }
+}
+function box(){
+ let b=document.getElementById('cellActions');
+ if(!b){b=document.createElement('div');b.id='cellActions';
+  b.style.cssText='margin-top:10px;display:flex;flex-direction:column;gap:6px;font-size:12px;font-family:monospace';
+  const o=document.getElementById('ihOwner');if(o&&o.parentNode&&o.parentNode.parentNode){o.parentNode.parentNode.insertBefore(b,o.parentNode);}else{const a=document.getElementById('ihAvs');(a?a.parentNode:document.body).appendChild(b);}}
+ return b;
+}
+function btn(txt,fn,col){const e=document.createElement('button');e.textContent=txt;
+ e.style.cssText='padding:8px;border-radius:8px;border:1px solid '+(col||'#F5A623')+';background:'+(col||'#F5A623')+'22;color:'+(col||'#F5A623')+';cursor:pointer;font-family:monospace;font-weight:bold';
+ e.onclick=fn;return e;}
+function renderActions(id){
+ const b=box();b.innerHTML='';
+ const c=(window.srvCells&&window.srvCells[id])||cells[id]||{};
+ if(c._srv){
+  if(!c.activated){const d=Math.max(0,Math.ceil((c.deadline-Date.now())/86400000));
+   const w=document.createElement('div');w.textContent=L.dday+d;
+   w.style.cssText='color:'+(d<=7?'#E23B3B':'#F5A623')+';font-weight:bold';b.appendChild(w);}
+  if(c.intro){const p=document.createElement('div');p.textContent=c.intro;
+   p.style.cssText='color:#aab;line-height:1.5;white-space:pre-wrap';b.appendChild(p);}
+  if(c.activated)b.appendChild(btn(L.enter,()=>{location.href=CAPI+'/cell-page/L'+layer+'/'+id;}));
+  if(c.owner===curUser)b.appendChild(btn(L.cust,()=>custForm(id,c),'#27AE60'));
+ } else if(!c.type){
+  b.appendChild(btn(L.buy,()=>buyCell(id)));
+ }
+}
+function custForm(id,c){
+ const b=box();b.innerHTML='';
+ const mk=(ph,val,tag)=>{const e=document.createElement(tag||'input');e.placeholder=ph;e.value=val||'';
+  e.style.cssText='padding:7px;border-radius:6px;border:1px solid #445;background:rgba(255,255,255,0.05);color:#eee;font-family:monospace;width:100%;box-sizing:border-box';return e;};
+ const fi=mk(L.icon,c.icon);fi.maxLength=4;
+ const fc=document.createElement('input');fc.type='color';fc.value=/^#/.test(c.color||'')?c.color:'#F5A623';
+ fc.style.cssText='width:100%;height:34px;border:none;background:none;cursor:pointer';
+ const fn=mk(L.name,(c.name||'').replace(/^\S+\s/,''));fn.maxLength=30;
+ const ft2=mk(L.intro,c.intro,'textarea');ft2.maxLength=200;ft2.rows=4;
+ [fi,fc,fn,ft2].forEach(e=>b.appendChild(e));
+ b.appendChild(btn(L.save,async()=>{
+  try{
+   const r=await fetch(CAPI+'/cell/customize',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({user_id:curUser,cell_id:'L'+layer+'/'+id,icon:fi.value,color:fc.value,name:fn.value,intro:ft2.value})});
+   const j=await r.json();
+   if(j.ok){alert(L.saved);await loadServerCells();pick(id);}
+   else alert(L.err[j.reason]||j.reason||'error');
+  }catch(e){alert('network error');}
+ },'#27AE60'));
+ const sc=(window.srvCells&&window.srvCells[id])||{};
+ if(sc.activated)b.appendChild(btn(L.enter,()=>{location.href=CAPI+'/cell-page/L'+layer+'/'+id;}));
+}
+async function buyCell(id){
+ if(!curUser||curUser==='guest'){alert(L.guest);return;}
+ if(!confirm(L.confirm.replace('{c}','L'+layer+'/'+id)))return;
+ try{
+  const r=await fetch(CAPI+'/cell/buy',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({user_id:curUser,layer:layer,cell:id})});
+  const j=await r.json();
+  if(j.ok){alert(L.bought);await loadServerCells();pick(id);}
+  else alert(L.err[j.reason]||j.reason||'error');
+ }catch(e){alert('network error');}
+}
+// 검색
+const sb=document.createElement('input');sb.placeholder=L.search;
+sb.style.cssText='display:block;margin:8px 0;padding:7px 10px;background:rgba(10,14,26,0.9);border:1px solid rgba(245,166,35,0.5);border-radius:8px;color:#eee;font-family:monospace;font-size:12px;width:100%;box-sizing:border-box';
+(function(){
+  // 검색창을 툴바에 배치 (3D/2D 둘 다 보이게)
+  var tb=document.querySelector('.toolbar');
+  if(tb){
+    sb.style.cssText='margin-left:12px;padding:5px 10px;background:rgba(10,14,26,0.9);border:1px solid rgba(245,166,35,0.5);border-radius:8px;color:#eee;font-family:monospace;font-size:12px;width:220px;box-sizing:border-box;flex-shrink:0';
+    tb.appendChild(sb);
+  } else {
+    sb.style.cssText+=';position:fixed;top:96px;right:16px;width:200px;z-index:60';document.body.appendChild(sb);
+  }
+})();
+function hl(ids){
+ const set=new Set(ids);
+ for(let ci=0;ci<COLS.length;ci++)for(let r=1;r<=18;r++){
+  const id=COLS[ci]+r,e=document.getElementById('cl-'+id);if(!e)continue;
+  if(set.has(id)){e.style.outline='2px solid #F5A623';e.style.opacity='1';}
+  else{e.style.outline='';e.style.opacity='0.12';}
+ }
+}
+function doSearch(){
+ const q=sb.value.trim();
+ if(!q){buildGrid();return;}
+ const m=q.match(/^L(\d+)\/([A-S](?:1[0-8]|[1-9]))$/i);
+ if(m){const ln=+m[1],cid=m[2].toUpperCase();
+  if(ln!==layer){const tabs=document.querySelectorAll('.ltab');
+   if(tabs[ln-1]){tabs[ln-1].click();setTimeout(()=>{pick(cid);hl([cid]);},500);}return;}
+  pick(cid);hl([cid]);return;}
+ const ql=q.toLowerCase(),hits=[];
+ const empty=['빈셀','분양','empty','vacant','空','空き'].includes(ql);
+ for(let ci=0;ci<COLS.length;ci++)for(let r=1;r<=18;r++){
+  const id=COLS[ci]+r,c=cells[id]||{};
+  if(empty){if(!c.type)hits.push(id);continue;}
+  if(id.toLowerCase()===ql||(c.name||'').toLowerCase().includes(ql)||(c.owner||'').toLowerCase()===ql)hits.push(id);
+ }
+ hl(hits);if(hits.length===1)pick(hits[0]);
+}
+sb.addEventListener('input',doSearch);
+// 래핑
+const _bg=buildGrid;buildGrid=function(){_bg();styleOwned();};
+const _pk=pick;pick=function(id){_pk(id);
+ const s=window.srvCells&&window.srvCells[id];
+ if(s){document.getElementById('ihName').textContent=s.name;
+  document.getElementById('ihOwner').textContent=s.owner;
+  const b=document.getElementById('ihBadge');
+  b.textContent=s.activated?TNAMES.owned:(L.dday+Math.max(0,Math.ceil((s.deadline-Date.now())/86400000)));
+  b.style.background='rgba(245,166,35,0.15)';b.style.color='#F5A623';}
+ renderActions(id);};
+if(typeof setLayer==='function'){const _sl=setLayer;setLayer=function(n,el){_sl(n,el);loadServerCells();};}
+if(typeof enterSpace==='function'){window._es_patched=1;const _es=enterSpace;enterSpace=function(){
+ const s=sel&&window.srvCells&&window.srvCells[sel];
+ if(s&&s.activated){location.href=CAPI+'/cell-page/L'+layer+'/'+sel;return;}
+ if(s&&!s.activated&&s.owner===curUser){custForm(sel,s);return;}
+ _es();
+};}
+loadServerCells();
+})();
+// ====================================================================
+// Tobmate Core: 2D 平面 / 3D 地球본 하이브리드 통합 엔진 및 데이터 브릿지
+// ====================================================================
+let is3DMode = false; window.is3DMode=false; { var _ip=document.querySelector('.info'); if(_ip) _ip.style.display=''; }
+let threeEngineInitialized = false;
+
+function toggleDimensionView() {
+    const view2D = document.getElementById('grid-2d-view') || document.querySelector('.map-inner');
+    const view3D = document.getElementById('globe-3d-view');
+    const toggleBtn = document.getElementById('view-toggle-btn');
+
+    // 기존 2D 컨테이너에 ID가 없을 경우를 대비해 동적 ID 부여 (원본 보호)
+    if (view2D && !view2D.id) view2D.id = 'grid-2d-view';
+
+    if (!is3DMode) {
+        if (view2D) view2D.style.display = 'none';
+        if (view3D) view3D.style.display = 'block';
+        if (toggleBtn) toggleBtn.innerText = "2D 평면보기";
+        is3DMode = true; window.is3DMode=true; { var _ip=document.querySelector('.info'); if(_ip) _ip.style.display='none'; }
+
+        if (!threeEngineInitialized) {
+            init3DGlobeEngine();
+            threeEngineInitialized = true;
+        }
+        setTimeout(function(){
+            var cont=document.getElementById('globe-3d-view');
+            if(cont && window.globeCamera && window.globeRenderGL){
+                var _w=window.innerWidth, _h=window.innerHeight-96;
+                cont.style.position='fixed'; cont.style.top='96px'; cont.style.left='0';
+                cont.style.width='100vw'; cont.style.height='calc(100vh - 96px)'; cont.style.zIndex='50';
+                window.globeCamera.aspect=_w/_h;
+                window.globeCamera.updateProjectionMatrix();
+                window.globeRenderGL.setSize(_w,_h);
+                if(window.globeRenderCSS) window.globeRenderCSS.setSize(_w,_h);
+            }
+        },120);
+    } else {
+        if (view3D) view3D.style.display = 'none';
+        if (view2D) view2D.style.display = 'inline-flex'; // 기존 디스플레이 속성 유지
+        if (toggleBtn) toggleBtn.innerText = "3D 지구본보기";
+        is3DMode = false;
+    }
+}
+
+
+function _hslToRgb(h, s, l) {
+    var r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+        function hue2rgb(p, q, t) {
+            if (t < 0) t += 1; if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+    return [r, g, b];
+}
+
+
+// ===== 셀 HTML 풀스크린 팝업 (유튜브 영상 스타일) =====
+function openCellPopup(cellId){
+    var lay = (typeof layer!=='undefined') ? layer : 1;
+    var cap = (typeof CAPI!=='undefined') ? CAPI : '/sau-api';
+    var cell = (window.srvCells && window.srvCells[cellId]) || (typeof cells!=='undefined' && cells[cellId]) || {};
+    var _cu = (typeof curUser!=='undefined') ? curUser : 'guest';
+    var _cl = (typeof curLang!=='undefined') ? curLang : 'ko';
+    // 특수 포털 셀 → 전용 3D 페이지
+    var _special = null;
+    if (cellId === 'D3') _special = '/dot/classroom3d.html?user='+_cu+'&lang='+_cl;
+    else if (cellId === 'S18') _special = '/dot/space.html?user='+_cu+'&lang='+_cl+'&skip_intro=1';
+    var url = _special || (cap + '/cell-page/L' + lay + '/' + cellId);
+    if (_special) cell = Object.assign({}, cell, {activated:true});
+    var ov = document.createElement('div');
+    ov.setAttribute('data-cellpop','1');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,4,12,0.94);display:flex;flex-direction:column;backdrop-filter:blur(4px);';
+    var title = cell.name || cellId;
+    var owner = cell.owner ? (' · ' + cell.owner) : '';
+    var isActive = cell.activated;
+    ov.innerHTML =
+        '<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#0a0e1c;border-bottom:1px solid rgba(0,180,255,0.25);flex-shrink:0;">'+
+          '<span style="color:#ffd700;font:bold 15px monospace;">📍 '+cellId+' <span style="color:#9fc7f0;font-weight:normal;">'+title+owner+'</span></span>'+
+          '<button style="background:rgba(226,59,59,0.15);border:1px solid #E23B3B;color:#ff9d9d;padding:6px 14px;border-radius:8px;font:bold 13px monospace;cursor:pointer;">✕ 닫기</button>'+
+        '</div>'+
+        (isActive
+          ? '<div style="flex:1;position:relative;display:flex;"><iframe src="'+url+'" style="flex:1;width:100%;border:none;background:#020818;"></iframe>'+
+            '<button id="_enterBtn" style="position:absolute;bottom:24px;right:24px;background:linear-gradient(135deg,#F5A623,#e8890a);border:none;color:#fff;padding:14px 28px;border-radius:12px;font:bold 15px monospace;cursor:pointer;box-shadow:0 4px 20px rgba(245,166,35,0.6);z-index:10;">🚪 입장하기</button></div>'
+          : '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8ba;font-family:monospace;gap:14px;">'+
+            '<div style="font-size:48px;">'+(cell.icon||'🏠')+'</div>'+
+            '<div style="font-size:18px;color:#ccd;">'+(cell.type?title:(cellId+' — 빈 공간'))+'</div>'+
+            '<div style="font-size:13px;color:#678;">'+(cell.type?'아직 활성화되지 않은 셀입니다':'분양 가능한 셀입니다')+'</div>'+
+            '</div>');
+    function _closeOv(){ if(ov.parentNode){ ov.remove(); if(history.state && history.state._pop){ history.back(); } } }
+    ov.querySelector('button').onclick = function(){ ov.remove(); if(history.state && history.state._pop) history.back(); };
+    ov.addEventListener('click', function(e){ if(e.target===ov){ ov.remove(); if(history.state && history.state._pop) history.back(); } });
+    document.body.appendChild(ov);
+    var _eb = ov.querySelector('#_enterBtn');
+    if (_eb) _eb.onclick = function(e){ e.stopPropagation(); window.location.href = url; };
+    history.pushState({_pop:'cell'}, '', location.href);
+    window._activePopup = ov;
+}
+
+// ===== 열/행 그리드 팝업 (유튜브 홈 스타일) =====
+function openLineGrid(kind, key){
+    // kind='col' → key=열문자(A~S), 'row' → key=행번호(1~18)
+    var _cols = (typeof COLS!=='undefined') ? COLS : 'ABCDEFGHJKLMNOPQRS'.split('');
+    var ids = [];
+    if(kind==='col'){ for(var r=1;r<=18;r++) ids.push(key+r); }
+    else { for(var ci=0;ci<_cols.length;ci++) ids.push(_cols[ci]+key); }
+    var lay = (typeof layer!=='undefined') ? layer : 1;
+    var cap = (typeof CAPI!=='undefined') ? CAPI : '/sau-api';
+    var ov = document.createElement('div');
+    ov.setAttribute('data-cellpop','1');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:999998;background:rgba(0,4,12,0.96);display:flex;flex-direction:column;';
+    var head = '<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#0a0e1c;border-bottom:1px solid rgba(255,215,0,0.25);flex-shrink:0;">'+
+        '<span style="color:#ffd700;font:bold 16px monospace;">'+(kind==='col'?('열 '+key):('행 '+key))+' 셀 목록</span>'+
+        '<button style="background:rgba(226,59,59,0.15);border:1px solid #E23B3B;color:#ff9d9d;padding:6px 14px;border-radius:8px;font:bold 13px monospace;cursor:pointer;">✕ 닫기</button></div>';
+    var grid = '<div style="flex:1;overflow:auto;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;align-content:start;">';
+    ids.forEach(function(id){
+        var cell = (window.srvCells && window.srvCells[id]) || (typeof cells!=='undefined' && cells[id]) || {};
+        var icon = cell.icon || (typeof ICONS!=='undefined' && cell.type ? ICONS[cell.type] : '') || '⬚';
+        var col = cell.color || (typeof TCOLORS!=='undefined' && cell.type ? TCOLORS[cell.type] : '#33405a');
+        var nm = cell.name || (cell.type?id:(id+' 빈셀'));
+        var ow = cell.owner || '미분양';
+        var badge = cell.activated ? '<span style="color:#27AE60;">● 활성</span>' : (cell.type?'<span style="color:#F5A623;">● 미활성</span>':'<span style="color:#678;">○ 빈셀</span>');
+        grid += '<div data-cid="'+id+'" style="background:rgba(20,30,50,0.7);border:1.5px solid '+col+';border-radius:12px;padding:14px;cursor:pointer;transition:all 0.15s;box-shadow:0 0 8px '+col+'33;">'+
+            '<div style="font-size:30px;margin-bottom:6px;">'+icon+'</div>'+
+            '<div style="color:#ffd700;font:bold 13px monospace;">'+id+'</div>'+
+            '<div style="color:#cdd;font-size:12px;margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+nm+'</div>'+
+            '<div style="color:#89a;font-size:11px;">'+ow+'</div>'+
+            '<div style="font-size:10px;margin-top:6px;">'+badge+'</div></div>';
+    });
+    grid += '</div>';
+    ov.innerHTML = head + grid;
+    ov.querySelector('button').onclick = function(){ ov.remove(); if(history.state && history.state._pop) history.back(); };
+    ov.addEventListener('click', function(e){ if(e.target===ov){ ov.remove(); if(history.state && history.state._pop) history.back(); } });
+    // 각 카드 클릭 → 개별 셀 풀스크린
+    ov.querySelectorAll('[data-cid]').forEach(function(card){
+        card.onclick = function(){ ov.remove(); openCellPopup(card.getAttribute('data-cid')); };
+        card.onmouseenter = function(){ card.style.transform='scale(1.05)'; };
+        card.onmouseleave = function(){ card.style.transform='scale(1)'; };
+    });
+    document.body.appendChild(ov);
+    history.pushState({_pop:'grid'}, '', location.href);
+    window._activePopup = ov;
+}
+window.openCellPopup = openCellPopup;
+window.openLineGrid = openLineGrid;
+if(!window._popstateBound){
+    window._popstateBound = true;
+    window.addEventListener('popstate', function(){
+        // 열려있는 팝업이 있으면 닫기만 (페이지 이동 방지)
+        var pops = document.querySelectorAll('[data-cellpop]');
+        if(pops.length){ pops.forEach(function(p){ p.remove(); }); }
+    });
+}
+
+function init3DGlobeEngine() {
+    // globe-3d-view 컨테이너가 없으면 먼저 생성 (map-wrap 안에)
+    let container = document.getElementById('globe-3d-view');
+    if (!container) {
+        const mw = document.querySelector('.map-wrap') || document.querySelector('.map-inner');
+        if (!mw) { console.error('[3D] map-wrap 못찾음'); return; }
+        mw.style.position = 'relative';
+        container = document.createElement('div');
+        container.id = 'globe-3d-view';
+        container.style.position = 'fixed';
+        container.style.top = '96px'; container.style.left = '0';
+        container.style.width = '100vw'; container.style.height = 'calc(100vh - 96px)';
+        container.style.background = '#020818';
+        container.style.zIndex = '50';
+        mw.appendChild(container);
+        console.log('[3D] globe-3d-view 컨테이너 생성됨');
+    }
+    if (!container) return;
+
+    const scene = new THREE.Scene();
+    const sceneCSS = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 5000);
+    camera.position.set(0, 0, 1100);
+
+    const rendererGL = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    rendererGL.setSize(container.clientWidth, container.clientHeight);
+    rendererGL.domElement.style.position = 'absolute';
+    rendererGL.domElement.style.top = '0';
+    rendererGL.domElement.style.zIndex = '1';
+    container.appendChild(rendererGL.domElement);
+
+    const rendererCSS = new THREE.CSS3DRenderer();
+    rendererCSS.setSize(container.clientWidth, container.clientHeight);
+    rendererCSS.domElement.style.position = 'absolute';
+    rendererCSS.domElement.style.top = '0';
+    rendererCSS.domElement.style.zIndex = '2';
+    rendererCSS.domElement.style.pointerEvents = 'none';
+    container.appendChild(rendererCSS.domElement);
+
+    const controls = new THREE.OrbitControls(camera, rendererCSS.domElement);
+    window.globeCamera = camera; window.globeControls = controls;
+    // ===== 지구본 회전 컨트롤 바 (십자 방향 버튼) =====
+    (function(){
+        if (document.getElementById('globe-rotate-ctrl')) return;
+        var pad = document.createElement('div');
+        pad.id = 'globe-rotate-ctrl';
+        pad.style.cssText = 'position:fixed;left:24px;bottom:24px;z-index:300;display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px);gap:4px;user-select:none;';
+        function mkBtn(label, gx, gy, dir){
+            var b = document.createElement('button');
+            b.innerText = label;
+            b.style.cssText = 'grid-column:'+gx+';grid-row:'+gy+';background:rgba(20,30,50,0.85);border:1px solid rgba(0,180,255,0.4);color:#7fd4ff;font-size:18px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s;';
+            b.onmouseenter=function(){b.style.background='rgba(0,180,255,0.3)';};
+            b.onmouseleave=function(){b.style.background='rgba(20,30,50,0.85)';};
+            // 누르는 동안 반복 회전
+            var timer=null;
+            function start(){
+                if(timer) return;
+                timer=setInterval(function(){
+                    var ctr=window.globeControls;
+                    if(!ctr) return;
+                    // OrbitControls 내부 각도 직접 조정
+                    if(dir==='left') ctr.rotateLeft ? ctr.rotateLeft(-0.04) : _manualRotate(-0.04,0);
+                    else if(dir==='right') ctr.rotateLeft ? ctr.rotateLeft(0.04) : _manualRotate(0.04,0);
+                    else if(dir==='up') ctr.rotateUp ? ctr.rotateUp(-0.04) : _manualRotate(0,-0.04);
+                    else if(dir==='down') ctr.rotateUp ? ctr.rotateUp(0.04) : _manualRotate(0,0.04);
+                    ctr.update();
+                },16);
+            }
+            function stop(){ if(timer){clearInterval(timer);timer=null;} }
+            b.onmousedown=start; b.onmouseup=stop; b.onmouseleave=function(){b.style.background='rgba(20,30,50,0.85)';stop();};
+            b.ontouchstart=function(e){e.preventDefault();start();}; b.ontouchend=stop;
+            return b;
+        }
+        // OrbitControls에 rotateLeft/Up이 없을 때 수동 회전 (카메라를 구면좌표로 회전)
+        window._manualRotate = function(dTheta, dPhi){
+            var cam=window.globeCamera, ctr=window.globeControls;
+            if(!cam||!ctr) return;
+            var offset=cam.position.clone().sub(ctr.target);
+            var r=offset.length();
+            var theta=Math.atan2(offset.x,offset.z);
+            var phi=Math.acos(Math.max(-1,Math.min(1,offset.y/r)));
+            theta+=dTheta; phi=Math.max(0.1,Math.min(Math.PI-0.1,phi+dPhi));
+            offset.x=r*Math.sin(phi)*Math.sin(theta);
+            offset.y=r*Math.cos(phi);
+            offset.z=r*Math.sin(phi)*Math.cos(theta);
+            cam.position.copy(ctr.target).add(offset);
+            cam.lookAt(ctr.target);
+        };
+        pad.appendChild(mkBtn('▲',2,1,'up'));
+        pad.appendChild(mkBtn('◀',1,2,'left'));
+        pad.appendChild(mkBtn('■',2,2,'center'));
+        pad.appendChild(mkBtn('▶',3,2,'right'));
+        pad.appendChild(mkBtn('▼',2,3,'down'));
+        document.body.appendChild(pad);
+    })();
+
+    // ===== 지구본 이동(팬) 컨트롤 — 오른쪽 =====
+    (function(){
+        if (document.getElementById('globe-pan-ctrl')) return;
+        var pp = document.createElement('div');
+        pp.id = 'globe-pan-ctrl';
+        pp.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:300;display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px);gap:4px;user-select:none;';
+        // 지구본 위치 오프셋 (컨테이너 transform으로 이동)
+        window._globePan = window._globePan || {x:0, y:0};
+        function applyPan(){
+            var cont = document.getElementById('globe-3d-view');
+            if(cont){ cont.style.transform = 'translate('+window._globePan.x+'px,'+window._globePan.y+'px)'; }
+        }
+        function mkPanBtn(label, gx, gy, dx, dy){
+            var b = document.createElement('button');
+            b.innerText = label;
+            b.style.cssText = 'grid-column:'+gx+';grid-row:'+gy+';background:rgba(50,30,20,0.85);border:1px solid rgba(245,166,35,0.4);color:#ffcf7f;font-size:16px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+            var timer=null;
+            function start(){
+                if(timer) return;
+                if(dx===0&&dy===0){
+                    // 완전 리셋: 이동 + 카메라 + 줌
+                    window._globePan.x=0; window._globePan.y=0; applyPan();
+                    if(window.globeCamera && window.globeControls){
+                        window.globeCamera.position.set(0, 0, 1100);
+                        window.globeControls.target.set(0, 0, 0);
+                        window.globeControls.update();
+                    }
+                    return;
+                }
+                timer=setInterval(function(){
+                    window._globePan.x += dx;
+                    window._globePan.y += dy;
+                    applyPan();
+                },16);
+            }
+            function stop(){ if(timer){clearInterval(timer);timer=null;} }
+            b.onmousedown=start; b.onmouseup=stop;
+            b.onmouseleave=function(){b.style.background='rgba(50,30,20,0.85)';stop();};
+            b.onmouseenter=function(){b.style.background='rgba(245,166,35,0.3)';};
+            b.ontouchstart=function(e){e.preventDefault();start();}; b.ontouchend=stop;
+            return b;
+        }
+        pp.appendChild(mkPanBtn('\u25B2',2,1,0,-6));   // 위로 이동
+        pp.appendChild(mkPanBtn('\u25C0',1,2,-6,0));   // 왼쪽으로
+        pp.appendChild(mkPanBtn('\u2316',2,2,0,0));    // 가운데(리셋)
+        pp.appendChild(mkPanBtn('\u25B6',3,2,6,0));    // 오른쪽으로
+        pp.appendChild(mkPanBtn('\u25BC',2,3,0,6));    // 아래로
+        document.body.appendChild(pp);
+    })();
+    if(!window._g3dResize){
+        window._g3dResize=true;
+        window.addEventListener('resize', function(){
+            if(window.is3DMode && window.globeCamera && window.globeRenderGL){
+                var rw=window.innerWidth, rh=window.innerHeight-96;
+                window.globeCamera.aspect=rw/rh;
+                window.globeCamera.updateProjectionMatrix();
+                window.globeRenderGL.setSize(rw,rh);
+                if(window.globeRenderCSS) window.globeRenderCSS.setSize(rw,rh);
+            }
+        });
+    }
+    window.globeRenderGL = rendererGL; window.globeRenderCSS = rendererCSS;
+    // 줌 슬라이더(zsl, 1~8)를 3D 카메라 거리에 연결
+    var _zs = document.getElementById('zsl');
+    if (_zs && !_zs._g3d) {
+        _zs._g3d = true;
+        _zs.addEventListener('input', function(){
+            if (window.is3DMode && window.globeCamera) {
+                var v = parseFloat(this.value);        // 1~8
+                var dist = 1900 - v * 190;             // v=1→1710, v=8→380 (클수록 확대)
+                window.globeCamera.position.setLength(Math.max(350, dist));
+            }
+        });
+    }
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    const radius = 400;
+    const sphereGeom = new THREE.SphereGeometry(radius, 32, 32);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true, transparent: true, opacity: 0.08 });
+    scene.add(new THREE.Mesh(sphereGeom, sphereMat));
+
+    // ===== 우주 무지개 파티클 (별 필드) =====
+    var starGeo = new THREE.BufferGeometry();
+    var starCount = 2500;
+    var starPos = new Float32Array(starCount * 3);
+    var starCol = new Float32Array(starCount * 3);
+    for (var si = 0; si < starCount; si++) {
+        // 구 껍질 형태로 분포 (반지름 700~2200 사이, 지구본 바깥)
+        var rr = 700 + Math.random() * 1500;
+        var th = Math.random() * Math.PI * 2;
+        var ph = Math.acos(2 * Math.random() - 1);
+        starPos[si*3]   = rr * Math.sin(ph) * Math.cos(th);
+        starPos[si*3+1] = rr * Math.cos(ph);
+        starPos[si*3+2] = rr * Math.sin(ph) * Math.sin(th);
+        // 무지개색 (HSL → RGB)
+        var hue = Math.random();
+        var cc = _hslToRgb(hue, 0.8, 0.6);
+        starCol[si*3]   = cc[0];
+        starCol[si*3+1] = cc[1];
+        starCol[si*3+2] = cc[2];
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+    var starMat = new THREE.PointsMaterial({
+        size: 4.5,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        sizeAttenuation: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    var starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+    window._globeStarField = starField;
+
+    // 가까운 큰 별 몇 개 (반짝임 강조)
+    var bigGeo = new THREE.BufferGeometry();
+    var bigCount = 120;
+    var bigPos = new Float32Array(bigCount * 3);
+    var bigCol = new Float32Array(bigCount * 3);
+    for (var bi = 0; bi < bigCount; bi++) {
+        var br = 900 + Math.random() * 1300;
+        var bth = Math.random() * Math.PI * 2;
+        var bph = Math.acos(2 * Math.random() - 1);
+        bigPos[bi*3]   = br * Math.sin(bph) * Math.cos(bth);
+        bigPos[bi*3+1] = br * Math.cos(bph);
+        bigPos[bi*3+2] = br * Math.sin(bph) * Math.sin(bth);
+        var bc = _hslToRgb(Math.random(), 0.9, 0.7);
+        bigCol[bi*3]=bc[0]; bigCol[bi*3+1]=bc[1]; bigCol[bi*3+2]=bc[2];
+    }
+    bigGeo.setAttribute('position', new THREE.BufferAttribute(bigPos, 3));
+    bigGeo.setAttribute('color', new THREE.BufferAttribute(bigCol, 3));
+    var bigMat = new THREE.PointsMaterial({ size: 9, vertexColors: true, transparent: true, opacity: 0.95, sizeAttenuation: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    var bigStars = new THREE.Points(bigGeo, bigMat);
+    scene.add(bigStars);
+    window._globeBigStars = bigStars;
+
+    // ===== 잠재적 Layer 행성/위성 =====
+    window._globePlanets = [];
+    var _planetDefs = [
+        { r:70,  dist:1250, color:0x4A90D9, speed:0.0008, tilt:0.3,  name:'L2' },
+        { r:48,  dist:1650, color:0x9B59B6, speed:-0.0005, tilt:-0.5, name:'L3' },
+        { r:95,  dist:2050, color:0x1ABC9C, speed:0.0003, tilt:0.15, name:'L4' },
+        { r:38,  dist:900,  color:0xF5A623, speed:0.0012, tilt:0.8,  name:'moon' }
+    ];
+    _planetDefs.forEach(function(pd, i){
+        var pGeo = new THREE.SphereGeometry(pd.r, 24, 24);
+        var pMat = new THREE.MeshBasicMaterial({ color:pd.color, transparent:true, opacity:0.55, wireframe:false });
+        var planet = new THREE.Mesh(pGeo, pMat);
+        // 은은한 발광 외곽 (와이어프레임)
+        var glowGeo = new THREE.SphereGeometry(pd.r*1.15, 16, 16);
+        var glowMat = new THREE.MeshBasicMaterial({ color:pd.color, transparent:true, opacity:0.18, wireframe:true });
+        var glow = new THREE.Mesh(glowGeo, glowMat);
+        planet.add(glow);
+        var ang0 = (i / _planetDefs.length) * Math.PI * 2;
+        planet.position.set(pd.dist*Math.cos(ang0), pd.dist*Math.sin(pd.tilt)*0.4, pd.dist*Math.sin(ang0));
+        scene.add(planet);
+        window._globePlanets.push({ mesh:planet, dist:pd.dist, speed:pd.speed, tilt:pd.tilt, angle:ang0 });
+    });
+
+    // ===== 별똥별(유성) 시스템 =====
+    window._globeMeteors = [];
+    function _spawnMeteor(){
+        var mGeo = new THREE.BufferGeometry();
+        var tailLen = 8;
+        var pts = new Float32Array(tailLen * 3);
+        // 랜덤 시작점(구 바깥 먼 곳)
+        var sr = 2400;
+        var sth = Math.random()*Math.PI*2, sph = Math.acos(2*Math.random()-1);
+        var start = new THREE.Vector3(sr*Math.sin(sph)*Math.cos(sth), sr*Math.cos(sph), sr*Math.sin(sph)*Math.sin(sth));
+        // 이동 방향(화면 가로지르게)
+        var dir = new THREE.Vector3((Math.random()-0.5)*2, (Math.random()-0.5)*1.2, (Math.random()-0.5)*2).normalize();
+        for(var t=0;t<tailLen;t++){
+            pts[t*3]=start.x - dir.x*t*30;
+            pts[t*3+1]=start.y - dir.y*t*30;
+            pts[t*3+2]=start.z - dir.z*t*30;
+        }
+        mGeo.setAttribute('position', new THREE.BufferAttribute(pts,3));
+        var hue = Math.random();
+        var mc = _hslToRgb(hue, 0.9, 0.75);
+        var mMat = new THREE.LineBasicMaterial({ color:new THREE.Color(mc[0],mc[1],mc[2]), transparent:true, opacity:0.9, linewidth:2 });
+        var meteor = new THREE.Line(mGeo, mMat);
+        scene.add(meteor);
+        window._globeMeteors.push({ line:meteor, pos:start.clone(), dir:dir, life:0, maxLife:120, mat:mMat });
+    }
+    window._meteorTimer = setInterval(function(){
+        if(window.is3DMode && window._globeMeteors.length < 4 && Math.random() < 0.6){ _spawnMeteor(); }
+    }, 1800);
+
+
+
+    // 기존 소스코드의 COLS 배열 스펙 활용 (A~S)
+    const cols = (typeof COLS !== 'undefined') ? COLS : ['A','B','C','D','E','F','G','H','J','K','L','M','N','O','P','Q','R','S'];
+
+    function mapCellTo3DSphere(cIdx, rIdx) {
+        const theta = (cIdx / cols.length) * 2 * Math.PI;
+        const phi = ((rIdx + 0.5) / 18) * Math.PI;
+        return {
+            position: new THREE.Vector3(radius * Math.sin(phi) * Math.cos(theta), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta)),
+            rotation: new THREE.Vector3(phi - Math.PI / 2, -theta, 0)
+        };
+    }
+
+    for (let r = 0; r < 18; r++) {
+        for (let c = 0; c < cols.length; c++) {
+            const cellAddress = `${cols[c]}${r + 1}`;
+            const spatialData = mapCellTo3DSphere(c, r);
+            
+            const element = document.createElement('div');
+            element.className = 'grid-cell';
+            element.style.width = '45px'; element.style.height = '45px';
+            // [실데이터 연동] 2D와 동일 소스: presets + srvCells + cells 모두 확인
+            var _cell = null;
+            // 1) cells 맵
+            if (typeof cells !== 'undefined' && cells[cellAddress] && cells[cellAddress].type) {
+                _cell = cells[cellAddress];
+            }
+            // 2) presetsByLayer (D3 가상바둑실 등 하드코딩 프리셋)
+            if (!_cell && typeof presetsByLayer !== 'undefined') {
+                var _lay = (typeof layer !== 'undefined') ? layer : 1;
+                var _presets = presetsByLayer[_lay] || [];
+                for (var _pi = 0; _pi < _presets.length; _pi++) {
+                    if (_presets[_pi].id === cellAddress) { _cell = _presets[_pi]; break; }
+                }
+            }
+            // 3) 서버 등록 셀 (srvCells) — 최우선
+            if (typeof window.srvCells !== 'undefined' && window.srvCells && window.srvCells[cellAddress]) {
+                _cell = window.srvCells[cellAddress];
+            }
+            // 4) S18 우주 포털 특별 처리
+            if (cellAddress === 'S18') {
+                _cell = { type:'portal', owner:'Tobmate', name:'⭐ 우주 포털', icon:'⭐' };
+            }
+            // 빈 셀용 위치 기반 네온색 (HSL 무지개 그라데이션)
+            var _hue = ((c / cols.length) * 240 + (r / 18) * 120) % 360;
+            var _neon = 'hsl(' + _hue.toFixed(0) + ', 85%, 62%)';
+            var _icon='', _color=_neon, _bg='rgba(10,18,36,0.55)', _owner='', _name='', _isEmpty=true;
+            if (_cell && _cell.type) {
+                _isEmpty=false;
+                _icon  = _cell.icon || (typeof ICONS!=='undefined' ? (ICONS[_cell.type]||'') : '');
+                _color = _cell.color || (typeof TCOLORS!=='undefined' ? (TCOLORS[_cell.type]||'#378add') : '#378add');
+                _bg    = 'rgba(20,34,58,0.92)';
+                _owner = _cell.owner || '';
+                _name  = _cell.name || '';
+            }
+            element.style.border = (_isEmpty ? '1.5px solid ' : '2px solid ') + _color;
+            element.style.background = _isEmpty
+                ? 'linear-gradient(135deg, ' + _neon.replace('62%','16%') + ', rgba(6,12,26,0.7))'
+                : _bg;
+            element.style.boxShadow = _isEmpty
+                ? '0 0 8px ' + _color + '44, inset 0 0 6px ' + _color + '33'
+                : 'inset 0 0 12px ' + _color + '77, 0 0 10px ' + _color + '88';
+            element.style.color = '#cfe6ff'; element.style.fontSize = '9px';
+            element.style.display = 'flex'; element.style.flexDirection='column';
+            element.style.justifyContent = 'center'; element.style.alignItems = 'center';
+            element.style.pointerEvents = 'auto';
+            element.style.cursor = 'pointer';
+            element.style.borderRadius = '4px';
+            if (_icon) {
+                element.innerHTML = '<div style="font-size:20px;line-height:1">'+_icon+'</div>'+
+                                    '<div style="font-size:7px;opacity:.65;margin-top:2px">'+cellAddress+'</div>';
+            } else {
+                element.innerHTML = '<div style="font-size:8px;color:#4a6280">'+cellAddress+'</div>';
+            }
+            element.title = _owner ? (cellAddress+' · '+_owner+(_name?' — '+_name:'')) : cellAddress;
+
+            // [★핵심 브릿지] 3D 셀 클릭 시 기존 Tobmate 비즈니스 엔진 호출
+            element.addEventListener('click', () => {
+                // 3D 카메라 타겟 줌인
+                const targetCamPos = spatialData.position.clone().normalize().multiplyScalar(radius * 1.45);
+                camera.position.copy(targetCamPos);
+                controls.target.copy(spatialData.position);
+
+                // 기존 dot.html의 내장 순정 함수(`pick`)와 동기화 작동
+                if (typeof pick === "function") {
+                    pick(cellAddress);
+                }
+                if (typeof openCellPopup === "function") {
+                    openCellPopup(cellAddress);
+                }
+            });
+
+            const obj3D = new THREE.CSS3DObject(element);
+            obj3D.position.copy(spatialData.position);
+            obj3D.rotation.set(spatialData.rotation.x, spatialData.rotation.y, spatialData.rotation.z);
+            sceneCSS.add(obj3D);
+        }
+    }
+
+    // ===== 화면 투영 동적 좌표축 (정면 셀 기준 자동 갱신) =====
+    var _axisLayer = document.createElement('div');
+    _axisLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:200;overflow:hidden;';
+    container.appendChild(_axisLayer);
+    window._axisLayer = _axisLayer;
+    // 열 라벨 (A~S): 각 열의 적도 대표점
+    window._colLabels = [];
+    for (var lc = 0; lc < cols.length; lc++) {
+        var _cl = document.createElement('div');
+        _cl.innerText = cols[lc];
+        _cl.style.cssText = 'position:absolute;color:#ffd700;font:bold 16px monospace;text-shadow:0 0 6px #ffd700,0 0 3px #000;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;';
+        (function(letter){ _cl.onclick=function(){ openLineGrid('col', letter); }; })(cols[lc]);
+        _axisLayer.appendChild(_cl);
+        var _cth = (lc / cols.length) * 2 * Math.PI;
+        window._colLabels.push({ el: _cl,
+            pos: new THREE.Vector3(radius*Math.cos(_cth), 0, radius*Math.sin(_cth)) });
+    }
+    // 행 라벨 (1~18): 각 행의 앞자오선 대표점
+    window._rowLabels = [];
+    for (var lr = 0; lr < 18; lr++) {
+        var _rl = document.createElement('div');
+        _rl.innerText = String(lr + 1);
+        _rl.style.cssText = 'position:absolute;color:#00e5ff;font:bold 15px monospace;text-shadow:0 0 6px #00e5ff,0 0 3px #000;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;';
+        (function(num){ _rl.onclick=function(){ openLineGrid('row', num); }; })(lr+1);
+        _axisLayer.appendChild(_rl);
+        var _rph = ((lr + 0.5) / 18) * Math.PI;
+        window._rowLabels.push({ el: _rl,
+            pos: new THREE.Vector3(radius*Math.sin(_rph), radius*Math.cos(_rph), 0) });
+    }
+    window._globeCam = camera;
+    window._globeCont = container;
+
+
+    // 2D 맵을 감싸는 부모 레이아웃 구조 확보 및 3D 도화지 컨테이너 주입
+    const mapWrap = document.querySelector('.map-wrap');
+    if (mapWrap && !document.getElementById('globe-3d-view')) {
+        mapWrap.style.position = 'relative';
+        const globeDiv = document.createElement('div');
+        globeDiv.id = 'globe-3d-view';
+        globeDiv.style.display = 'none';
+        globeDiv.style.width = '100%';
+        globeDiv.style.height = '100%';
+        globeDiv.style.minHeight = '75vh';
+        mapWrap.appendChild(globeDiv);
+    }
+
+    // 툴바 영역을 찾아 차원이동 버튼 자동 생성 (HTML 원본 구조 변경 최소화 전략)
+    const toolbar = document.querySelector('.ltabs') || document.querySelector('.toolbar');
+    if (toolbar && !document.getElementById('view-toggle-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'view-toggle-btn';
+        btn.className = 'ltab';
+        btn.style.marginLeft = '8px';
+        btn.innerText = "3D 지구본보기";
+        btn.onclick = toggleDimensionView;
+        toolbar.appendChild(btn);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        // 화면 투영 좌표축 갱신 (정면 셀 기준)
+        if (window._colLabels && window._globeCam && window._globeCont) {
+            var _W = window._globeCont.clientWidth, _H = window._globeCont.clientHeight;
+            var _pv = new THREE.Vector3();
+            window._colLabels.forEach(function(o){
+                _pv.copy(o.pos); _pv.project(window._globeCam);
+                var sx = (_pv.x*0.5+0.5)*_W;
+                if (_pv.z < 1 && sx >= 10 && sx <= _W-10) {
+                    o.el.style.opacity='1'; o.el.style.left=sx+'px'; o.el.style.top='18px';
+                } else { o.el.style.opacity='0'; }
+            });
+            window._rowLabels.forEach(function(o){
+                _pv.copy(o.pos); _pv.project(window._globeCam);
+                var sx = (_pv.x*0.5+0.5)*_W;
+                var sy = (-_pv.y*0.5+0.5)*_H;
+                // 지구본 오른쪽 가장자리 곡면 따라가되, 살짝 바깥으로 (셀 안 가리게 +28px)
+                if (_pv.z < 1 && sy >= 10 && sy <= _H-10) {
+                    o.el.style.opacity='1'; o.el.style.top=sy+'px'; o.el.style.left=(sx+28)+'px';
+                } else { o.el.style.opacity='0'; }
+            });
+        }
+        // 행성 궤도 회전
+        if (window._globePlanets) {
+            window._globePlanets.forEach(function(p){
+                p.angle += p.speed;
+                p.mesh.position.set(p.dist*Math.cos(p.angle), p.dist*Math.sin(p.tilt)*0.4, p.dist*Math.sin(p.angle));
+                p.mesh.rotation.y += 0.003;
+            });
+        }
+        // 별똥별 이동 + 소멸
+        if (window._globeMeteors) {
+            for (var _mi=window._globeMeteors.length-1; _mi>=0; _mi--){
+                var m=window._globeMeteors[_mi];
+                m.life++;
+                m.line.position.add(m.dir.clone().multiplyScalar(22));
+                m.mat.opacity = 0.9 * (1 - m.life/m.maxLife);
+                if(m.life>=m.maxLife){ scene.remove(m.line); window._globeMeteors.splice(_mi,1); }
+            }
+        }
+        if (window._globeStarField) window._globeStarField.rotation.y += 0.0002;
+        if (window._globeBigStars) window._globeBigStars.rotation.y -= 0.00012;
+        rendererGL.render(scene, camera);
+        rendererCSS.render(sceneCSS, camera);
+    }
+    animate();
+}
+
+// 초기화 가이드 라이브러리 동적 인젝션
+(function loadThreeLibraries() {
+    if (typeof THREE !== 'undefined') return;
+    const libs = [
+        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
+        "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS3DRenderer.js",
+        "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"
+    ];
+    libs.forEach(src => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = false;
+        document.head.appendChild(script);
+
+
+    });
+})();
+</script>
