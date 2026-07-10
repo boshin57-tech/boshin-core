@@ -35,17 +35,40 @@ function classifyBoardPoint(coord, boardsize){
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// === Gemini 헬퍼 (Claude 호환 래퍼) ===
+// === Gemini 헬퍼 (Claude 호환 래퍼 + 폴백/재시도) ===
+// 무료등급 일일한도: 2.0-flash=200, 2.5-flash-lite=20 → 2.0-flash 우선, 실패 시 폴백
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash-lite'];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 async function askGemini(system, userContent, maxTok){
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-lite',
-    systemInstruction: system || undefined,
-    generationConfig: { maxOutputTokens: maxTok || 500, thinkingConfig: { thinkingBudget: 0 } }
-  });
-  const result = await model.generateContent(userContent);
-  const text = result.response.text() || '';
-  // Claude 응답 형식(msg.content[0].text)과 호환되게 반환
-  return { content: [{ text }] };
+  let lastErr = null;
+  for (const modelName of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: system || undefined,
+          generationConfig: { maxOutputTokens: maxTok || 500, thinkingConfig: { thinkingBudget: 0 } }
+        });
+        const result = await model.generateContent(userContent);
+        const text = result.response.text() || '';
+        return { content: [{ text }] };
+      } catch (e) {
+        lastErr = e;
+        const msg = String(e && e.message || e);
+        const is429 = msg.includes('429') || msg.includes('quota');
+        const is503 = msg.includes('503') || msg.includes('overloaded');
+        // 503(일시 과부하)이면 짧게 대기 후 같은 모델 재시도
+        if (is503 && attempt === 0) { await sleep(1500); continue; }
+        // 429(한도 초과)면 재시도 무의미 → 다음 모델로 폴백
+        if (is429) break;
+        // 그 외 에러도 다음 모델로 폴백
+        break;
+      }
+    }
+  }
+  // 모든 모델/재시도 실패 → 호출부(catch)에서 언어별 안내문 처리하도록 throw
+  throw lastErr || new Error('askGemini failed');
 }
 
 
@@ -135,7 +158,7 @@ const server = http.createServer(async (req, res) => {
 
   // GET /lecture
   // GET /lecture-game — 게임 AI 맞춤 멘트 (mode=game)
-  if (url.startsWith('/lecture-game') && req.method === 'GET') {
+  if ((url.startsWith('/lecture-game') || url.startsWith('/api/lecture-game')) && req.method === 'GET') {
     const q = parseQuery(url);
     const lang = q.lang || 'ko';
     const game = q.game || 'mining';
@@ -172,7 +195,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.startsWith('/lecture') && req.method === 'GET') {
+  if ((url.startsWith('/lecture') || url.startsWith('/api/lecture')) && req.method === 'GET') {
     const q       = parseQuery(url);
     const lang    = q.lang || 'ko';
     const gender  = q.gender || 'female';
@@ -287,8 +310,18 @@ ${isKeyMove
       res.end(body);
     } catch(err) {
       console.error('[lecture-STACK]', err.stack);
-      const body = Buffer.from(JSON.stringify({ok:false, error:err.message}), 'utf8');
-      res.writeHead(500, {'Content-Type':'application/json; charset=utf-8'});
+      // Gemini 실패(429 등) 시 raw 영어 에러 대신 사용자 언어로 안내 (HTTP 200)
+      const BUSY_MSG = {
+        ko: '지금은 AI 강의 이용량이 많아 잠시 해설을 제공하기 어렵습니다. 잠시 후 다시 시도해 주세요. 🙏',
+        en: 'AI lecture is temporarily busy. Please try again in a moment. 🙏',
+        zh: 'AI讲解目前使用量较大，请稍后再试。🙏',
+        ja: '現在AI解説の利用が集中しています。しばらくしてからお試しください。🙏',
+        ru: 'AI-лекция временно перегружена. Попробуйте позже. 🙏',
+        ar: 'محاضرة الذكاء الاصطناعي مشغولة مؤقتًا. حاول مرة أخرى بعد قليل. 🙏'
+      };
+      const busyText = BUSY_MSG[lang] || BUSY_MSG.en;
+      const body = Buffer.from(JSON.stringify({ok:true, text:busyText, lang, gender, level:lvl, coord, color:colorName, phase, isKeyMove:false, busy:true}), 'utf8');
+      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
       res.end(body);
     }
     return;
