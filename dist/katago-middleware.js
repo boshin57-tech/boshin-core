@@ -13,9 +13,10 @@ const COLS = 'ABCDEFGHJKLMNOPQRST';
 const PASS_MOVE = 8224;
 
 // 순장바둑 초기 배치
-const SJ_BLACK = ['D10','D16','G4','G16','N4','N16','Q4','Q10'];
-const SJ_WHITE = ['D4','D7','D13','K4','K16','Q7','Q13','Q16'];
-const HANDICAP_STONES = ['K10','N7','G13','N13','G7','K13','K7','N10','G10'];
+const SJ_BLACK = ['G16','N16','Q16','D10','Q10','D4','G4','N4'];
+const SJ_WHITE = ['D16','K16','D13','Q13','D7','Q7','K4','Q4'];
+const HANDICAP_TABLE = {1:['K10'],2:['N13','G7'],3:['N13','G7','N7'],4:['N13','G7','N7','G13'],5:['N13','G7','N7','G13','K10'],6:['N13','G13','K13','G7','K7','N7'],7:['N13','G13','K13','G7','K7','N7','K10'],8:['N13','G13','K13','G7','K7','N7','N10','G10'],9:['N13','G13','K13','G7','K7','N7','N10','G10','K10']};
+const HANDICAP_STONES = HANDICAP_TABLE[9];
 
 function wpos2coord(wpos) {
     if(wpos === PASS_MOVE) return 'pass';
@@ -62,7 +63,7 @@ function initBoard(state, data, callback) {
                     SJ_BLACK.forEach(function(c){ cmds.push(['play B '+c]); });
                     SJ_WHITE.forEach(function(c){ cmds.push(['play W '+c]); });
                     if(data.handicap && data.handicap > 0) {
-                        HANDICAP_STONES.slice(0, data.handicap).forEach(function(c){ cmds.push(['play B '+c]); });
+                        (HANDICAP_TABLE[data.handicap] || []).forEach(function(c){ cmds.push(['play B '+c]); });
                     }
                     var runCmd = function(idx) {
                         if(idx >= cmds.length) {
@@ -87,7 +88,7 @@ function initBoard(state, data, callback) {
                     const cmds = [];
                     SJ_BLACK.forEach(function(c){ cmds.push('play B '+c); });
                     SJ_WHITE.forEach(function(c){ cmds.push('play W '+c); });
-                    HANDICAP_STONES.slice(0, data.handicap).forEach(function(c){ cmds.push('play B '+c); });
+                    (HANDICAP_TABLE[data.handicap] || []).forEach(function(c){ cmds.push('play B '+c); });
                     var runCmd = function(idx) {
                         if(idx >= cmds.length) {
                             console.log('[GTP] 접바둑 초기화 완료 handicap='+data.handicap);

@@ -19,8 +19,11 @@ body{overflow:hidden;background:#000;font-family:monospace}
 <div id="bubble"><div class="nm">🧑‍🏫 AI 선생님</div><div id="bubbleText"></div></div>
 <div id="turnInfo">⚫ 흑 차례</div>
 <div id="ctrl" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:6px">
+  <button onclick="openSettings()" style="background:rgba(10,10,26,0.9);border:1px solid #9b59b6;color:#9b59b6;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">⚙ 설정</button>
+  <button id="sunjangBtn" onclick="toggleSunjang(this)" style="background:rgba(10,10,26,0.9);border:1px solid #7f8c8d;color:#ddd;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">⚪ 보통</button>
   <button onclick="undoMove()" style="background:rgba(10,10,26,0.9);border:1px solid #27AE60;color:#ddd;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">◀ 이전</button>
   <button onclick="redoMove()" style="background:rgba(10,10,26,0.9);border:1px solid #27AE60;color:#ddd;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">다음 ▶</button>
+  <button onclick="startScoring()" style="background:rgba(10,10,26,0.9);border:1px solid #f1c40f;color:#f1c40f;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">📊 계가</button>
   <button onclick="resetBoard3D()" style="background:rgba(10,10,26,0.9);border:1px solid #e74c3c;color:#ddd;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">↺ 초기화</button>
   <button onclick="exportSGF()" style="background:rgba(10,10,26,0.9);border:1px solid #F5A623;color:#F5A623;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">💾 SGF 저장</button>
   <button onclick="buildPlanets()" style="background:rgba(10,10,26,0.9);border:1px solid #1ABC9C;color:#1ABC9C;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:12px">🌍 행성 만들기</button>
@@ -375,7 +378,23 @@ function refApplyMove(c, r){
 }
 function refPrev(){ if(window._refHistPos>0) refRebuild(window._refHistPos-1); }
 function refNext(){ if(window._refHistPos<window._refHistory.length) refRebuild(window._refHistPos+1); }
-function refReset(){ window._refHistory=[]; refRebuild(0); }
+// 참고도에 순장석 다시 그리기 (독립 리셋 시)
+function _redrawRefSetup(){
+  if(!window._refBoard || !setupStones || setupStones.length===0) return;
+  setupStones.forEach(function(s){
+    var rs = new THREE.Mesh(
+      new THREE.SphereGeometry(CELL*0.46, 16, 12),
+      new THREE.MeshStandardMaterial({color: s.b?0x111111:0xf5f5f5, roughness:0.3, metalness:0.1})
+    );
+    rs.scale.y = 0.55;
+    rs.position.set(-BOARD/2 + s.c*CELL, 1.16, -BOARD/2 + s.r*CELL);
+    window._refBoard.add(rs);
+    if(window._refStones) window._refStones.push(rs);
+    s.refMesh = rs;
+  });
+}
+window._redrawRefSetup = _redrawRefSetup;
+function refReset(){ window._refHistory=[]; refRebuild(0); if(typeof clearReference==='function') clearReference(); if(typeof _redrawRefSetup==='function') _redrawRefSetup(); }
 function refToggleRotate(){ window._refRotating=!window._refRotating; var b=document.getElementById('ref-rot-btn'); if(b)b.innerText=window._refRotating?'⏸':'▶'; }
 window.refPrev=refPrev; window.refNext=refNext; window.refReset=refReset; window.refToggleRotate=refToggleRotate;
 
@@ -618,6 +637,704 @@ function rebuildTo(pos){
 }
 function undoMove(){ if(histPos>0) rebuildTo(histPos-1); }
 function redoMove(){ if(histPos<history.length) rebuildTo(histPos+1); }
+// ============================================================
+//  순장바둑 모드 (16점 호선 배치)
+//  삽입 위치: classroom3d.html의 <script> 안, applyMove 함수 뒤
+//  좌표 출처: 실제 메인 대국실(Sunjang + 19x19 + Hosun 16pt) 배치를 읽어 확정
+// ============================================================
+
+// ---- 순장 16점 (호선) : [행, 열] 0-index ----
+var SUNJANG_16 = {
+    black: [[3,6], [3,12], [3,15], [9,3], [9,15], [15,3], [15,6], [15,12]],
+    white: [[3,3], [3,9], [6,3], [6,15], [12,3], [12,15], [15,9], [15,15]]
+};
+
+var sunjangMode = false;          // 현재 모드 (false=보통, true=순장)
+var setupStones = [];             // 초기 배치돌 (순장석) — history와 별개로 관리
+
+// ---- 배치돌 하나 놓기 (색 지정, 3D판 + 참고도 동시) ----
+function placeSetupStone(c, r, isBlack) {
+    if (stones.find(function(s){ return s.c===c && s.r===r; })) return;
+
+    // 메인 3D 바둑판
+    var stone = new THREE.Mesh(
+        new THREE.SphereGeometry(CELL*0.46, 20, 14),
+        new THREE.MeshStandardMaterial({
+            color: isBlack ? 0x111111 : 0xf5f5f5,
+            roughness: 0.3, metalness: 0.1
+        })
+    );
+    stone.scale.y = 0.55;
+    stone.position.set(-BOARD/2 + c*CELL, 1.16, -BOARD/2 + r*CELL);
+    stone.castShadow = true;
+    scene.add(stone);
+
+    // stones 배열에 등록 (setup 플래그로 구분)
+    stones.push({ c:c, r:r, b:isBlack, mesh:stone, setup:true });
+    setupStones.push({ c:c, r:r, b:isBlack, mesh:stone });
+
+    // 참고도에도 동일하게
+    if (window._refBoard) {
+        var rs = new THREE.Mesh(
+            new THREE.SphereGeometry(CELL*0.46, 16, 12),
+            new THREE.MeshStandardMaterial({
+                color: isBlack ? 0x111111 : 0xf5f5f5,
+                roughness: 0.3, metalness: 0.1
+            })
+        );
+        rs.scale.y = 0.55;
+        rs.position.set(-BOARD/2 + c*CELL, 1.16, -BOARD/2 + r*CELL);
+        window._refBoard.add(rs); if(window._refStones) window._refStones.push(rs);
+        setupStones[setupStones.length-1].refMesh = rs;
+    }
+}
+
+// ---- 순장 16점 전부 배치 ----
+function placeSunjangStones() {
+    SUNJANG_16.black.forEach(function(rc){ placeSetupStone(rc[1], rc[0], true); });
+    SUNJANG_16.white.forEach(function(rc){ placeSetupStone(rc[1], rc[0], false); });
+    turnBlack = true;   // 순장은 흑 선착
+    var ti = document.getElementById('turnInfo');
+    if (ti) ti.textContent = T3.black;
+}
+
+// ---- 배치돌 전부 제거 ----
+function clearSetupStones() {
+    setupStones.forEach(function(s){
+        if (s.mesh) scene.remove(s.mesh);
+        if (s.refMesh && window._refBoard) window._refBoard.remove(s.refMesh);
+    });
+    // stones 배열에서 setup 돌 제거
+    for (var i = stones.length - 1; i >= 0; i--) {
+        if (stones[i].setup) stones.splice(i, 1);
+    }
+    setupStones = [];
+}
+
+// ---- 모드 토글 ----
+function toggleSunjang(btn) {
+    sunjangMode = !sunjangMode;
+
+    // 판 완전 초기화
+    history = [];
+    if (typeof rebuildTo === 'function') rebuildTo(0);
+    clearSetupStones();
+
+    if (sunjangMode) {
+        placeSunjangStones();
+        if (btn) {
+            btn.textContent = '🏯 순장';
+            btn.style.borderColor = '#f39c12';
+            btn.style.color = '#f39c12';
+        }
+        _showSunjangGuide(true);
+    } else {
+        if (btn) {
+            btn.textContent = '⚪ 보통';
+            btn.style.borderColor = '#7f8c8d';
+            btn.style.color = '#ddd';
+        }
+        _showSunjangGuide(false);
+    }
+
+    // AI 선생님 안내
+    var bt = document.getElementById('bubbleText');
+    if (bt) {
+        bt.textContent = sunjangMode
+            ? '순장바둑 모드예요! 흑백 16점이 미리 놓여 있어요. 여기서부터 시작합니다 🏯'
+            : '보통 바둑 모드예요. 빈 판에서 시작해요 ⚪';
+    }
+}
+
+// ---- 참고도 창에 순장 안내 표시 ----
+function _showSunjangGuide(on) {
+    var box = document.getElementById('sunjangGuide');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'sunjangGuide';
+        box.style.cssText = 'position:absolute;bottom:44px;left:8px;right:8px;padding:6px 8px;' +
+            'background:rgba(243,156,18,0.12);border:1px solid rgba(243,156,18,0.5);border-radius:6px;' +
+            'color:#f39c12;font:600 10px monospace;text-align:center;pointer-events:none';
+        box.textContent = '🏯 순장 16점 배치 (호선)';
+        // 참고도 컨테이너 찾기
+        var refBox = document.querySelector('[id*="ref"]') || document.body;
+        if (refBox.style) refBox.style.position = refBox.style.position || 'relative';
+        refBox.appendChild(box);
+    }
+    box.style.display = on ? 'block' : 'none';
+}
+
+// ---- 설정 불러오기 (메인 대국실 설정 반영) ----
+function loadGameSettings() {
+    var s = null;
+    try {
+        var raw = localStorage.getItem('tobmate_game_settings');
+        if (raw) s = JSON.parse(raw);
+    } catch (e) {}
+
+    var bt = document.getElementById('bubbleText');
+    if (s && s.rule) {
+        var isSJ = (s.rule === 'sunjang' || s.rule === 'Sunjang');
+        if (isSJ !== sunjangMode) {
+            toggleSunjang(document.getElementById('sunjangBtn'));
+        }
+        if (bt) bt.textContent = '대국실 설정을 불러왔어요 — 룰: ' + s.rule +
+            (s.handicap ? ' / 치석: ' + s.handicap : '');
+    } else {
+        if (bt) bt.textContent = '저장된 대국실 설정이 없어요. 보통/순장 버튼으로 직접 고를 수 있어요.';
+    }
+}
+
+// 전역 노출
+window.toggleSunjang = toggleSunjang;
+window.loadGameSettings = loadGameSettings;
+window.SUNJANG_16 = SUNJANG_16;
+window.placeSunjangStones = placeSunjangStones;
+// ============================================================
+//  D3 설정 연동 + 접바둑 자동 배치
+//  - 대국실 설정창(tobmate_settings_ui.html)을 iframe으로 재사용
+//  - 순장: 16점 + 중앙 3x3 접바둑 (KaTrain 표준)
+//  - 보통: 국제 표준 화점 접바둑
+//  - 접바둑이면 코미 0 + 백 선착
+// ============================================================
+
+// ---- 순장 접바둑: 중앙 3x3 (G/K/N x 13/10/7) = [행, 열] ----
+var SUNJANG_HANDICAP = {
+    1: [[9,9]],
+    2: [[6,12],[12,6]],
+    3: [[6,12],[12,6],[12,12]],
+    4: [[6,12],[12,6],[12,12],[6,6]],
+    5: [[6,12],[12,6],[12,12],[6,6],[9,9]],
+    6: [[6,12],[6,6],[6,9],[12,6],[12,9],[12,12]],
+    7: [[6,12],[6,6],[6,9],[12,6],[12,9],[12,12],[9,9]],
+    8: [[6,12],[6,6],[6,9],[12,6],[12,9],[12,12],[9,12],[9,6]],
+    9: [[6,12],[6,6],[6,9],[12,6],[12,9],[12,12],[9,12],[9,6],[9,9]]
+};
+
+// ---- 보통 바둑 접바둑: 국제 표준 화점 (19x19) ----
+var NORMAL_HANDICAP = {
+    2: [[3,15],[15,3]],
+    3: [[3,15],[15,3],[15,15]],
+    4: [[3,3],[3,15],[15,3],[15,15]],
+    5: [[3,3],[3,15],[9,9],[15,3],[15,15]],
+    6: [[3,3],[3,15],[9,3],[9,15],[15,3],[15,15]],
+    7: [[3,3],[3,15],[9,3],[9,9],[9,15],[15,3],[15,15]],
+    8: [[3,3],[3,9],[3,15],[9,3],[9,15],[15,3],[15,9],[15,15]],
+    9: [[3,3],[3,9],[3,15],[9,3],[9,9],[9,15],[15,3],[15,9],[15,15]]
+};
+
+var gameConfig = {
+    rule: 'japanese',   // japanese | chinese | sunjang
+    handicap: 0,        // 0(호선) | 1~9
+    komi: 6.5,
+    mainTime: 10,
+    byoSeconds: 30,
+    byoPeriods: 3
+};
+
+// ---- 설정창 열기 (대국실 UI 재사용) ----
+function openSettings() {
+    if (document.getElementById('settingsOverlay')) return;
+
+    var ov = document.createElement('div');
+    ov.id = 'settingsOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);' +
+        'display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+
+    var frame = document.createElement('iframe');
+    frame.src = '/tobmate_settings_ui.html';
+    frame.style.cssText = 'width:min(560px,94vw);height:min(760px,92vh);border:none;' +
+        'border-radius:16px;box-shadow:0 12px 60px rgba(0,0,0,0.7)';
+    ov.appendChild(frame);
+    document.body.appendChild(ov);
+}
+
+function closeSettings() {
+    var ov = document.getElementById('settingsOverlay');
+    if (ov) ov.remove();
+}
+
+// ---- 설정창 메시지 수신 ----
+window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (d === 'CLOSE_SETTING') { closeSettings(); return; }
+    if (d && d.type === 'START_GAME' && d.settings) {
+        closeSettings();
+        applyGameSettings(d.settings);
+    }
+});
+
+// ---- 설정 적용 ----
+function applyGameSettings(s) {
+    // 치석 해석: 'hosun'|'sun'|'even'|숫자
+    var hc = 0;
+    if (typeof s.handicap === 'number') hc = s.handicap;
+    else if (s.handicap === 'hosun' || s.handicap === 'even') hc = 0;
+    else if (s.handicap === 'sun') hc = 1;      // 선 = 정선(1점)
+    else { var n = parseInt(s.handicap); if (isNaN(n)) hc = 0; else if (n >= 12 && n <= 19) hc = n - 10; else hc = n; }
+
+    if (hc >= 12 && hc <= 19) hc = hc - 10;
+    var isSJ = (s.rule === 'sunjang') || s.sunjang === true;
+
+    gameConfig = {
+        rule: isSJ ? 'sunjang' : (s.rule || 'japanese'),
+        handicap: hc,
+        komi: hc > 0 ? 0 : parseFloat(s.komi || 6.5),   // 접바둑이면 덤 없음
+        mainTime: parseInt(s.mainTime || 10),
+        byoSeconds: parseInt(s.byoSeconds || 30),
+        byoPeriods: parseInt(s.byoPeriods || 3)
+    };
+
+    setupBoard();
+}
+
+// ---- 판 세팅 (룰 + 접바둑 반영) ----
+function setupBoard() {
+    // 판 완전 초기화 (참고도 포함)
+    if (typeof clearReference === 'function') clearReference();
+    history = [];
+    if (typeof rebuildTo === 'function') rebuildTo(0);
+    clearSetupStones();
+
+    var isSJ = (gameConfig.rule === 'sunjang');
+    var hc = gameConfig.handicap;
+
+    // 1) 순장이면 16점 먼저
+    if (isSJ) {
+        SUNJANG_16.black.forEach(function (rc) { placeSetupStone(rc[1], rc[0], true); });
+        SUNJANG_16.white.forEach(function (rc) { placeSetupStone(rc[1], rc[0], false); });
+        sunjangMode = true;
+    } else {
+        sunjangMode = false;
+    }
+
+    // 2) 접바둑 흑돌 추가
+    if (hc >= 1) {
+        var table = isSJ ? SUNJANG_HANDICAP : NORMAL_HANDICAP;
+        var pts = table[hc];
+        if (pts) pts.forEach(function (rc) { placeSetupStone(rc[1], rc[0], true); });
+    }
+
+    // 3) 선착 결정 — 접바둑이면 백이 먼저
+    turnBlack = (hc >= 1) ? false : true;
+    var ti = document.getElementById('turnInfo');
+    if (ti) ti.textContent = turnBlack ? T3.black : T3.white;
+
+    // 4) 버튼 상태 동기화
+    var sb = document.getElementById('sunjangBtn');
+    if (sb) {
+        sb.textContent = isSJ ? '🏯 순장' : '⚪ 보통';
+        sb.style.borderColor = isSJ ? '#f39c12' : '#7f8c8d';
+        sb.style.color = isSJ ? '#f39c12' : '#ddd';
+    }
+    _showSunjangGuide(isSJ);
+
+    // 5) 안내
+    var bt = document.getElementById('bubbleText');
+    if (bt) {
+        var msg = (isSJ ? '🏯 순장바둑' : '⚪ 보통바둑');
+        if (hc >= 1) {
+            msg += ' · ' + (hc === 1 ? '정선' : hc + '점 접바둑') +
+                   ' — 덤 없이 백이 먼저 둡니다.';
+        } else {
+            msg += ' · 호선 — 덤 ' + gameConfig.komi + '집, 흑이 먼저 둡니다.';
+        }
+        bt.textContent = msg;
+    }
+
+    _showConfigBadge();
+}
+
+// ---- 현재 설정 뱃지 ----
+function _showConfigBadge() {
+    var b = document.getElementById('cfgBadge');
+    if (!b) {
+        b = document.createElement('div');
+        b.id = 'cfgBadge';
+        b.style.cssText = 'position:fixed;top:44px;left:12px;z-index:600;padding:5px 10px;' +
+            'border-radius:8px;background:rgba(10,10,26,0.9);border:1px solid rgba(155,89,182,0.5);' +
+            'color:#c8a2ff;font:600 11px monospace';
+        document.body.appendChild(b);
+    }
+    var hc = gameConfig.handicap;
+    b.textContent = (gameConfig.rule === 'sunjang' ? '🏯 순장' : '⚪ 보통') +
+        ' · ' + (hc === 0 ? '호선' : (hc === 1 ? '정선' : hc + '점')) +
+        ' · 덤 ' + gameConfig.komi +
+        ' · ' + gameConfig.mainTime + '분';
+}
+
+window.openSettings = openSettings;
+window.applyGameSettings = applyGameSettings;
+window.setupBoard = setupBoard;
+window.SUNJANG_HANDICAP = SUNJANG_HANDICAP;
+window.NORMAL_HANDICAP = NORMAL_HANDICAP;
+window.gameConfig = gameConfig;
+// ============================================================
+//  순장바둑 계가 엔진 + 3D 연출
+//  규칙: 경계선 돌만 남기고, 안쪽 돌(흑/백 무관)은 모두 들어냄
+//        점수 = 속집(빈칸) + 경계선 돌
+// ============================================================
+
+var _scoringActive = false;
+var _scoreFx = [];   // 연출용 오브젝트 (정리용)
+
+// ---- 보드 배열 만들기 ----
+function _buildBoardArray() {
+    var b = new Array(N * N).fill(0);   // 0=빈, 1=흑, 2=백
+    stones.forEach(function (s) { b[s.r * N + s.c] = s.b ? 1 : 2; });
+    return b;
+}
+
+// ---- 계가 계산 (순수 함수, 연출 없음) ----
+function calcSunjangScore() {
+    var board = _buildBoardArray();
+    var visited = new Array(N * N).fill(false);
+    var territories = [];   // {owner:1|2|0, cells:[], deadStones:[]}
+
+    for (var i = 0; i < N * N; i++) {
+        if (board[i] !== 0 || visited[i]) continue;
+
+        // 빈칸 영역 BFS — 도중에 만나는 돌도 영역에 흡수(갇힌 돌)
+        var queue = [i], cells = [], borderB = false, borderW = false;
+        var inner = [];   // 이 영역 안에 갇힌 돌
+        visited[i] = true;
+
+        while (queue.length) {
+            var idx = queue.pop();
+            cells.push(idx);
+            var x = idx % N, y = Math.floor(idx / N);
+
+            [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
+                var nx = x + d[0], ny = y + d[1];
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+                var ni = ny * N + nx;
+                if (visited[ni]) return;
+
+                if (board[ni] === 0) {
+                    visited[ni] = true;
+                    queue.push(ni);
+                } else {
+                    // 돌을 만남 — 경계선 후보
+                    if (board[ni] === 1) borderB = true;
+                    else borderW = true;
+                }
+            });
+        }
+
+        var owner = 0;
+        if (borderB && !borderW) owner = 1;        // 흑집
+        else if (borderW && !borderB) owner = 2;   // 백집
+        // 둘 다면 공배(0), 아무것도 없으면 빈 판
+
+        territories.push({ owner: owner, cells: cells });
+    }
+
+    // ---- 경계선 돌 판정 ----
+    // 어떤 집(owner!=0)에 인접한 같은 색 돌 = 경계선 돌
+    var isBorder = new Array(N * N).fill(false);
+    territories.forEach(function (t) {
+        if (t.owner === 0) return;
+        t.cells.forEach(function (idx) {
+            var x = idx % N, y = Math.floor(idx / N);
+            [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
+                var nx = x + d[0], ny = y + d[1];
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+                var ni = ny * N + nx;
+                if (board[ni] === t.owner) isBorder[ni] = true;
+            });
+        });
+    });
+
+    // 경계선 돌은 연결된 같은 색 그룹 전체로 확장
+    var expanded = isBorder.slice();
+    var changed = true;
+    while (changed) {
+        changed = false;
+        for (var j = 0; j < N * N; j++) {
+            if (!expanded[j] || board[j] === 0) continue;
+            var x2 = j % N, y2 = Math.floor(j / N);
+            var col = board[j];
+            [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
+                var nx = x2 + d[0], ny = y2 + d[1];
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+                var ni = ny * N + nx;
+                if (board[ni] === col && !expanded[ni]) {
+                    expanded[ni] = true;
+                    changed = true;
+                }
+            });
+        }
+    }
+
+    // ---- 결과 집계 ----
+    var blackTerr = 0, whiteTerr = 0;
+    var blackCells = [], whiteCells = [];
+    territories.forEach(function (t) {
+        if (t.owner === 1) { blackTerr += t.cells.length; blackCells = blackCells.concat(t.cells); }
+        else if (t.owner === 2) { whiteTerr += t.cells.length; whiteCells = whiteCells.concat(t.cells); }
+    });
+
+    var blackBorder = 0, whiteBorder = 0;
+    var deadStones = [];   // 들어낼 돌 (경계선 아닌 돌)
+    stones.forEach(function (s) {
+        var idx = s.r * N + s.c;
+        if (expanded[idx]) {
+            if (s.b) blackBorder++; else whiteBorder++;
+        } else {
+            deadStones.push(s);
+        }
+    });
+
+    return {
+        blackTerr: blackTerr,
+        whiteTerr: whiteTerr,
+        blackBorder: blackBorder,
+        whiteBorder: whiteBorder,
+        blackTotal: blackTerr + blackBorder,
+        whiteTotal: whiteTerr + whiteBorder + (gameConfig ? gameConfig.komi : 0),
+        blackCells: blackCells,
+        whiteCells: whiteCells,
+        deadStones: deadStones,
+        komi: gameConfig ? gameConfig.komi : 0
+    };
+}
+
+// ---- 별가루 승화 연출 ----
+function _dissolveStone(s, delay) {
+    setTimeout(function () {
+        if (!s.mesh) return;
+        var pos = s.mesh.position.clone();
+        var isBlack = s.b;
+
+        // 1) 떠오르기
+        var t0 = Date.now();
+        (function rise() {
+            var t = (Date.now() - t0) / 400;
+            if (t >= 1) { _burst(pos, isBlack); if (s.mesh) scene.remove(s.mesh); return; }
+            if (s.mesh) {
+                s.mesh.position.y = 1.16 + t * 0.5;
+                s.mesh.rotation.y += 0.2;
+                s.mesh.material.opacity = 1 - t * 0.6;
+                s.mesh.material.transparent = true;
+            }
+            requestAnimationFrame(rise);
+        })();
+    }, delay);
+}
+
+// ---- 파티클 버스트 ----
+function _burst(pos, isBlack) {
+    var cnt = 22;
+    var g = new THREE.BufferGeometry();
+    var p = new Float32Array(cnt * 3);
+    var vel = [];
+    for (var i = 0; i < cnt; i++) {
+        p[i*3] = pos.x; p[i*3+1] = pos.y + 0.5; p[i*3+2] = pos.z;
+        vel.push({
+            x: (Math.random()-0.5) * 0.06,
+            y: Math.random() * 0.07 + 0.02,
+            z: (Math.random()-0.5) * 0.06
+        });
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    var m = new THREE.PointsMaterial({
+        color: isBlack ? 0x9b6dff : 0x7fe8ff,
+        size: 0.09, transparent: true, opacity: 1,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    var pts = new THREE.Points(g, m);
+    scene.add(pts);
+    _scoreFx.push(pts);
+
+    var t0 = Date.now();
+    (function fly() {
+        var t = (Date.now() - t0) / 900;
+        if (t >= 1) { scene.remove(pts); return; }
+        var arr = g.attributes.position.array;
+        for (var i = 0; i < cnt; i++) {
+            arr[i*3]   += vel[i].x;
+            arr[i*3+1] += vel[i].y;
+            arr[i*3+2] += vel[i].z;
+            vel[i].y -= 0.0012;
+        }
+        g.attributes.position.needsUpdate = true;
+        m.opacity = 1 - t;
+        requestAnimationFrame(fly);
+    })();
+}
+
+// ---- 속집 홀로그램 기둥 ----
+function _raisePillar(idx, isBlack, delay, num) {
+    setTimeout(function () {
+        var c = idx % N, r = Math.floor(idx / N);
+        var col = isBlack ? 0x9b6dff : 0x7fe8ff;   // 딥퍼플 / 사이버화이트
+
+        var geo = new THREE.BoxGeometry(CELL*0.72, 0.5, CELL*0.72);
+        var mat = new THREE.MeshBasicMaterial({
+            color: col, transparent: true, opacity: 0.35,
+            blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        var box = new THREE.Mesh(geo, mat);
+        box.position.set(-BOARD/2 + c*CELL, 1.1, -BOARD/2 + r*CELL);
+        box.scale.y = 0.01;
+        scene.add(box);
+        _scoreFx.push(box);
+
+        var t0 = Date.now();
+        (function grow() {
+            var t = (Date.now() - t0) / 300;
+            if (t >= 1) { box.scale.y = 1; box.position.y = 1.1 + 0.25; return; }
+            box.scale.y = Math.max(0.01, t);
+            box.position.y = 1.1 + t * 0.25;
+            requestAnimationFrame(grow);
+        })();
+    }, delay);
+}
+
+// ---- 계가 실행 ----
+function startScoring() {
+    if (_scoringActive) return;
+    if (!stones || stones.length === 0) {
+        var b0 = document.getElementById('bubbleText');
+        if (b0) b0.textContent = '먼저 바둑을 두어보세요! 계가할 돌이 없어요 📊';
+        return;
+    }
+    _scoringActive = true;
+
+    var res = calcSunjangScore();
+
+    var bt = document.getElementById('bubbleText');
+    if (bt) bt.textContent = '📊 계가를 시작합니다 — 경계선 안쪽 돌을 들어냅니다...';
+
+    // 1단계: 안쪽 돌 승화 (순차적으로)
+    res.deadStones.forEach(function (s, i) {
+        _dissolveStone(s, i * 45);
+    });
+
+    var d1 = res.deadStones.length * 45 + 600;
+
+    // 2단계: 속집 홀로그램
+    setTimeout(function () {
+        if (bt) bt.textContent = '📊 속집을 계산합니다...';
+        res.blackCells.forEach(function (idx, i) { _raisePillar(idx, true, i * 22); });
+        res.whiteCells.forEach(function (idx, i) { _raisePillar(idx, false, i * 22); });
+    }, d1);
+
+    var d2 = d1 + Math.max(res.blackCells.length, res.whiteCells.length) * 22 + 700;
+
+    // 3단계: 결과 발표
+    setTimeout(function () { _showScoreResult(res); }, d2);
+}
+
+// ---- 결과 패널 ----
+function _showScoreResult(res) {
+    var old = document.getElementById('scorePanel');
+    if (old) old.remove();
+
+    var bWin = res.blackTotal > res.whiteTotal;
+    var diff = Math.abs(res.blackTotal - res.whiteTotal);
+
+    var p = document.createElement('div');
+    p.id = 'scorePanel';
+    p.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9000;' +
+        'min-width:300px;padding:22px;border-radius:16px;background:rgba(6,12,32,0.96);' +
+        'border:2px solid ' + (bWin ? '#9b6dff' : '#7fe8ff') + ';backdrop-filter:blur(10px);' +
+        'box-shadow:0 10px 50px rgba(0,0,0,0.7);font-family:monospace;color:#dce8ff';
+
+    p.innerHTML =
+        '<div style="text-align:center;font-size:19px;font-weight:700;margin-bottom:16px;color:' +
+            (bWin ? '#9b6dff' : '#7fe8ff') + '">' +
+            (bWin ? '⚫ 흑 승리' : '⚪ 백 승리') + ' · ' + diff.toFixed(1) + '집 차</div>' +
+
+        '<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px 14px;font-size:13px">' +
+            '<span style="color:#7f9bc4"></span><b style="color:#9b6dff">흑</b><b style="color:#7fe8ff">백</b>' +
+            '<span style="color:#7f9bc4">속집</span><span>' + res.blackTerr + '</span><span>' + res.whiteTerr + '</span>' +
+            '<span style="color:#7f9bc4">경계선 돌</span><span>' + res.blackBorder + '</span><span>' + res.whiteBorder + '</span>' +
+            (res.komi ? '<span style="color:#7f9bc4">덤</span><span>—</span><span>' + res.komi + '</span>' : '') +
+        '</div>' +
+
+        '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(127,155,196,0.25);' +
+            'display:grid;grid-template-columns:1fr auto auto;gap:14px;font-size:15px;font-weight:700">' +
+            '<span style="color:#7f9bc4">합계</span>' +
+            '<span style="color:#9b6dff">' + res.blackTotal.toFixed(1) + '</span>' +
+            '<span style="color:#7fe8ff">' + res.whiteTotal.toFixed(1) + '</span>' +
+        '</div>' +
+
+        '<div style="margin-top:16px;display:flex;gap:8px">' +
+            '<button onclick="endScoring()" style="flex:1;padding:9px;border-radius:8px;' +
+                'border:1px solid rgba(127,155,196,0.4);background:rgba(127,155,196,0.1);' +
+                'color:#dce8ff;font:600 12px monospace;cursor:pointer">닫기</button>' +
+            '<button onclick="endScoring();buildPlanets()" style="flex:1;padding:9px;border-radius:8px;' +
+                'border:1px solid #1ABC9C;background:rgba(26,188,156,0.15);' +
+                'color:#1ABC9C;font:600 12px monospace;cursor:pointer">🌍 행성 만들기</button>' +
+        '</div>';
+
+    document.body.appendChild(p);
+
+    var bt = document.getElementById('bubbleText');
+    if (bt) bt.textContent = (bWin ? '흑' : '백') + '이 ' + diff.toFixed(1) + '집 차로 이겼어요! 🎉';
+}
+
+// ---- 계가 종료 (연출 정리) ----
+function endScoring() {
+    _scoringActive = false;
+    var p = document.getElementById('scorePanel');
+    if (p) p.remove();
+    _scoreFx.forEach(function (o) { scene.remove(o); });
+    _scoreFx = [];
+    // 판 복원 (돌 다시 그리기)
+    if (typeof rebuildTo === 'function') rebuildTo(histPos);
+    if (sunjangMode || (gameConfig && gameConfig.handicap > 0)) {
+        // 배치돌 복원은 setupBoard가 처리
+    }
+}
+
+window.startScoring = startScoring;
+window.endScoring = endScoring;
+window.calcSunjangScore = calcSunjangScore;
+
+// ===== 참고도 접기/펴기 (폴더 방식) =====
+(function(){
+  function initRefToggle(){
+    var box = document.getElementById('ref-view-box');
+    if(!box) { setTimeout(initRefToggle, 300); return; }
+    if(document.getElementById('refToggleBtn')) return;
+
+    // 토글 버튼 (참고도 접혔을 때 보이는 아이콘)
+    var btn = document.createElement('button');
+    btn.id = 'refToggleBtn';
+    btn.innerHTML = '📋';
+    btn.title = '참고도 열기/닫기';
+    btn.style.cssText = 'position:fixed;right:16px;top:300px;z-index:501;width:44px;height:44px;' +
+      'border-radius:10px;background:rgba(6,12,26,0.95);border:2px solid #4A90D9;' +
+      'color:#7fd4ff;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(74,144,217,0.4);' +
+      'display:flex;align-items:center;justify-content:center;transition:all 0.2s';
+    document.body.appendChild(btn);
+
+    // 참고도 안에 닫기 버튼
+    var close = document.createElement('button');
+    close.innerHTML = '✕';
+    close.title = '닫기';
+    close.style.cssText = 'position:absolute;top:4px;right:6px;z-index:5;width:22px;height:22px;' +
+      'border-radius:5px;background:rgba(74,144,217,0.2);border:1px solid rgba(74,144,217,0.5);' +
+      'color:#7fd4ff;font:bold 11px monospace;cursor:pointer;padding:0';
+    box.appendChild(close);
+
+    var open = false;   // 기본은 접힘
+
+    function apply(){
+      box.style.display = open ? 'block' : 'none';
+      btn.style.display = open ? 'none' : 'flex';
+    }
+    btn.onclick = function(){ open = true; apply(); };
+    close.onclick = function(){ open = false; apply(); };
+
+    apply();
+    window._refToggle = function(){ open = !open; apply(); };
+  }
+  initRefToggle();
+})();
+
 function resetBoard3D(){ history=[]; rebuildTo(0); }
 function removeDeadStones3D(lastStone){
   const bs = N;
@@ -1076,6 +1793,42 @@ function buildPlanets(){
     if(typeof teacherSpeak==='function'){
         teacherSpeak('멋진 행성을 만들었어요! 파란 행성은 '+blackTotal+', 초록 행성은 '+whiteTotal+' 크기예요.');
     }
+    // 내 은하계(G1)에 행성 저장 (localStorage)
+    saveToGalaxy(blackTotal, whiteTotal);
+}
+function saveToGalaxy(blackTotal, whiteTotal){
+    try {
+        var qs = new URLSearchParams(location.search);
+        var user = qs.get('user') || 'guest';
+        var key = 'tobmate_galaxy_' + user;
+        var galaxy = [];
+        try { var raw = localStorage.getItem(key); if(raw) galaxy = JSON.parse(raw); } catch(e){}
+        var winner = blackTotal > whiteTotal;
+        // 더 큰 행성을 대표 행성으로 저장
+        var myTotal = Math.max(blackTotal, whiteTotal);
+        var sgf = '';
+        try { if(typeof history!=='undefined' && history.length){
+            sgf = '(;GM[1]FF[4]SZ[19]';
+            for(var i=0;i<history.length;i++){ var m=history[i]; sgf += ';'+(m.b?'B':'W')+'['+String.fromCharCode(97+m.c)+String.fromCharCode(97+m.r)+']'; }
+            sgf += ')';
+        }} catch(e){}
+        galaxy.push({
+            name: winner ? '🌊 바다행성' : '🌿 대륙행성',
+            size: myTotal,
+            territory: myTotal,
+            winner: winner,
+            color: winner ? '#2266dd' : '#22aa44',
+            date: new Date().toISOString().slice(0,10),
+            moves: (typeof history!=='undefined') ? history.length : 0,
+            sgf: sgf
+        });
+        localStorage.setItem(key, JSON.stringify(galaxy));
+        // 안내
+        setTimeout(function(){
+            var bt=document.getElementById('bubbleText');
+            if(bt) bt.textContent = '🌌 이 행성이 내 은하계(G1)에 저장됐어요! 지금까지 만든 행성: '+galaxy.length+'개';
+        }, 3000);
+    } catch(err){ console.warn('은하계 저장 실패:', err); }
 }
 window.buildPlanets = buildPlanets;
 
