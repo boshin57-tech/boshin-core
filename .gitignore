@@ -26,3 +26,4 @@ core
 *_bak
 *.emergency_bak
 *.final_bak
+*.bak*
