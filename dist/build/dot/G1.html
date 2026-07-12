@@ -2,290 +2,509 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>🌌 내 은하계 — Tobmate</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>내 은하계 — Tobmate</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#02040f;overflow:hidden;width:100vw;height:100vh;font-family:'Courier New',monospace;color:#cfe3ff}
-canvas{position:absolute;inset:0;display:block}
-
-/* 상단 HUD */
-.hud{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;
-  padding:0 20px;background:linear-gradient(180deg,rgba(4,8,26,0.95),rgba(4,8,26,0));z-index:20}
-.hud-title{font-size:16px;font-weight:700;letter-spacing:1px;
-  background:linear-gradient(90deg,#7fd4ff,#c8a2ff,#ff9dd4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hud-stats{display:flex;gap:18px;font-size:11px;color:#5a7ba0}
-.hud-stats b{color:#00ffaa;font-size:14px}
-
-/* 하단 정보 바 */
-.infobar{position:fixed;bottom:0;left:0;right:0;padding:14px 20px;text-align:center;font-size:12px;color:#5a7ba0;
-  background:linear-gradient(0deg,rgba(4,8,26,0.95),rgba(4,8,26,0));z-index:20}
-.infobar a{color:#7fd4ff;text-decoration:none;cursor:pointer}
-
-/* 빈 은하계 안내 */
-.empty{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;z-index:15;pointer-events:none}
-.empty h2{font-size:20px;margin-bottom:12px;
-  background:linear-gradient(90deg,#7fd4ff,#c8a2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.empty p{font-size:13px;color:#5a7ba0;line-height:1.7;max-width:320px}
-
-/* 뒤로 버튼 */
-.back{position:fixed;top:60px;left:20px;z-index:25;padding:7px 14px;border-radius:20px;
-  border:1px solid rgba(127,212,255,0.4);background:rgba(4,8,26,0.7);color:#7fd4ff;
-  font:600 11px monospace;cursor:pointer;backdrop-filter:blur(6px)}
-.back:hover{background:rgba(127,212,255,0.15)}
-
-/* 행성 정보 카드 */
-.pcard{position:fixed;top:50%;right:24px;transform:translateY(-50%);z-index:30;width:230px;
-  background:rgba(6,12,32,0.92);border:1px solid rgba(127,212,255,0.35);border-radius:16px;
-  padding:16px;backdrop-filter:blur(10px);box-shadow:0 8px 40px rgba(0,0,0,0.6)}
-.pcard .pc-close{position:absolute;top:8px;right:10px;color:#5a7ba0;cursor:pointer;font-size:18px;line-height:1}
-.pcard .pc-name{font-size:16px;font-weight:700;margin-bottom:12px}
-.pc-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;
-  border-bottom:1px solid rgba(127,212,255,0.08);color:#8fb0d8}
-.pc-row b{color:#cfe3ff}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#01030c;
+  font-family:'D2Coding','Consolas',monospace;color:#cfe3ff;-webkit-tap-highlight-color:transparent}
+canvas{display:block}
+#hud{position:fixed;top:0;left:0;right:0;padding:16px 20px;display:flex;
+  justify-content:space-between;align-items:center;z-index:10;pointer-events:none}
+#title{font-size:15px;font-weight:bold;letter-spacing:1px;
+  background:linear-gradient(90deg,#7fd4ff,#c8a2ff,#ff9dd4);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#stats{display:flex;gap:16px;font-size:12px;color:#5f7fa8}
+#stats b{color:#7fd4ff;font-weight:bold;margin-left:4px}
+#stats .w{color:#ffd76b}
+#stats .t{color:#ff9dd4}
+#back{position:fixed;top:52px;left:20px;z-index:10;
+  background:rgba(8,16,36,0.85);border:1px solid rgba(127,212,255,0.3);
+  color:#7fd4ff;padding:7px 14px;border-radius:20px;font:12px monospace;
+  cursor:pointer;backdrop-filter:blur(8px);transition:.2s}
+#back:hover{background:rgba(127,212,255,0.15);border-color:#7fd4ff}
+#tip{position:fixed;bottom:14px;left:0;right:0;text-align:center;
+  font-size:11px;color:#3d5578;z-index:10;pointer-events:none}
+#card{position:fixed;right:20px;top:50%;transform:translateY(-50%) translateX(30px);
+  width:290px;background:rgba(6,12,28,0.94);border:1px solid rgba(127,212,255,0.28);
+  border-radius:14px;padding:18px;z-index:20;opacity:0;pointer-events:none;
+  transition:.25s;backdrop-filter:blur(12px);box-shadow:0 8px 40px rgba(0,0,0,.6)}
+#card.on{opacity:1;pointer-events:auto;transform:translateY(-50%) translateX(0)}
+#card .nm{font-size:15px;font-weight:bold;margin-bottom:3px;color:#e8f2ff}
+#card .dt{font-size:10px;color:#4d6a94;margin-bottom:14px}
+.vs{display:flex;align-items:center;gap:8px;margin-bottom:14px;
+  background:rgba(127,212,255,0.05);border-radius:10px;padding:10px}
+.vs .p{flex:1;text-align:center}
+.vs .p .u{font-size:12px;font-weight:bold;margin-bottom:3px;color:#a8b8d0}
+.vs .p .s{font-size:19px;font-weight:bold}
+.vs .p.b .s{color:#c8a2ff}
+.vs .p.w .s{color:#7fe8ff}
+.vs .x{font-size:10px;color:#3d5578}
+.row{display:flex;justify-content:space-between;font-size:11px;
+  padding:5px 0;border-top:1px solid rgba(127,212,255,0.08)}
+.row span:first-child{color:#4d6a94}
+.row span:last-child{color:#b8ccea}
+.badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}
+.bg{font-size:10px;padding:3px 8px;border-radius:10px;
+  background:rgba(200,162,255,0.12);border:1px solid rgba(200,162,255,0.3);color:#c8a2ff}
+.bg.tr{background:rgba(255,204,68,0.14);border-color:rgba(255,204,68,0.4);color:#ffcc44}
+#card .cls{position:absolute;top:12px;right:14px;color:#3d5578;cursor:pointer;font-size:16px}
+#card .cls:hover{color:#7fd4ff}
+#empty{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;z-index:5;display:none}
+#empty .e1{font-size:34px;margin-bottom:14px;opacity:.5}
+#empty .e2{font-size:14px;color:#5f7fa8;margin-bottom:6px}
+#empty .e3{font-size:11px;color:#3d5578;line-height:1.7}
+@media(max-width:600px){#card{right:10px;left:10px;width:auto}#stats{gap:10px;font-size:11px}}
 </style>
 </head>
 <body>
-<div class="hud">
-  <div class="hud-title">🌌 내 은하계</div>
-  <div class="hud-stats">
-    <span>행성 <b id="stPlanets">0</b></span>
-    <span>승리 <b id="stWins">0</b></span>
-    <span>총 영토 <b id="stTerr">0</b></span>
+<div id="hud">
+  <div id="title">🌌 내 은하계</div>
+  <div id="stats">
+    <div>행성<b id="sP">0</b></div>
+    <div>승리<b class="w" id="sW">0</b></div>
+    <div>영토<b class="t" id="sT">0</b></div>
+    <div>위성<b id="sM">0</b></div>
   </div>
 </div>
-
-<button class="back" onclick="goBack()">← 우주 지도로</button>
-
-<div class="empty" id="emptyMsg" style="display:none">
-  <h2>아직 행성이 없어요</h2>
-  <p>🌍 3D 바둑 교실에서 대국을 두고 <b>행성 만들기</b>를 누르면,<br>그 판이 하나의 행성이 되어 이곳에 모여요.</p>
+<button id="back" onclick="history.back()">← 우주 지도로</button>
+<div id="empty">
+  <div class="e1">✨</div>
+  <div class="e2">아직 별이 없어요</div>
+  <div class="e3">3D 바둑 교실에서 <b>친구와 함께</b> 한 판 두면<br>새로운 별이 태어나요</div>
 </div>
-
-<div class="infobar">
-  드래그로 회전 · 휠로 확대 · 행성 클릭으로 대국 정보 —
-  <a onclick="addSamplePlanet()">＋ 테스트 행성</a>
+<div id="card">
+  <div class="cls" onclick="closeCard()">×</div>
+  <div class="nm" id="cN">—</div>
+  <div class="dt" id="cD">—</div>
+  <div class="vs">
+    <div class="p b"><div class="u" id="cBU">—</div><div class="s" id="cBS">0</div></div>
+    <div class="x">VS</div>
+    <div class="p w"><div class="u" id="cWU">—</div><div class="s" id="cWS">0</div></div>
+  </div>
+  <div class="row"><span>승자</span><span id="cWin">—</span></div>
+  <div class="row"><span>수순</span><span id="cMv">—</span></div>
+  <div class="row"><span>덤</span><span id="cKo">—</span></div>
+  <div class="row"><span>크기</span><span id="cSz">—</span></div>
+  <div class="badges" id="cBadge"></div>
 </div>
-
+<div id="tip">드래그 회전 · 휠 확대 · 행성 클릭</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/dot/galaxy.js"></script>
 <script>
 (function(){
-  // ===== 파라미터 =====
-  var qs = new URLSearchParams(location.search);
-  var curUser = qs.get('user') || 'guest';
-  var curLang = qs.get('lang') || 'ko';
-  var GKEY = 'tobmate_galaxy_' + curUser;
+'use strict';
 
-  // ===== localStorage에서 행성 불러오기 =====
-  var myPlanets = [];
-  try { var raw = localStorage.getItem(GKEY); if(raw) myPlanets = JSON.parse(raw) || []; } catch(e){ myPlanets = []; }
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera(52, innerWidth/innerHeight, 0.1, 400);
+var renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
 
-  // ===== THREE 기본 =====
-  var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 2000);
-  camera.position.set(0, 40, 130);
-  var renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  document.body.appendChild(renderer.domElement);
-
-  scene.add(new THREE.AmbientLight(0x404060, 1.2));
-  var pl = new THREE.PointLight(0xffffff, 1.4, 0);
-  pl.position.set(0,0,0);
-  scene.add(pl);
-
-  // ===== 별 배경 =====
-  var starGeo = new THREE.BufferGeometry();
-  var starCnt = 1400, pos = new Float32Array(starCnt*3);
-  for(var i=0;i<starCnt;i++){
-    var r = 500 + Math.random()*500;
-    var th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
-    pos[i*3]   = r*Math.sin(ph)*Math.cos(th);
-    pos[i*3+1] = r*Math.sin(ph)*Math.sin(th);
-    pos[i*3+2] = r*Math.cos(ph);
+/* 별 배경 — Points 1 드로우콜 */
+(function(){
+  var N = 2600, pos = new Float32Array(N*3), sz = new Float32Array(N);
+  for (var i=0;i<N;i++){
+    var r = 90 + Math.random()*180, t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
+    pos[i*3]   = r*Math.sin(p)*Math.cos(t);
+    pos[i*3+1] = r*Math.cos(p)*0.5;
+    pos[i*3+2] = r*Math.sin(p)*Math.sin(t);
+    sz[i] = Math.random();
   }
-  starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  var stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color:0x9fc8ff, size:1.4, transparent:true, opacity:0.8}));
-  scene.add(stars);
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('aSeed', new THREE.BufferAttribute(sz,1));
+  var m = new THREE.ShaderMaterial({
+    uniforms:{ uT:{value:0} },
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader:
+      'attribute float aSeed; varying float vS;'+
+      'void main(){ vS=aSeed;'+
+      ' vec4 mv=modelViewMatrix*vec4(position,1.0);'+
+      ' gl_PointSize=(0.6+aSeed*1.9)*(200.0/-mv.z);'+
+      ' gl_Position=projectionMatrix*mv; }',
+    fragmentShader:
+      'varying float vS; uniform float uT;'+
+      'void main(){ vec2 c=gl_PointCoord-0.5; float d=length(c);'+
+      ' if(d>0.5) discard;'+
+      ' float tw=0.55+0.45*sin(uT*1.6+vS*40.0);'+
+      ' float a=(1.0-d*2.0)*tw*0.85;'+
+      ' vec3 col=mix(vec3(0.62,0.78,1.0), vec3(1.0,0.92,0.78), vS);'+
+      ' gl_FragColor=vec4(col,a); }'
+  });
+  scene.add(new THREE.Points(g,m));
+  window._stars = m;
+})();
 
-  // ===== 은하 중심 코어 (금색) =====
-  var core = new THREE.Mesh(
-    new THREE.SphereGeometry(9, 32, 32),
-    new THREE.MeshStandardMaterial({color:0xffcc44, emissive:0xffaa22, emissiveIntensity:0.9, roughness:0.4})
-  );
-  scene.add(core);
-  var glow = new THREE.Mesh(
-    new THREE.SphereGeometry(13, 32, 32),
-    new THREE.MeshBasicMaterial({color:0xffcc66, transparent:true, opacity:0.12})
-  );
-  scene.add(glow);
+/* 은하 코어 */
+var core = new THREE.Mesh(
+  new THREE.SphereGeometry(2.1, 32, 24),
+  new THREE.ShaderMaterial({
+    uniforms:{ uT:{value:0} },
+    vertexShader:'varying vec3 vN; varying vec3 vP;'+
+      'void main(){ vN=normalize(normalMatrix*normal);'+
+      ' vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz;'+
+      ' gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'varying vec3 vN; varying vec3 vP; uniform float uT;'+
+      'void main(){ float f=pow(1.0-abs(dot(normalize(-vP),vN)),1.6);'+
+      ' float pulse=0.86+0.14*sin(uT*1.1);'+
+      ' vec3 c=mix(vec3(1.0,0.86,0.35), vec3(1.0,0.55,0.2), f)*pulse;'+
+      ' gl_FragColor=vec4(c, 0.95); }'
+  })
+);
+scene.add(core);
 
-  // ===== 행성 생성 =====
-  var planetMeshes = [];
-  function buildPlanets(){
-    // 기존 제거
-    planetMeshes.forEach(function(p){ scene.remove(p.mesh); if(p.orbit) scene.remove(p.orbit); });
-    planetMeshes = [];
+var glow = new THREE.Mesh(
+  new THREE.SphereGeometry(3.3, 24, 18),
+  new THREE.ShaderMaterial({
+    uniforms:{ uT:{value:0} }, transparent:true, side:THREE.BackSide,
+    depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader:'varying vec3 vN; varying vec3 vP;'+
+      'void main(){ vN=normalize(normalMatrix*normal);'+
+      ' vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz;'+
+      ' gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'varying vec3 vN; varying vec3 vP; uniform float uT;'+
+      'void main(){ float f=pow(1.0-abs(dot(normalize(-vP),vN)),2.6);'+
+      ' float p=0.7+0.3*sin(uT*0.9);'+
+      ' gl_FragColor=vec4(1.0,0.72,0.28, f*0.42*p); }'
+  })
+);
+scene.add(glow);
 
-    myPlanets.forEach(function(data, idx){
-      var size = Math.max(2.2, Math.min(9, (data.size||data.territory||20)/8));
-      var col = data.color || (data.winner ? 0x2266dd : 0x22aa44);
-      var mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(size, 24, 24),
-        new THREE.MeshStandardMaterial({color:col, roughness:0.6, metalness:0.1, emissive:col, emissiveIntensity:0.15})
-      );
-      var orbitR = 26 + idx*13;
-      mesh.userData = {
-        angle: Math.random()*Math.PI*2,
-        speed: 0.004 + Math.random()*0.004,
-        orbitR: orbitR,
-        tilt: (Math.random()-0.5)*0.6,
-        data: data
-      };
-      scene.add(mesh);
+/* 행성 셰이더 */
+var PVS =
+  'varying vec2 vUv; varying vec3 vN; varying vec3 vP;'+
+  'void main(){ vUv=uv; vN=normalize(normalMatrix*normal);'+
+  ' vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz;'+
+  ' gl_Position=projectionMatrix*mv; }';
 
-      // 궤도 링
+var PFS =
+  'varying vec2 vUv; varying vec3 vN; varying vec3 vP;'+
+  'uniform float uT; uniform float uRainbow; uniform float uAge;'+
+  'uniform float uWon; uniform vec3 uTint; uniform float uSeed;'+
+  'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); }'+
+  'float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);'+
+  ' return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),'+
+  '            mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x), f.y); }'+
+  'float fbm(vec2 p){ float v=0.0; float a=0.5;'+
+  ' for(int i=0;i<4;i++){ v+=a*noise(p); p*=2.1; a*=0.5; } return v; }'+
+  'vec3 rainbow(float t){ return 0.55+0.45*cos(6.2831*(t+vec3(0.0,0.33,0.67))); }'+
+  'void main(){'+
+  ' float n=fbm(vUv*7.0 + uSeed*13.0 + uT*0.035);'+
+  ' vec3 base;'+
+  ' if(uRainbow>0.5){ base = rainbow(vUv.y*0.75 + n*0.35 + uT*0.045 + uSeed); }'+
+  ' else { base = mix(uTint*0.42, uTint, n); }'+
+  ' base = mix(base, base*0.72, uAge*0.35);'+
+  ' vec3 L=normalize(vec3(0.55,0.7,0.75));'+
+  ' float dif=max(dot(vN,L),0.0);'+
+  ' float shade=mix(0.18, 1.0, dif);'+
+  ' shade=mix(shade*0.7, shade, uWon);'+
+  ' float fres=pow(1.0-abs(dot(normalize(-vP),vN)),2.3);'+
+  ' vec3 rim=(uRainbow>0.5)? rainbow(uT*0.1+uSeed) : uTint;'+
+  ' vec3 col=base*shade + rim*fres*0.85 + rim*0.1;'+
+  ' gl_FragColor=vec4(col,1.0); }';
+
+var sphereGeo = new THREE.SphereGeometry(1, 28, 20);
+
+function orbitRing(r){
+  var pts=[], N=128;
+  for (var i=0;i<=N;i++){ var a=i/N*Math.PI*2;
+    pts.push(new THREE.Vector3(Math.cos(a)*r, 0, Math.sin(a)*r)); }
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:0x2a4a7a, transparent:true, opacity:0.28}));
+}
+
+/* 별똥별 */
+var METEOR_MAX = 40;
+var meteorPos = new Float32Array(METEOR_MAX*3);
+var meteorLife = new Float32Array(METEOR_MAX);
+var meteorCol = new Float32Array(METEOR_MAX*3);
+var meteorVel = [];
+for (var mi=0; mi<METEOR_MAX; mi++){ meteorLife[mi]=0; meteorVel.push({x:0,y:0,z:0}); }
+
+var mGeo = new THREE.BufferGeometry();
+mGeo.setAttribute('position', new THREE.BufferAttribute(meteorPos,3));
+mGeo.setAttribute('aLife', new THREE.BufferAttribute(meteorLife,1));
+mGeo.setAttribute('aCol', new THREE.BufferAttribute(meteorCol,3));
+var mMat = new THREE.ShaderMaterial({
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  vertexShader:'attribute float aLife; attribute vec3 aCol;'+
+    'varying float vL; varying vec3 vC;'+
+    'void main(){ vL=aLife; vC=aCol;'+
+    ' vec4 mv=modelViewMatrix*vec4(position,1.0);'+
+    ' gl_PointSize=(aLife>0.0? 8.0*aLife : 0.0)*(120.0/-mv.z);'+
+    ' gl_Position=projectionMatrix*mv; }',
+  fragmentShader:'varying float vL; varying vec3 vC;'+
+    'void main(){ if(vL<=0.0) discard;'+
+    ' vec2 c=gl_PointCoord-0.5; float d=length(c); if(d>0.5) discard;'+
+    ' gl_FragColor=vec4(vC, (1.0-d*2.0)*vL); }'
+});
+scene.add(new THREE.Points(mGeo, mMat));
+
+function spawnMeteor(color, target){
+  for (var i=0;i<METEOR_MAX;i++){
+    if (meteorLife[i] <= 0){
+      var a = Math.random()*Math.PI*2, r = 45 + Math.random()*30;
+      meteorPos[i*3]   = Math.cos(a)*r;
+      meteorPos[i*3+1] = 18 + Math.random()*22;
+      meteorPos[i*3+2] = Math.sin(a)*r;
+      var tx = target ? target.x : (Math.random()-0.5)*40;
+      var ty = target ? target.y : -8;
+      var tz = target ? target.z : (Math.random()-0.5)*40;
+      var d = 0.012 + Math.random()*0.01;
+      meteorVel[i] = { x:(tx-meteorPos[i*3])*d,
+                       y:(ty-meteorPos[i*3+1])*d,
+                       z:(tz-meteorPos[i*3+2])*d };
+      var c = new THREE.Color(color || 0x9fd8ff);
+      meteorCol[i*3]=c.r; meteorCol[i*3+1]=c.g; meteorCol[i*3+2]=c.b;
+      meteorLife[i] = 1;
+      return;
+    }
+  }
+}
+
+/* 행성 빌드 */
+var planets = [], clickables = [];
+
+function build(){
+  planets.forEach(function(p){ scene.remove(p.grp); });
+  planets = []; clickables = [];
+
+  var G = window.Galaxy ? Galaxy.load() : [];
+  document.getElementById('empty').style.display = G.length ? 'none' : 'block';
+
+  var st = window.Galaxy ? Galaxy.stats() : {planets:0,wins:0,territory:0,moons:0,age:1};
+  document.getElementById('sP').textContent = st.planets;
+  document.getElementById('sW').textContent = st.wins;
+  document.getElementById('sT').textContent = st.territory;
+  document.getElementById('sM').textContent = st.moons;
+
+  var ageMax = Math.max(st.age || 1, 1);
+
+  G.forEach(function(d, i){
+    var grp = new THREE.Group();
+    var size = Math.max(0.5, Math.min(2.2, 0.55 + (d.size||d.baseSize||10)/90));
+    var orbitR = 6 + i*2.2 + (i%2)*0.9;
+    var speed = 0.16/Math.sqrt(orbitR) * (i%2 ? 1 : -1);
+    var ageN = Math.min(((Date.now()-new Date(d.date))/86400000)/ageMax, 1) || 0;
+    var tint = new THREE.Color(d.iWon ? 0x4a9eff : 0x22cc88);
+
+    var mat = new THREE.ShaderMaterial({
+      uniforms:{ uT:{value:0}, uRainbow:{value:d.rainbow?1:0}, uAge:{value:ageN},
+                 uWon:{value:d.iWon?1:0}, uTint:{value:tint}, uSeed:{value:(i*0.37)%1} },
+      vertexShader: PVS, fragmentShader: PFS
+    });
+
+    var mesh = new THREE.Mesh(sphereGeo, mat);
+    mesh.scale.setScalar(size);
+    mesh.userData = { data:d, idx:i };
+    grp.add(mesh);
+    clickables.push(mesh);
+
+    (d.rings||[]).forEach(function(rg){
       var ring = new THREE.Mesh(
-        new THREE.RingGeometry(orbitR-0.15, orbitR+0.15, 96),
-        new THREE.MeshBasicMaterial({color:0x335577, side:THREE.DoubleSide, transparent:true, opacity:0.25})
-      );
-      ring.rotation.x = Math.PI/2;
-      scene.add(ring);
-
-      planetMeshes.push({mesh:mesh, orbit:ring});
+        new THREE.RingGeometry(size*1.5, size*(1.5+(rg.width||0.3)), 48),
+        new THREE.MeshBasicMaterial({
+          color:new THREE.Color(rg.palette ? rg.palette[0] : '#c8a2ff'),
+          transparent:true, opacity:0.42, side:THREE.DoubleSide, depthWrite:false }));
+      ring.rotation.x = Math.PI/2 + (rg.tilt||0.4);
+      grp.add(ring);
     });
-    updateHud();
-  }
 
-  // ===== HUD =====
-  function updateHud(){
-    var wins = 0, terr = 0;
-    myPlanets.forEach(function(p){ if(p.winner) wins++; terr += (p.size||p.territory||0); });
-    document.getElementById('stPlanets').textContent = myPlanets.length;
-    document.getElementById('stWins').textContent = wins;
-    document.getElementById('stTerr').textContent = terr;
-    document.getElementById('emptyMsg').style.display = myPlanets.length ? 'none' : 'flex';
-  }
+    var moons = [];
+    (d.moons||[]).forEach(function(mn, k){
+      var mm = new THREE.Mesh(
+        new THREE.SphereGeometry(size*0.24, 12, 8),
+        new THREE.MeshBasicMaterial({color:new THREE.Color(mn.color||'#7fd4ff')}));
+      grp.add(mm);
+      moons.push({mesh:mm, r:size*(mn.orbit||1.8), sp:mn.speed||0.7, ph:k*2.1});
+    });
 
-  // ===== 클릭 → 행성 카드 =====
-  var raycaster = new THREE.Raycaster();
-  var mouse = new THREE.Vector2();
-  renderer.domElement.addEventListener('click', function(ev){
-    if(dragging) return;
-    mouse.x = (ev.clientX/innerWidth)*2-1;
-    mouse.y = -(ev.clientY/innerHeight)*2+1;
-    raycaster.setFromCamera(mouse, camera);
-    var hits = raycaster.intersectObjects(planetMeshes.map(function(p){return p.mesh;}));
-    if(hits.length) showCard(hits[0].object.userData.data);
+    (d.particles||[]).forEach(function(pt){
+      var N=60, pp=new Float32Array(N*3);
+      for (var j=0;j<N;j++){
+        var a=Math.random()*Math.PI*2, rr=size*(1.25+Math.random()*0.5);
+        pp[j*3]=Math.cos(a)*rr;
+        pp[j*3+1]=(Math.random()-0.5)*size*1.5;
+        pp[j*3+2]=Math.sin(a)*rr;
+      }
+      var pg=new THREE.BufferGeometry();
+      pg.setAttribute('position', new THREE.BufferAttribute(pp,3));
+      grp.add(new THREE.Points(pg, new THREE.PointsMaterial({
+        color:new THREE.Color(pt.palette ? pt.palette[0] : '#c8a2ff'),
+        size:0.09, transparent:true, opacity:0.75,
+        blending:THREE.AdditiveBlending, depthWrite:false })));
+    });
+
+    if (d.treasure){
+      var tg = new THREE.Mesh(
+        new THREE.SphereGeometry(size*1.35, 20, 14),
+        new THREE.MeshBasicMaterial({color:0xffcc44, transparent:true,
+          opacity:0.2, blending:THREE.AdditiveBlending, depthWrite:false}));
+      grp.add(tg);
+      grp.userData.treasureGlow = tg;
+    }
+
+    scene.add(grp);
+    scene.add(orbitRing(orbitR));
+    planets.push({grp:grp, mesh:mesh, mat:mat, moons:moons,
+                  r:orbitR, sp:speed, ph:(i*1.9)%(Math.PI*2), data:d});
+  });
+}
+
+/* 카드 */
+var card = document.getElementById('card');
+function openCard(d){
+  document.getElementById('cN').textContent = d.nickname || (d.iWon ? '🌟 승리의 별' : '🌙 기억의 별');
+  document.getElementById('cD').textContent = (d.date||'').slice(0,10);
+  document.getElementById('cBU').textContent = '⚫ ' + ((d.black&&d.black.user)||'—');
+  document.getElementById('cBS').textContent = (d.black&&d.black.score)||0;
+  document.getElementById('cWU').textContent = '⚪ ' + ((d.white&&d.white.user)||'—');
+  document.getElementById('cWS').textContent = (d.white&&d.white.score)||0;
+  document.getElementById('cWin').textContent = d.winner || '—';
+  document.getElementById('cMv').textContent = (d.moves||0) + '수';
+  document.getElementById('cKo').textContent = (d.komi||0) + '집';
+  document.getElementById('cSz').textContent = Math.round(d.size||d.baseSize||0);
+  var b = document.getElementById('cBadge'); b.innerHTML='';
+  function badge(txt, cls){ var e=document.createElement('span');
+    e.className='bg'+(cls?' '+cls:''); e.textContent=txt; b.appendChild(e); }
+  (d.moons||[]).forEach(function(m){ badge('🌙 '+(m.name||'위성')); });
+  (d.rings||[]).forEach(function(){ badge('💍 고리'); });
+  (d.particles||[]).forEach(function(){ badge('💫 오로라'); });
+  if (d.treasure) badge('💎 보물', 'tr');
+  card.classList.add('on');
+}
+window.closeCard = function(){ card.classList.remove('on'); };
+
+/* 조작 */
+var th=0.6, ph=0.75, dist=38;
+function updCam(){
+  camera.position.set(Math.sin(th)*Math.sin(ph)*dist,
+    Math.cos(ph)*dist, Math.cos(th)*Math.sin(ph)*dist);
+  camera.lookAt(0,0,0);
+}
+updCam();
+
+var drag=false, lx=0, ly=0, moved=false;
+renderer.domElement.addEventListener('pointerdown', function(e){
+  drag=true; moved=false; lx=e.clientX; ly=e.clientY; });
+addEventListener('pointermove', function(e){
+  if(!drag) return;
+  var dx=e.clientX-lx, dy=e.clientY-ly;
+  if (Math.abs(dx)+Math.abs(dy) > 4) moved=true;
+  th -= dx*0.005;
+  ph = Math.max(0.12, Math.min(1.5, ph - dy*0.005));
+  lx=e.clientX; ly=e.clientY; updCam(); });
+addEventListener('pointerup', function(){ drag=false; });
+addEventListener('wheel', function(e){
+  dist = Math.max(9, Math.min(90, dist + e.deltaY*0.02)); updCam(); }, {passive:true});
+
+var ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+renderer.domElement.addEventListener('click', function(e){
+  if (moved) return;
+  mv.x = (e.clientX/innerWidth)*2-1;
+  mv.y = -(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(mv, camera);
+  var hit = ray.intersectObjects(clickables);
+  if (hit.length) openCard(hit[0].object.userData.data);
+  else closeCard();
+});
+
+addEventListener('resize', function(){
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* 루프 */
+var t0 = Date.now(), lastMeteor = 0;
+function loop(){
+  requestAnimationFrame(loop);
+  var t = (Date.now()-t0)/1000;
+
+  window._stars.uniforms.uT.value = t;
+  core.material.uniforms.uT.value = t;
+  glow.material.uniforms.uT.value = t;
+  core.rotation.y = t*0.06;
+
+  planets.forEach(function(p){
+    var a = p.ph + t*p.sp;
+    p.grp.position.set(Math.cos(a)*p.r, Math.sin(a*1.7)*0.8, Math.sin(a)*p.r);
+    p.mesh.rotation.y = t*0.22;
+    p.mat.uniforms.uT.value = t;
+    p.moons.forEach(function(m){
+      var ma = m.ph + t*m.sp*2.2;
+      m.mesh.position.set(Math.cos(ma)*m.r, Math.sin(ma*0.7)*m.r*0.35, Math.sin(ma)*m.r);
+    });
+    if (p.grp.userData.treasureGlow)
+      p.grp.userData.treasureGlow.scale.setScalar(1 + Math.sin(t*2.2)*0.12);
   });
 
-  function showCard(data){
-    var old = document.querySelector('.pcard'); if(old) old.remove();
-    var hex = '#7fd4ff';
-    if(typeof data.color === 'number'){ hex = '#'+data.color.toString(16).padStart(6,'0'); }
-    else if(typeof data.color === 'string'){ hex = data.color; }
-    var isWin = !!data.winner;
-    var card = document.createElement('div');
-    card.className = 'pcard';
-    card.style.borderColor = hex + '88';
-    card.innerHTML =
-      '<span class="pc-close" onclick="this.parentNode.remove()">×</span>' +
-      '<div class="pc-name" style="color:'+hex+'">'+ (data.name || (isWin?'🌊 바다행성':'🌿 대륙행성')) +'</div>' +
-      '<div class="pc-row"><span>영토 크기</span><b>'+ (data.size||data.territory||'?') +'</b></div>' +
-      '<div class="pc-row"><span>결과</span><b>'+ (isWin?'승리 🏆':'분투 💪') +'</b></div>' +
-      '<div class="pc-row"><span>둔 날짜</span><b>'+ (data.date||'—') +'</b></div>' +
-      (data.moves ? '<div class="pc-row"><span>수순</span><b>'+data.moves+'수</b></div>' : '') +
-      (data.sgf ? '<div style="margin-top:12px"><button onclick="replayGame(\''+encodeURIComponent(data.sgf)+'\')" style="width:100%;padding:8px;border-radius:8px;border:1px solid '+hex+';background:'+hex+'22;color:'+hex+';font:600 11px monospace;cursor:pointer">▶ 이 대국 다시보기</button></div>' : '');
-    document.body.appendChild(card);
+  var freq = 2600 - Math.min(planets.length*120, 1800);
+  if (Date.now()-lastMeteor > freq && Math.random()<0.5){
+    lastMeteor = Date.now();
+    var pal = ['#9fd8ff','#c8a2ff','#ff9dd4','#ffd76b'];
+    spawnMeteor(pal[Math.floor(Math.random()*pal.length)]);
   }
 
-  window.replayGame = function(sgf){
-    location.href = '/dot/classroom3d.html?user='+curUser+'&lang='+curLang+'&replay='+sgf;
-  };
-
-  // ===== 드래그 회전 + 휠 줌 =====
-  var dragging=false, downX=0, downY=0, rotX=0.3, rotY=0, camDist=130;
-  renderer.domElement.addEventListener('mousedown', function(e){ dragging=false; downX=e.clientX; downY=e.clientY; window._md=true; });
-  renderer.domElement.addEventListener('mousemove', function(e){
-    if(!window._md) return;
-    var dx=e.clientX-downX, dy=e.clientY-downY;
-    if(Math.abs(dx)+Math.abs(dy)>4) dragging=true;
-    rotY += dx*0.005; rotX += dy*0.005;
-    rotX = Math.max(-1.2, Math.min(1.2, rotX));
-    downX=e.clientX; downY=e.clientY;
-  });
-  addEventListener('mouseup', function(){ window._md=false; setTimeout(function(){dragging=false;},50); });
-  renderer.domElement.addEventListener('wheel', function(e){
-    e.preventDefault();
-    camDist += e.deltaY*0.08;
-    camDist = Math.max(50, Math.min(320, camDist));
-  }, {passive:false});
-
-  // 터치 (모바일)
-  renderer.domElement.addEventListener('touchstart', function(e){ if(e.touches.length===1){window._md=true;downX=e.touches[0].clientX;downY=e.touches[0].clientY;} });
-  renderer.domElement.addEventListener('touchmove', function(e){
-    if(!window._md||e.touches.length!==1) return;
-    var dx=e.touches[0].clientX-downX, dy=e.touches[0].clientY-downY;
-    rotY+=dx*0.005; rotX+=dy*0.005; rotX=Math.max(-1.2,Math.min(1.2,rotX));
-    downX=e.touches[0].clientX; downY=e.touches[0].clientY;
-  }, {passive:true});
-  addEventListener('touchend', function(){ window._md=false; });
-
-  // ===== 애니메이션 루프 =====
-  function animate(){
-    requestAnimationFrame(animate);
-    core.rotation.y += 0.003;
-    glow.rotation.y -= 0.002;
-    stars.rotation.y += 0.0001;
-    planetMeshes.forEach(function(p){
-      var u = p.mesh.userData;
-      u.angle += u.speed;
-      p.mesh.position.set(
-        u.orbitR*Math.cos(u.angle),
-        u.orbitR*Math.sin(u.tilt)*Math.sin(u.angle),
-        u.orbitR*Math.sin(u.angle)
-      );
-      p.mesh.rotation.y += 0.01;
-    });
-    // 카메라 궤도
-    camera.position.x = camDist*Math.sin(rotY)*Math.cos(rotX);
-    camera.position.y = camDist*Math.sin(rotX);
-    camera.position.z = camDist*Math.cos(rotY)*Math.cos(rotX);
-    camera.lookAt(0,0,0);
-    renderer.render(scene, camera);
+  var mp = mGeo.attributes.position.array;
+  var ml = mGeo.attributes.aLife.array;
+  for (var i=0;i<METEOR_MAX;i++){
+    if (ml[i] > 0){
+      mp[i*3]   += meteorVel[i].x;
+      mp[i*3+1] += meteorVel[i].y;
+      mp[i*3+2] += meteorVel[i].z;
+      ml[i] -= 0.011;
+      if (ml[i] < 0) ml[i] = 0;
+    }
   }
-  animate();
+  mGeo.attributes.position.needsUpdate = true;
+  mGeo.attributes.aLife.needsUpdate = true;
 
-  addEventListener('resize', function(){
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
+  renderer.render(scene, camera);
+}
 
-  // ===== 뒤로가기 =====
-  window.goBack = function(){
-    location.href = '/dot.html?user='+curUser+'&lang='+curLang;
-  };
+/* 행성 탄생 연출 */
+window.birthAnimation = function(idx){
+  var p = planets[idx];
+  if (!p) return;
+  var tgt = p.grp.position;
+  for (var i=0;i<18;i++){
+    (function(){ setTimeout(function(){
+      spawnMeteor(['#ffd76b','#ff9dd4','#c8a2ff'][Math.floor(Math.random()*3)],
+        {x:tgt.x, y:tgt.y, z:tgt.z});
+    }, i*90); })();
+  }
+  var target = p.mesh.scale.x;
+  p.mesh.scale.setScalar(0.01);
+  setTimeout(function(){
+    var s0 = Date.now();
+    (function grow(){
+      var k = Math.min((Date.now()-s0)/900, 1);
+      var e = 1 - Math.pow(1-k, 3);
+      p.mesh.scale.setScalar(0.01 + e*target);
+      if (k<1) requestAnimationFrame(grow);
+    })();
+  }, 1500);
+};
 
-  // ===== 테스트 행성 (샘플) =====
-  window.addSamplePlanet = function(){
-    var win = Math.random()>0.5;
-    myPlanets.push({
-      name: win ? '🌊 바다행성' : '🌿 대륙행성',
-      size: 20 + Math.floor(Math.random()*40),
-      territory: 20 + Math.floor(Math.random()*40),
-      winner: win,
-      color: win ? '#2266dd' : '#22aa44',
-      date: new Date().toISOString().slice(0,10),
-      moves: 30 + Math.floor(Math.random()*100)
-    });
-    try { localStorage.setItem(GKEY, JSON.stringify(myPlanets)); } catch(e){}
-    buildPlanets();
-  };
+build();
+loop();
 
-  // ===== 시작 =====
-  buildPlanets();
+try {
+  var seen = parseInt(sessionStorage.getItem('g1_seen')||'0', 10);
+  var now = (window.Galaxy ? Galaxy.load().length : 0);
+  if (now > seen && seen > 0) birthAnimation(now-1);
+  sessionStorage.setItem('g1_seen', now);
+} catch(e){}
+
+window._rebuild = build;
+window._r = renderer;
+window._r = renderer;
+console.log('[G1] 은하계 v2 — 행성', planets.length);
 })();
 </script>
 </body>

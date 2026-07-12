@@ -1582,12 +1582,13 @@ addEventListener('resize', ()=>{
 </script>
 
 <script src="/classroom/socket.io/socket.io.js"></script>
+<script src="/dot/galaxy.js?v=1783822719"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}
   const qs=new URLSearchParams(location.search);
   const myName=(qs.get('user')||('학생'+(100+Math.floor(Math.random()*899)))).slice(0,12);
-  const others={};
+  const others={}; window._others = others;
   const sock=io({path:'/classroom/socket.io'});
   sock.on('connect',function(){
     sock.emit('c3d_join',{room:'main',name:myName,gender:localStorage.getItem('av_gender')||'m',
@@ -1601,10 +1602,11 @@ try{(function(){
     av.rotation.y=p.ry||0;
     av.userData.tgt={x:av.position.x,z:av.position.z,ry:av.rotation.y};
     addLabel(av,p.name,'#9fc9ff');
-    scene.add(av); others[p.id]=av;
+    scene.add(av); others[p.id]=av; av.userData.pname = p.name;
   }
   // === 내 아바타 (WASD 이동) ===
   const startA=(hashStr(myName)%628)/100;
+  window.myName = myName;
   const myAvatar=makeChibi({seed:myName+'me'});
   myAvatar.position.set(Math.sin(startA)*RING, 0, Math.cos(startA)*RING);
   myAvatar.rotation.y=startA+Math.PI;
@@ -1914,8 +1916,53 @@ function buildPlanets(){
     // 내 은하계(G1)에 행성 저장 (localStorage)
     saveToGalaxy(blackTotal, whiteTotal);
 }
+// === 2인 실전 판정 (AI 선생님은 상주 NPC라 제외) ===
+function humanCount(){
+    var o = window._others || {};
+    return 1 + Object.keys(o).length;
+}
+function isRankedGame(){ return humanCount() >= 2; }
+
 function saveToGalaxy(blackTotal, whiteTotal){
+    // === 새 엔진 (galaxy.js) 위임 ===
+    if (window.Galaxy) {
+        var res = calcSunjangScore();
+        var out = window.Galaxy.birthPlanet({
+            myScore: blackTotal, oppScore: whiteTotal,
+            iAmBlack: true,
+            borderStones: res.borderStones || [],
+            moves: (typeof history !== 'undefined') ? history.length : 0,
+            komi: res.komi || 0,
+            handicap: (window.gameConfig && gameConfig.handicap) || 0
+        });
+        var bt = document.getElementById('bubbleText');
+        var bb = document.getElementById('bubble');
+        if (bb) bb.style.display = 'block';
+        if (!out.ok) {
+            if (bt) bt.textContent = '\ud83e\ude90 \ud63c\uc790 \ub450\uba74 \ubcc4\uc774 \ud0dc\uc5b4\ub098\uc9c0 \uc54a\uc544\uc694. \uce5c\uad6c\uac00 \uad50\uc2e4\uc5d0 \ub4e4\uc5b4\uc624\uba74 \uc9c4\uc9dc \ud589\uc131\uc774 \ud0dc\uc5b4\ub098\uc694!';
+            console.log('[galaxy] 연습 모드 - 사람 ' + out.humans + '명');
+            return;
+        }
+        var msg = '\ud83c\udf1f \uc0c8 \ubcc4\uc774 \ud0dc\uc5b4\ub0ac\uc5b4\uc694! (\ucd1d ' + out.total + '\uac1c)';
+        var e = out.events;
+        if (e.moons.length)     msg += ' \ud83c\udf19\uc704\uc131 \ud68d\ub4dd!';
+        if (e.particles.length) msg += ' \ud83d\udcab\uc624\ub85c\ub77c!';
+        if (e.rings.length)     msg += ' \ud83d\udc8d\uace0\ub9ac!';
+        if (e.treasure)         msg += ' \ud83d\udc8e\ubcf4\ubb3c \ubc1c\uacac!';
+        if (bt) bt.textContent = msg;
+        console.log('[galaxy] 행성 탄생', out.planet);
+        return;
+    }
+    // === 구 버전 폴백 ===
     try {
+        if (!isRankedGame()) {
+            var _bt = document.getElementById('bubbleText');
+            if (_bt) _bt.textContent = '\ud83e\ude90 \ud63c\uc790 \ub450\uba74 \ubcc4\uc774 \ud0dc\uc5b4\ub098\uc9c0 \uc54a\uc544\uc694. \uce5c\uad6c\uac00 \uad50\uc2e4\uc5d0 \ub4e4\uc5b4\uc624\uba74 \uc9c4\uc9dc \ud589\uc131\uc744 \ub9cc\ub4e4 \uc218 \uc788\uc5b4\uc694!';
+            var _bb = document.getElementById('bubble');
+            if (_bb) _bb.style.display = 'block';
+            console.log('[galaxy] practice mode (humans=' + humanCount() + ') - no planet');
+            return;
+        }
         var qs = new URLSearchParams(location.search);
         var user = qs.get('user') || 'guest';
         var key = 'tobmate_galaxy_' + user;
