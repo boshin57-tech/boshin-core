@@ -461,6 +461,19 @@ const HAIRC=[0x191919,0x3f2a17,0xd9a94a,0xa8391c,0x6b6b6b,0x6a3fb5];
 const CLOTH=[0xff6b6b,0x38b6a5,0xf0c93d,0x6c5ce7,0x00a37a,0xe86aa6,0x1f7fd1,0xd96b3f];
 function hashStr(s){let h=7;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;}return h;}
 function makeChibi(opt){
+  // === B1 공방 아바타 사용 ===
+  if (window.Avatar && opt && opt.seed && !opt.forceOld){
+    var _cfg = Avatar.load(opt.seed);
+    if (opt.skin !== undefined)      _cfg.skin = opt.skin;
+    if (opt.hairC !== undefined)     _cfg.hairC = opt.hairC;
+    if (opt.cloth !== undefined)     _cfg.cloth = opt.cloth;
+    if (opt.hairStyle !== undefined) _cfg.hairStyle = opt.hairStyle;
+    if (opt.glasses !== undefined)   _cfg.glasses = opt.glasses;
+    return Avatar.makeAvatar(_cfg);
+  }
+  return _makeChibiOld(opt);
+}
+function _makeChibiOld(opt){
   opt=opt||{};
   const h=hashStr(opt.seed||'guest');
   const skin=opt.skin!==undefined?opt.skin:SKINS[h%6];
@@ -1583,6 +1596,7 @@ addEventListener('resize', ()=>{
 
 <script src="/classroom/socket.io/socket.io.js"></script>
 <script src="/dot/galaxy.js?v=1783822719"></script>
+<script src="/dot/avatar.js?v=1783847179"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}

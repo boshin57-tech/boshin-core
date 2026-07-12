@@ -180,6 +180,8 @@ const params=new URLSearchParams(location.search);
 let curUser=params.get('user')||'guest';
 let curLang=params.get('lang')||document.documentElement.lang||'ko';
 let layer=1,ft='all',sz=3,sel=null,myPos='A1';
+var _initCell = new URLSearchParams(location.search).get('cell');
+if (_initCell) { sel = _initCell; myPos = _initCell; }
 const cells={};
 const presetsByLayer={
   1:[
@@ -337,6 +339,7 @@ function enterSpace(){
   if(!sel)return;
   if(sel==='A1'){openA1();return;}
   if(sel==='G1'){window.location.href='/dot/G1.html?user='+curUser+'&lang='+curLang;return;}
+  if(sel==='B1'&&layer===1){window.location.href='/dot/B1.html?user='+curUser+'&lang='+curLang;return;}
     if(sel==='P8'){
       if(layer===1){window.location.href='/dot/star_solar.html?user='+curUser+'&lang='+curLang;}
       else if(layer===2){window.location.href='/dot/star_signal.html?user='+curUser+'&lang='+curLang;}

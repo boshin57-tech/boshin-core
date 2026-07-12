@@ -360,9 +360,9 @@ function plantFlora(pIdx, d, radius){
   // 개화량: 수순(치열함) + 승리 + 영토
   var moves = d.moves || 0;
   var n = Math.floor(
-    10 + Math.min(moves, 300) * 0.18 + (d.iWon ? 14 : 0) + Math.min((d.size||0)/12, 20)
+    34 + Math.min(moves, 300) * 0.16 + (d.iWon ? 16 : 0) + Math.min((d.size||0)/14, 18)
   );
-  n = Math.min(n, 90);
+  n = Math.min(n, 110);
 
   var palA = d.iWon ? [0.35,1.0,0.62] : [0.55,0.85,1.0];   // 승: 에메랄드 / 패: 아이스블루
   var palB = d.iWon ? [1.0,0.82,0.35] : [0.85,0.62,1.0];   // 승: 골드 / 패: 라벤더
@@ -429,8 +429,8 @@ function build(){
 
   G.forEach(function(d, i){
     var grp = new THREE.Group();
-    var size = Math.max(0.5, Math.min(2.2, 0.55 + (d.size||d.baseSize||10)/90));
-    var orbitR = 6 + i*2.2 + (i%2)*0.9;
+    var size = Math.max(0.28, Math.min(2.6, 0.3 + (d.size||d.baseSize||10)/75));
+    var orbitR = 6 + Math.min(i*2.2, 34) + (i%2)*0.9 + (i>15 ? (i%4)*1.2 : 0);
     var speed = 0.16/Math.sqrt(orbitR) * (i%2 ? 1 : -1);
     var ageN = Math.min(((Date.now()-new Date(d.date))/86400000)/ageMax, 1) || 0;
     var tint = new THREE.Color(d.iWon ? 0x4a9eff : 0x22cc88);

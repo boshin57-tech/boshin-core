@@ -46,14 +46,31 @@ var RARITY = {
 
 /* ---------- 무작위 이벤트: 4개 인자 모두 반영 ---------- */
 function rollEvents(ctx){
-  // ctx: { won, totalGames, territoryDiff }
-  var winMul   = ctx.won ? 2.0 : 1.0;                        // 승리 보상
-  var loyalMul = 1 + Math.min(ctx.totalGames, 200) * 0.01;   // 꾸준함 보상
-  var bigMul   = 1 + Math.min(Math.abs(ctx.territoryDiff), 150) / 100; // 큰 승리 보상
+  var winMul   = ctx.won ? 2.0 : 1.0;
+  var loyalMul = 1 + Math.min(ctx.totalGames, 200) * 0.01;
+  var bigMul   = 1 + Math.min(Math.abs(ctx.territoryDiff), 150) / 100;
 
-  function hit(base){ return Math.random() < base * winMul * loyalMul * bigMul; }
+  // 초반 부스터 — 첫인상이 전부다
+  var boost = 1.0;
+  if (ctx.totalGames < 5)  boost = 4.0;
+  else if (ctx.totalGames < 20) boost = 2.0;
+
+  function hit(base){ return Math.random() < base * winMul * loyalMul * bigMul * boost; }
 
   var out = { moons:[], particles:[], rings:[], treasure:false };
+
+  // 첫 대국 = 첫 나비 확정 (첫 상대는 영원히 내 정원에)
+  if (ctx.totalGames === 0){
+    out.moons.push({
+      name: ctx.opponent || '첫 상대',
+      color: '#ff9dd4',
+      orbit: 1.8, speed: 0.75,
+      first: true
+    });
+    if (Math.random() < 0.5) out.particles.push({
+      type:'aurora', palette: RARITY.rare.colors });
+    return out;
+  }
 
   if (hit(0.05)) out.moons.push({
     name: ctx.opponent || '알 수 없는 여행자',
@@ -70,7 +87,7 @@ function rollEvents(ctx){
     width: 0.2 + Math.random()*0.35,
     palette: RARITY.rare.colors
   });
-  if (hit(0.005)) out.treasure = true;
+  if (hit(0.003)) out.treasure = true;
 
   return out;
 }
