@@ -1039,139 +1039,88 @@ function _buildBoardArray() {
 // ---- 계가 계산 (순수 함수, 연출 없음) ----
 function calcSunjangScore() {
     var board = _buildBoardArray();
+    var visited = new Array(N * N).fill(false);
+    var territories = [];   // {owner:1|2|0, cells:[], deadStones:[]}
 
-    // ==========================================================
-    // 순장 계가 — 순환 의존 해결
-    // ① 각 색의 "순수 세력권" 계산: 그 색 돌만 벽으로 보고,
-    //    다른 색 돌은 빈칸 취급 (= 죽은 돌로 가정)
-    // ② 한쪽 세력권에만 속하면 그 색의 집
-    // ③ 자기 집에 닿은 돌 = 경계선, 나머지 = 안쪽 돌(제거)
-    // ==========================================================
-    function territoryOf(color){
-        // color 돌만 벽. 나머지(빈칸+상대돌)는 통과 가능
-        var terr = new Array(N*N).fill(false);
-        var seen = new Array(N*N).fill(false);
+    for (var i = 0; i < N * N; i++) {
+        if (board[i] !== 0 || visited[i]) continue;
 
-        for (var i = 0; i < N*N; i++){
-            if (seen[i] || board[i] === color) continue;
+        // 빈칸 영역 BFS — 도중에 만나는 돌도 영역에 흡수(갇힌 돌)
+        var queue = [i], cells = [], borderB = false, borderW = false;
+        var inner = [];   // 이 영역 안에 갇힌 돌
+        visited[i] = true;
 
-            // 이 영역이 color 돌로만 완전히 둘러싸였나?
-            var q = [i], reg = [], closed = true;
-            seen[i] = true;
-
-            while (q.length){
-                var idx = q.pop();
-                reg.push(idx);
-                var x = idx % N, y = Math.floor(idx / N);
-                for (var d = 0; d < 4; d++){
-                    var nx = x + [1,-1,0,0][d];
-                    var ny = y + [0,0,1,-1][d];
-                    if (nx<0||nx>=N||ny<0||ny>=N) continue;   // 판 끝 = 자연 벽
-                    var ni = ny*N+nx;
-                    if (board[ni] === color) continue;         // color 벽
-                    if (!seen[ni]){ seen[ni] = true; q.push(ni); }
-                }
-            }
-
-            // 이 영역이 판 전체로 안 퍼졌으면 = 갇힌 영역 = color의 세력권
-            // (판 전체 빈칸 수보다 작으면 갇힌 것)
-            // 더 정확히: 영역이 판 가장자리 밖으로 못 나가면 갇힌 것인데,
-            // 판 끝은 벽이므로 "영역 크기"로 판정할 수 없음.
-            // → 대신: 이 영역에 color가 아닌 돌이 있고, 그 돌들이 다 갇혔는지 확인
-            reg.forEach(function(c){ terr[c] = true; });
-        }
-        return terr;
-    }
-
-    // 더 단순한 접근: flood fill from each empty region,
-    // 통과 가능한 돌 = 그 영역을 둘러싼 색과 다른 색 돌
-    var visited = new Array(N*N).fill(false);
-    var terrOwner = new Array(N*N).fill(0);
-    var isBorder = new Array(N*N).fill(false);
-
-    for (var i = 0; i < N*N; i++){
-        if (visited[i] || board[i] !== 0) continue;
-
-        // 먼저 흑 벽만 인정하고 퍼져봄 (백돌 통과)
-        var regB = flood(i, 1);
-        // 백 벽만 인정하고 퍼져봄 (흑돌 통과)
-        var regW = flood(i, 2);
-
-        var own = 0;
-        if (regB.closed && !regW.closed) own = 1;
-        else if (regW.closed && !regB.closed) own = 2;
-        else if (regB.closed && regW.closed) own = (regB.cells.length <= regW.cells.length) ? 1 : 2;
-
-        var use = (own === 1) ? regB : (own === 2) ? regW : regB;
-        use.cells.forEach(function(c){
-            visited[c] = true;
-            if (board[c] === 0 && own !== 0) terrOwner[c] = own;
-        });
-        if (own !== 0){
-            use.walls.forEach(function(w){ if (board[w] === own) isBorder[w] = true; });
-        }
-    }
-
-    function flood(start, color){
-        var seen = {}, q = [start], cells = [], walls = [], closed = true;
-        seen[start] = true;
-        while (q.length){
-            var idx = q.pop();
+        while (queue.length) {
+            var idx = queue.pop();
             cells.push(idx);
             var x = idx % N, y = Math.floor(idx / N);
-            for (var d = 0; d < 4; d++){
-                var nx = x + [1,-1,0,0][d];
-                var ny = y + [0,0,1,-1][d];
-                if (nx<0||nx>=N||ny<0||ny>=N) continue;
-                var ni = ny*N+nx;
-                if (board[ni] === color){ walls.push(ni); continue; }
-                if (!seen[ni]){ seen[ni] = true; q.push(ni); }
-            }
-        }
-        // 영역이 판의 절반 이상이면 "열린" 영역 (집 아님)
-        if (cells.length > N*N*0.5) closed = false;
-        if (walls.length === 0) closed = false;
-        return { cells:cells, walls:walls, closed:closed };
-    }
 
-    var expanded = isBorder;
-
-    // ---- 2단계: 안쪽 돌을 제거한 판으로 집을 다시 계산 ----
-    // (순장 규칙: 안쪽 돌을 먼저 들어내고 나서 집을 센다)
-    var board2 = board.slice();
-    for (var k = 0; k < N * N; k++) {
-        if (board2[k] !== 0 && !expanded[k]) board2[k] = 0;   // 안쪽 돌 제거
-    }
-
-    var vis2 = new Array(N * N).fill(false);
-    var terr2 = [];
-    for (var i2 = 0; i2 < N * N; i2++) {
-        if (board2[i2] !== 0 || vis2[i2]) continue;
-        var q2 = [i2], cs2 = [], bB = false, bW = false;
-        vis2[i2] = true;
-        while (q2.length) {
-            var ix = q2.pop(); cs2.push(ix);
-            var xx = ix % N, yy = Math.floor(ix / N);
             [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
-                var nx2 = xx + d[0], ny2 = yy + d[1];
-                if (nx2 < 0 || nx2 >= N || ny2 < 0 || ny2 >= N) return;
-                var ni2 = ny2 * N + nx2;
-                if (vis2[ni2]) return;
-                if (board2[ni2] === 0) { vis2[ni2] = true; q2.push(ni2); }
-                else if (board2[ni2] === 1) bB = true;
-                else bW = true;
+                var nx = x + d[0], ny = y + d[1];
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+                var ni = ny * N + nx;
+                if (visited[ni]) return;
+
+                if (board[ni] === 0) {
+                    visited[ni] = true;
+                    queue.push(ni);
+                } else {
+                    // 돌을 만남 — 경계선 후보
+                    if (board[ni] === 1) borderB = true;
+                    else borderW = true;
+                }
             });
         }
-        var ow2 = 0;
-        if (bB && !bW) ow2 = 1;
-        else if (bW && !bB) ow2 = 2;
-        terr2.push({ owner: ow2, cells: cs2 });
+
+        var owner = 0;
+        if (borderB && !borderW) owner = 1;        // 흑집
+        else if (borderW && !borderB) owner = 2;   // 백집
+        // 둘 다면 공배(0), 아무것도 없으면 빈 판
+
+        territories.push({ owner: owner, cells: cells });
+    }
+
+    // ---- 경계선 돌 판정 ----
+    // 어떤 집(owner!=0)에 인접한 같은 색 돌 = 경계선 돌
+    var isBorder = new Array(N * N).fill(false);
+    territories.forEach(function (t) {
+        if (t.owner === 0) return;
+        t.cells.forEach(function (idx) {
+            var x = idx % N, y = Math.floor(idx / N);
+            [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
+                var nx = x + d[0], ny = y + d[1];
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+                var ni = ny * N + nx;
+                if (board[ni] === t.owner) isBorder[ni] = true;
+            });
+        });
+    });
+
+    // 경계선 돌은 연결된 같은 색 그룹 전체로 확장
+    var expanded = isBorder.slice();
+    var changed = true;
+    while (changed) {
+        changed = false;
+        for (var j = 0; j < N * N; j++) {
+            if (!expanded[j] || board[j] === 0) continue;
+            var x2 = j % N, y2 = Math.floor(j / N);
+            var col = board[j];
+            [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
+                var nx = x2 + d[0], ny = y2 + d[1];
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
+                var ni = ny * N + nx;
+                if (board[ni] === col && !expanded[ni]) {
+                    expanded[ni] = true;
+                    changed = true;
+                }
+            });
+        }
     }
 
     // ---- 결과 집계 ----
     var blackTerr = 0, whiteTerr = 0;
     var blackCells = [], whiteCells = [];
-    terr2.forEach(function (t) {
+    territories.forEach(function (t) {
         if (t.owner === 1) { blackTerr += t.cells.length; blackCells = blackCells.concat(t.cells); }
         else if (t.owner === 2) { whiteTerr += t.cells.length; whiteCells = whiteCells.concat(t.cells); }
     });
@@ -1646,8 +1595,8 @@ addEventListener('resize', ()=>{
 </script>
 
 <script src="/classroom/socket.io/socket.io.js"></script>
-<script src="/dot/galaxy.js?v=1783852554"></script>
-<script src="/dot/avatar.js?v=1783852554"></script>
+<script src="/dot/galaxy.js?v=1783848670"></script>
+<script src="/dot/avatar.js?v=1783848670"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}
