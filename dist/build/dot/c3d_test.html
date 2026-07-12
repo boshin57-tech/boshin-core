@@ -31,6 +31,7 @@ body{overflow:hidden;background:#000;font-family:monospace}
 </div>
 <div id="aiLabel">🤖 AI 생성 음성/해설 — 3D 가상 교실</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/dot/avatar.js?v=1783849256"></script>
 <script>
 // === 기본 3D 공간 ===
 // === 다국어 (6개 언어 + 코드 정규화) ===
@@ -461,19 +462,6 @@ const HAIRC=[0x191919,0x3f2a17,0xd9a94a,0xa8391c,0x6b6b6b,0x6a3fb5];
 const CLOTH=[0xff6b6b,0x38b6a5,0xf0c93d,0x6c5ce7,0x00a37a,0xe86aa6,0x1f7fd1,0xd96b3f];
 function hashStr(s){let h=7;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;}return h;}
 function makeChibi(opt){
-  // === B1 공방 아바타 사용 ===
-  if (window.Avatar && opt && opt.seed && !opt.forceOld){
-    var _cfg = Avatar.load(opt.seed);
-    if (opt.skin !== undefined)      _cfg.skin = opt.skin;
-    if (opt.hairC !== undefined)     _cfg.hairC = opt.hairC;
-    if (opt.cloth !== undefined)     _cfg.cloth = opt.cloth;
-    if (opt.hairStyle !== undefined) _cfg.hairStyle = opt.hairStyle;
-    if (opt.glasses !== undefined)   _cfg.glasses = opt.glasses;
-    return Avatar.makeAvatar(_cfg);
-  }
-  return _makeChibiOld(opt);
-}
-function _makeChibiOld(opt){
   opt=opt||{};
   const h=hashStr(opt.seed||'guest');
   const skin=opt.skin!==undefined?opt.skin:SKINS[h%6];
@@ -560,43 +548,6 @@ const armL=teacher.userData.armL, armR=teacher.userData.armR, head=teacher.userD
 teacher.position.set(0, 0, -BOARD/2 - 2.2);
 scene.add(teacher);
 
-// === 🔍 판 크기 (카메라 줌) 슬라이더 ===
-function _syncZoomUI(){
-    var sl = document.getElementById('zoomSlider');
-    var lb = document.getElementById('zoomLabel');
-    if (!sl) return;
-    var z = (12 / camR);                       // camR 12 = 1.0배
-    sl.value = z.toFixed(2);
-    if (lb) lb.textContent = z.toFixed(1) + 'x';
-}
-function setBoardZoom(z){
-    z = Math.max(0.3, Math.min(4, parseFloat(z) || 1));
-    camR = Math.max(3, Math.min(40, 12 / z));  // 배율 → 반경
-    if (typeof updateCam === 'function') updateCam();
-    var lb = document.getElementById('zoomLabel');
-    if (lb) lb.textContent = z.toFixed(1) + 'x';
-}
-function resetBoardZoom(){ setBoardZoom(1); var s=document.getElementById('zoomSlider'); if(s) s.value=1; }
-
-(function buildZoomUI(){
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:16px;bottom:90px;z-index:20;background:rgba(10,10,26,0.9);' +
-        'border:1px solid #1ABC9C;border-radius:10px;padding:10px 12px;font:12px monospace;color:#1ABC9C;' +
-        'display:flex;flex-direction:column;gap:6px;width:150px;';
-    box.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:center">' +
-          '<span>\ud83d\udd0d \ud310 \ud06c\uae30</span>' +
-          '<span id="zoomLabel" style="color:#7fe8ff;font-weight:bold">1.0x</span>' +
-        '</div>' +
-        '<input id="zoomSlider" type="range" min="0.3" max="4" step="0.05" value="1" ' +
-          'style="width:100%;accent-color:#1ABC9C;cursor:pointer">' +
-        '<button id="zoomReset" style="background:rgba(26,188,156,0.15);border:1px solid #1ABC9C;' +
-          'color:#1ABC9C;border-radius:6px;padding:3px;font:11px monospace;cursor:pointer">\u21ba \uc6d0\ub798\ub300\ub85c</button>';
-    document.body.appendChild(box);
-    document.getElementById('zoomSlider').addEventListener('input', function(e){ setBoardZoom(e.target.value); });
-    document.getElementById('zoomReset').addEventListener('click', resetBoardZoom);
-})();
-
 // === 카메라 궤도 컨트롤 (OrbitControls 없이 직접 구현) ===
 let camTheta = 0, camPhi = 0.55, camR = 14, dragging = false, px=0, py=0;
 let camFollow = false; // true = 내 아바타 3인칭 추적
@@ -624,7 +575,7 @@ addEventListener('mousemove', e=>{
   camPhi = Math.max(0.15, Math.min(1.3, camPhi + (e.clientY-py)*0.003));
   px=e.clientX; py=e.clientY; updateCam();
 });
-addEventListener('wheel', e=>{camR = Math.max(3, Math.min(40, camR + e.deltaY*0.01)); updateCam(); _syncZoomUI();});
+addEventListener('wheel', e=>{camR = Math.max(6, Math.min(28, camR + e.deltaY*0.01)); updateCam();});
 // 터치 (모바일)
 renderer.domElement.addEventListener('touchstart', e=>{if(e.touches.length===1){dragging=true;px=e.touches[0].clientX;py=e.touches[0].clientY;}},{passive:true});
 addEventListener('touchend', ()=>dragging=false);
@@ -1595,14 +1546,12 @@ addEventListener('resize', ()=>{
 </script>
 
 <script src="/classroom/socket.io/socket.io.js"></script>
-<script src="/dot/galaxy.js?v=1783848670"></script>
-<script src="/dot/avatar.js?v=1783848670"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}
   const qs=new URLSearchParams(location.search);
   const myName=(qs.get('user')||('학생'+(100+Math.floor(Math.random()*899)))).slice(0,12);
-  const others={}; window._others = others;
+  const others={};
   const sock=io({path:'/classroom/socket.io'});
   sock.on('connect',function(){
     sock.emit('c3d_join',{room:'main',name:myName,gender:localStorage.getItem('av_gender')||'m',
@@ -1616,12 +1565,11 @@ try{(function(){
     av.rotation.y=p.ry||0;
     av.userData.tgt={x:av.position.x,z:av.position.z,ry:av.rotation.y};
     addLabel(av,p.name,'#9fc9ff');
-    scene.add(av); others[p.id]=av; av.userData.pname = p.name;
+    scene.add(av); others[p.id]=av;
   }
   // === 내 아바타 (WASD 이동) ===
   const startA=(hashStr(myName)%628)/100;
-  window.myName = myName;
-  const myAvatar=makeChibi({seed:myName});
+  const myAvatar=makeChibi({seed:myName+'me'});
   myAvatar.position.set(Math.sin(startA)*RING, 0, Math.cos(startA)*RING);
   myAvatar.rotation.y=startA+Math.PI;
   addLabel(myAvatar, myName, '#ffd76b');
@@ -1930,53 +1878,8 @@ function buildPlanets(){
     // 내 은하계(G1)에 행성 저장 (localStorage)
     saveToGalaxy(blackTotal, whiteTotal);
 }
-// === 2인 실전 판정 (AI 선생님은 상주 NPC라 제외) ===
-function humanCount(){
-    var o = window._others || {};
-    return 1 + Object.keys(o).length;
-}
-function isRankedGame(){ return humanCount() >= 2; }
-
 function saveToGalaxy(blackTotal, whiteTotal){
-    // === 새 엔진 (galaxy.js) 위임 ===
-    if (window.Galaxy) {
-        var res = calcSunjangScore();
-        var out = window.Galaxy.birthPlanet({
-            myScore: blackTotal, oppScore: whiteTotal,
-            iAmBlack: true,
-            borderStones: res.borderStones || [],
-            moves: (typeof history !== 'undefined') ? history.length : 0,
-            komi: res.komi || 0,
-            handicap: (window.gameConfig && gameConfig.handicap) || 0
-        });
-        var bt = document.getElementById('bubbleText');
-        var bb = document.getElementById('bubble');
-        if (bb) bb.style.display = 'block';
-        if (!out.ok) {
-            if (bt) bt.textContent = '\ud83e\ude90 \ud63c\uc790 \ub450\uba74 \ubcc4\uc774 \ud0dc\uc5b4\ub098\uc9c0 \uc54a\uc544\uc694. \uce5c\uad6c\uac00 \uad50\uc2e4\uc5d0 \ub4e4\uc5b4\uc624\uba74 \uc9c4\uc9dc \ud589\uc131\uc774 \ud0dc\uc5b4\ub098\uc694!';
-            console.log('[galaxy] 연습 모드 - 사람 ' + out.humans + '명');
-            return;
-        }
-        var msg = '\ud83c\udf1f \uc0c8 \ubcc4\uc774 \ud0dc\uc5b4\ub0ac\uc5b4\uc694! (\ucd1d ' + out.total + '\uac1c)';
-        var e = out.events;
-        if (e.moons.length)     msg += ' \ud83c\udf19\uc704\uc131 \ud68d\ub4dd!';
-        if (e.particles.length) msg += ' \ud83d\udcab\uc624\ub85c\ub77c!';
-        if (e.rings.length)     msg += ' \ud83d\udc8d\uace0\ub9ac!';
-        if (e.treasure)         msg += ' \ud83d\udc8e\ubcf4\ubb3c \ubc1c\uacac!';
-        if (bt) bt.textContent = msg;
-        console.log('[galaxy] 행성 탄생', out.planet);
-        return;
-    }
-    // === 구 버전 폴백 ===
     try {
-        if (!isRankedGame()) {
-            var _bt = document.getElementById('bubbleText');
-            if (_bt) _bt.textContent = '\ud83e\ude90 \ud63c\uc790 \ub450\uba74 \ubcc4\uc774 \ud0dc\uc5b4\ub098\uc9c0 \uc54a\uc544\uc694. \uce5c\uad6c\uac00 \uad50\uc2e4\uc5d0 \ub4e4\uc5b4\uc624\uba74 \uc9c4\uc9dc \ud589\uc131\uc744 \ub9cc\ub4e4 \uc218 \uc788\uc5b4\uc694!';
-            var _bb = document.getElementById('bubble');
-            if (_bb) _bb.style.display = 'block';
-            console.log('[galaxy] practice mode (humans=' + humanCount() + ') - no planet');
-            return;
-        }
         var qs = new URLSearchParams(location.search);
         var user = qs.get('user') || 'guest';
         var key = 'tobmate_galaxy_' + user;

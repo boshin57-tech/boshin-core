@@ -99,6 +99,10 @@ function capsule(r, h, mat){
 }
 
 function makeAvatar(cfg){
+  if (typeof THREE === 'undefined'){
+    console.warn('[avatar] three.js 없음 - 썸네일을 사용하세요');
+    return null;
+  }
   cfg = normalize(cfg);
   var g = new THREE.Group();
   var H = cfg.height || 1.0;
@@ -444,4 +448,236 @@ window.Avatar.importJSON = importJSON;
 window.Avatar.exportJSON = exportJSON;
 
 console.log('[avatar] 엔진 로드됨 — 조합 55,296가지');
+})();
+
+/* ============================================================
+   자동 주입 — 셀마다 손으로 코드 안 넣어도 됨
+   기존 makeChibi/makeAvatar를 자동으로 가로채서 새 엔진으로 교체
+   ============================================================ */
+(function autoPatch(){
+  var qs, user;
+  try { qs = new URLSearchParams(location.search); user = qs.get('user') || 'guest'; }
+  catch(e){ user = 'guest'; }
+
+  function hijack(){
+    if (typeof THREE === 'undefined') return;
+    // 페이지에 makeChibi가 있으면 → 새 엔진으로 교체
+    if (typeof window.makeChibi === 'function' && !window.makeChibi.__patched){
+      var old = window.makeChibi;
+      window.makeChibi = function(opt){
+        opt = opt || {};
+        if (opt.forceOld) return old(opt);
+        var cfg = window.Avatar.load(opt.seed || user);
+        // 호출자가 명시한 값은 존중 (선생님 등 특수 아바타)
+        ['skin','hairC','cloth','hairStyle','glasses'].forEach(function(k){
+          if (opt[k] !== undefined) cfg[k] = opt[k];
+        });
+        return window.Avatar.makeAvatar(cfg);
+      };
+      window.makeChibi.__patched = true;
+      console.log('[avatar] makeChibi 자동 교체됨');
+    }
+
+    // makeAvatar라는 이름을 쓰는 페이지도 지원
+    if (typeof window.makeAvatarLegacy === 'function' && !window.makeAvatarLegacy.__patched){
+      window.makeAvatarLegacy = function(opt){
+        return window.Avatar.makeAvatar(window.Avatar.load((opt&&opt.seed) || user));
+      };
+      window.makeAvatarLegacy.__patched = true;
+    }
+  }
+
+  // 즉시 + DOM 준비 후 + 약간 늦게 (스크립트 로드 순서 무관하게)
+  hijack();
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', hijack);
+  }
+  setTimeout(hijack, 0);
+  setTimeout(hijack, 300);
+
+  // 편의 함수 — 어느 셀에서든 한 줄로
+  window.Avatar.me = function(){
+    return window.Avatar.makeAvatar(window.Avatar.load(user));
+  };
+  window.Avatar.of = function(name){
+    return window.Avatar.makeAvatar(window.Avatar.load(name));
+  };
+  window.Avatar.currentUser = user;
+})();
+
+/* ============================================================
+   썸네일 — 2D 셀(로비·상점·채팅·목록)용 아바타 초상화
+   three.js 없이도 canvas 2D로 그림. 캐시됨.
+   ============================================================ */
+(function(){
+var _cache = {};
+
+function hx(n){ return '#' + (n>>>0).toString(16).padStart(6,'0'); }
+
+/* 얼굴 초상화 (원형 아이콘) — 목록·채팅용 */
+function thumbnail(cfgOrUser, size){
+  size = size || 96;
+  var cfg = (typeof cfgOrUser === 'string')
+    ? window.Avatar.load(cfgOrUser)
+    : window.Avatar.normalize(cfgOrUser);
+
+  var ck = JSON.stringify(cfg) + '|' + size;
+  if (_cache[ck]) return _cache[ck];
+
+  var cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  var x = cv.getContext('2d');
+  var S = size / 100;             // 100 기준 스케일
+  var F = (cfg.gender === 1);
+
+  // 배경 (우주 그라디언트)
+  var bg = x.createRadialGradient(50*S, 40*S, 5*S, 50*S, 50*S, 55*S);
+  bg.addColorStop(0, '#1a2a4a');
+  bg.addColorStop(1, '#080d1c');
+  x.fillStyle = bg;
+  x.beginPath(); x.arc(50*S, 50*S, 50*S, 0, 6.284); x.fill();
+
+  // 몸 (어깨)
+  x.fillStyle = hx(cfg.cloth);
+  x.beginPath();
+  x.ellipse(50*S, 100*S, 34*S, 30*S, 0, 0, 6.284);
+  x.fill();
+
+  // 목
+  x.fillStyle = hx(cfg.skin);
+  x.fillRect(43*S, 66*S, 14*S, 12*S);
+
+  // 머리
+  x.fillStyle = hx(cfg.skin);
+  x.beginPath();
+  x.ellipse(50*S, 48*S, 26*S, 28*S, 0, 0, 6.284);
+  x.fill();
+
+  // 귀
+  x.beginPath(); x.ellipse(24*S, 50*S, 4*S, 7*S, 0, 0, 6.284); x.fill();
+  x.beginPath(); x.ellipse(76*S, 50*S, 4*S, 7*S, 0, 0, 6.284); x.fill();
+
+  // 머리카락
+  x.fillStyle = hx(cfg.hairC);
+  var hs = cfg.hairStyle;
+  if (hs === 2){                              // 뽀글
+    [[50,20],[32,28],[68,28],[38,18],[62,18]].forEach(function(p){
+      x.beginPath(); x.arc(p[0]*S, p[1]*S, 13*S, 0, 6.284); x.fill();
+    });
+  } else if (hs === 4){                       // 장발
+    x.beginPath();
+    x.ellipse(50*S, 42*S, 29*S, 30*S, 0, Math.PI, 0);
+    x.fill();
+    x.fillRect(21*S, 42*S, 9*S, 40*S);
+    x.fillRect(70*S, 42*S, 9*S, 40*S);
+  } else if (hs === 3){                       // 포니테일
+    x.beginPath(); x.ellipse(50*S, 40*S, 27*S, 26*S, 0, Math.PI, 0); x.fill();
+    x.beginPath(); x.ellipse(50*S, 24*S, 9*S, 13*S, 0, 0, 6.284); x.fill();
+  } else if (hs === 5){                       // 투블럭
+    x.beginPath(); x.ellipse(50*S, 34*S, 24*S, 16*S, 0, Math.PI, 0); x.fill();
+  } else {                                    // 단정 / 덮개
+    x.beginPath();
+    x.ellipse(50*S, 42*S, 27*S, (hs===1?27:24)*S, 0, Math.PI, 0);
+    x.fill();
+  }
+
+  // 눈 (흰자 + 홍채 + 하이라이트)
+  [[40,52],[60,52]].forEach(function(e){
+    x.fillStyle = '#fff';
+    x.beginPath(); x.ellipse(e[0]*S, e[1]*S, 7*S, 8*S, 0, 0, 6.284); x.fill();
+    x.fillStyle = '#3a2418';
+    x.beginPath(); x.arc(e[0]*S, e[1]*S, 4.6*S, 0, 6.284); x.fill();
+    x.fillStyle = '#1a1a1a';
+    x.beginPath(); x.arc(e[0]*S, e[1]*S, 2.4*S, 0, 6.284); x.fill();
+    x.fillStyle = '#fff';
+    x.beginPath(); x.arc((e[0]-1.8)*S, (e[1]-2.2)*S, 1.7*S, 0, 6.284); x.fill();
+  });
+
+  // 눈썹 (표정)
+  x.strokeStyle = hx(cfg.hairC);
+  x.lineWidth = 2.4*S;
+  x.lineCap = 'round';
+  var by = (cfg.face===2 ? 43 : cfg.face===3 ? 38 : 41);
+  var tilt = (cfg.face===2 ? 3 : 0);
+  x.beginPath();
+  x.moveTo(34*S, (by+tilt)*S); x.lineTo(45*S, (by-tilt)*S);
+  x.moveTo(55*S, (by-tilt)*S); x.lineTo(66*S, (by+tilt)*S);
+  x.stroke();
+
+  // 볼터치
+  x.fillStyle = 'rgba(255,150,150,0.35)';
+  x.beginPath(); x.ellipse(31*S, 60*S, 6*S, 4*S, 0, 0, 6.284); x.fill();
+  x.beginPath(); x.ellipse(69*S, 60*S, 6*S, 4*S, 0, 0, 6.284); x.fill();
+
+  // 입 (표정)
+  x.strokeStyle = '#2b2b2b';
+  x.lineWidth = 2*S;
+  x.beginPath();
+  if (cfg.face === 1){                              // 미소
+    x.arc(50*S, 62*S, 7*S, 0.25, Math.PI-0.25);
+  } else if (cfg.face === 3){                       // 놀람
+    x.ellipse(50*S, 66*S, 4*S, 5*S, 0, 0, 6.284);
+  } else {
+    x.moveTo(45*S, 67*S); x.lineTo(55*S, 67*S);
+  }
+  x.stroke();
+
+  // 안경
+  if (cfg.glasses){
+    x.strokeStyle = '#222';
+    x.lineWidth = 2.2*S;
+    x.beginPath(); x.arc(40*S, 52*S, 9*S, 0, 6.284); x.stroke();
+    x.beginPath(); x.arc(60*S, 52*S, 9*S, 0, 6.284); x.stroke();
+    x.beginPath(); x.moveTo(49*S, 52*S); x.lineTo(51*S, 52*S); x.stroke();
+  }
+
+  var url = cv.toDataURL('image/png');
+  _cache[ck] = url;
+  return url;
+}
+
+/* <img> 엘리먼트로 바로 */
+function thumbImg(cfgOrUser, size){
+  var im = document.createElement('img');
+  im.src = thumbnail(cfgOrUser, size);
+  im.width = im.height = (size || 96);
+  im.style.borderRadius = '50%';
+  return im;
+}
+
+/* 2D 셀 자동 적용 — data-avatar 속성만 넣으면 자동으로 그림 */
+function autoRender(){
+  document.querySelectorAll('[data-avatar]').forEach(function(el){
+    if (el.__avDone) return;
+    var who = el.getAttribute('data-avatar') || window.Avatar.currentUser;
+    var sz  = parseInt(el.getAttribute('data-avatar-size') || '48', 10);
+    if (el.tagName === 'IMG'){
+      el.src = thumbnail(who, sz);
+    } else {
+      el.style.backgroundImage = 'url(' + thumbnail(who, sz) + ')';
+      el.style.backgroundSize = 'cover';
+      el.style.borderRadius = '50%';
+      if (!el.style.width)  el.style.width  = sz + 'px';
+      if (!el.style.height) el.style.height = sz + 'px';
+    }
+    el.__avDone = true;
+  });
+}
+
+window.Avatar.thumbnail = thumbnail;
+window.Avatar.thumbImg  = thumbImg;
+window.Avatar.autoRender = autoRender;
+
+// 자동 실행 + DOM 변경 감지
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', autoRender);
+} else { autoRender(); }
+setTimeout(autoRender, 300);
+
+if (window.MutationObserver){
+  new MutationObserver(function(){ autoRender(); })
+    .observe(document.documentElement, {childList:true, subtree:true});
+}
+
+console.log('[avatar] 썸네일 엔진 로드 — 2D 셀 지원');
 })();
