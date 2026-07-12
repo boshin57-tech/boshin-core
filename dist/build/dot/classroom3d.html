@@ -1529,6 +1529,82 @@ window.calcSunjangScore = calcSunjangScore;
 })();
 
 function resetBoard3D(){ history=[]; rebuildTo(0); }
+// ===== 착수 금지 검사 (자살수 + 패) =====
+var _koPoint = null;   // 패: 직전에 1개 따낸 자리
+
+function _libertyCheck(boardArr, x, y, color, bs){
+    // (x,y)의 그룹이 활로가 있나?
+    var visited = {}, hasLib = false, stack = [[x,y]], group = [];
+    while (stack.length){
+        var pt = stack.pop(), px = pt[0], py = pt[1];
+        if (px<0||px>=bs||py<0||py>=bs) continue;
+        var key = py*bs+px;
+        if (visited[key]) continue;
+        visited[key] = true;
+        var cell = boardArr[key];
+        if (cell === 0){ hasLib = true; continue; }
+        if (cell !== color) continue;
+        group.push(key);
+        stack.push([px+1,py],[px-1,py],[px,py+1],[px,py-1]);
+    }
+    return { alive: hasLib, group: group };
+}
+
+function isLegalMove(c, r, isBlack){
+    var bs = N;
+    if (c<0||c>=bs||r<0||r>=bs) return { ok:false, why:'판 밖이에요' };
+    if (stones.find(function(s){ return s.c===c && s.r===r; }))
+        return { ok:false, why:'이미 돌이 있어요' };
+
+    // 패 금지
+    if (_koPoint && _koPoint.c === c && _koPoint.r === r && _koPoint.b !== isBlack)
+        return { ok:false, why:'패는 바로 되따낼 수 없어요' };
+
+    // 가상 착수
+    var b = new Array(bs*bs).fill(0);
+    stones.forEach(function(s){ b[s.r*bs + s.c] = s.b ? 1 : 2; });
+    var my = isBlack ? 1 : 2, opp = isBlack ? 2 : 1;
+    b[r*bs + c] = my;
+
+    // 상대 돌을 따내나?
+    var captured = 0;
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){
+        var nx = c+d[0], ny = r+d[1];
+        if (nx<0||nx>=bs||ny<0||ny>=bs) return;
+        if (b[ny*bs+nx] !== opp) return;
+        var res = _libertyCheck(b, nx, ny, opp, bs);
+        if (!res.alive){
+            captured += res.group.length;
+            res.group.forEach(function(k){ b[k] = 0; });
+        }
+    });
+
+    // 자살수 검사 (따낸 뒤에도 내 활로가 0이면 금지)
+    var mine = _libertyCheck(b, c, r, my, bs);
+    if (!mine.alive && captured === 0)
+        return { ok:false, why:'자살수는 둘 수 없어요' };
+
+    return { ok:true, captured: captured };
+}
+
+function _showIllegal(c, r, msg){
+    var bt = document.getElementById('bubbleText');
+    var bb = document.getElementById('bubble');
+    if (bt) bt.textContent = '\u274c ' + msg;
+    if (bb) bb.style.display = 'block';
+    // 빨간 X 마커
+    var g = new THREE.Group();
+    var mat = new THREE.MeshBasicMaterial({ color:0xe74c3c, transparent:true, opacity:0.9 });
+    [-0.785, 0.785].forEach(function(rot){
+        var bar = new THREE.Mesh(new THREE.BoxGeometry(CELL*0.7, 0.05, CELL*0.14), mat);
+        bar.rotation.y = rot;
+        g.add(bar);
+    });
+    g.position.set(-BOARD/2 + c*CELL, 1.3, -BOARD/2 + r*CELL);
+    scene.add(g);
+    setTimeout(function(){ scene.remove(g); }, 900);
+}
+
 function removeDeadStones3D(lastStone){
   const bs = N;
   function ap(x,y){return y*bs+x;}
@@ -1551,6 +1627,12 @@ function removeDeadStones3D(lastStone){
     }
     if(!hasLib){
       const removeSet=new Set(group.map(p=>p[0]+','+p[1]));
+      // 패 기록: 딱 1개만 따냈으면 그 자리가 패 지점
+      if (group.length === 1){
+        _koPoint = { c: group[0][0], r: group[0][1], b: lastStone.b };
+      } else {
+        _koPoint = null;
+      }
       // 3D 메시 제거
       stones.forEach(s=>{ if(removeSet.has(s.c+','+s.r) && s.mesh) scene.remove(s.mesh); });
       stones = stones.filter(s=>!removeSet.has(s.c+','+s.r));
@@ -1558,11 +1640,15 @@ function removeDeadStones3D(lastStone){
     }
     return !hasLib;
   }
+  var _anyCapture = false;
   const myColor = lastStone.b?1:2, opp = myColor===1?2:1;
   [[1,0],[-1,0],[0,1],[0,-1]].forEach(d=>{
     const nx=lastStone.c+d[0], ny=lastStone.r+d[1];
-    if(nx>=0&&nx<bs&&ny>=0&&ny<bs&&boardArr[ap(nx,ny)]===opp) removeIfDead(nx,ny,opp);
+    if(nx>=0&&nx<bs&&ny>=0&&ny<bs&&boardArr[ap(nx,ny)]===opp){
+      if (removeIfDead(nx,ny,opp)) _anyCapture = true;
+    }
   });
+  if (!_anyCapture) _koPoint = null;
 }
 const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
 const COLS = 'ABCDEFGHJKLMNOPQRST';
@@ -1590,7 +1676,12 @@ function applyMove(c, r, quiet){
     if(window._lastMoveTime && (_now - window._lastMoveTime) < 250){ return; }
     window._lastMoveTime = _now;
   }
-  if(stones.find(s=>s.c===c&&s.r===r)) return;
+  // === 착수 금지 검사 ===
+  var _lg = isLegalMove(c, r, turnBlack);
+  if (!_lg.ok){
+    if (!quiet) _showIllegal(c, r, _lg.why);
+    return;
+  }
   const stone = new THREE.Mesh(
     new THREE.SphereGeometry(CELL*0.46, 20, 14),
     new THREE.MeshStandardMaterial({color: turnBlack?0x111111:0xf5f5f5, roughness:0.3, metalness:0.1})
@@ -1658,8 +1749,8 @@ addEventListener('resize', ()=>{
 </script>
 
 <script src="/classroom/socket.io/socket.io.js"></script>
-<script src="/dot/galaxy.js?v=1783848670"></script>
-<script src="/dot/avatar.js?v=1783848670"></script>
+<script src="/dot/galaxy.js?v=1783869112"></script>
+<script src="/dot/avatar.js?v=1783869112"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}

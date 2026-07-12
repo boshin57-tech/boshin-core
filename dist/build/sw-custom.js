@@ -1,8 +1,8 @@
 // Tobmate Custom Service Worker
 // 오프라인 캐시 + 홈화면 설치 지원
 
-const CACHE_NAME = 'tobmate-v1';
-const STATIC_CACHE = 'tobmate-static-v1';
+const CACHE_NAME = 'tobmate-v2';
+const STATIC_CACHE = 'tobmate-static-v2';
 const API_CACHE = 'tobmate-api-v1';
 
 // 프리캐시 대상 (핵심 정적 파일)
@@ -77,8 +77,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // custom.js — 항상 네트워크 우선 (패치 즉시 반영, 캐시 지옥 방지)
-  if (url.pathname.indexOf('custom') !== -1 && url.pathname.endsWith('.js')) {
+  // 자주 패치하는 파일들 — 항상 네트워크 우선 (캐시 지옥 방지)
+  if ((url.pathname.indexOf('custom') !== -1 ||
+       url.pathname.indexOf('/dot/') !== -1) && url.pathname.endsWith('.js')) {
     event.respondWith(
       fetch(event.request).then(res => {
         const clone = res.clone();
