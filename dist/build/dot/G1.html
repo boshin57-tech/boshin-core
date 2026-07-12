@@ -138,6 +138,47 @@ document.body.appendChild(renderer.domElement);
   window._stars = m;
 })();
 
+/* 배경 바이오 성운 — Plane 3장, 비용 거의 0 */
+(function(){
+  var NVS='varying vec2 vUv; void main(){ vUv=uv;'+
+    ' gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }';
+  var NFS='varying vec2 vUv; uniform float uT; uniform vec3 uA; uniform vec3 uB; uniform float uSeed;'+
+    'float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); }'+
+    'float n(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);'+
+    ' return mix(mix(h(i),h(i+vec2(1.0,0.0)),f.x),mix(h(i+vec2(0.0,1.0)),h(i+vec2(1.0,1.0)),f.x),f.y); }'+
+    'float fbm(vec2 p){ float v=0.0,a=0.5;'+
+    ' for(int i=0;i<5;i++){ v+=a*n(p); p*=2.0; a*=0.5; } return v; }'+
+    'void main(){'+
+    ' vec2 uv=vUv*3.0+uSeed*7.0;'+
+    ' float f=fbm(uv+vec2(uT*0.012,uT*0.008));'+
+    ' f=fbm(uv+f*1.5+vec2(uT*0.02,0.0));'+
+    ' float pulse=0.75+0.25*sin(uT*0.5+uSeed*6.0);'+
+    ' vec3 col=mix(uA,uB,f);'+
+    ' float d=distance(vUv,vec2(0.5));'+
+    ' float mask=smoothstep(0.5,0.12,d);'+
+    ' gl_FragColor=vec4(col, f*mask*0.34*pulse); }';
+
+  var sets=[
+    { c1:new THREE.Color(0x3ad6a0), c2:new THREE.Color(0x7f5fff), z:-60, s:170, seed:0.1 },
+    { c1:new THREE.Color(0xff7fd0), c2:new THREE.Color(0x5fa8ff), z:-90, s:220, seed:0.6 },
+    { c1:new THREE.Color(0x9fffe0), c2:new THREE.Color(0xc8a2ff), z:-40, s:130, seed:0.9 }
+  ];
+  window._nebulas=[];
+  sets.forEach(function(o){
+    var m=new THREE.ShaderMaterial({
+      uniforms:{ uT:{value:0}, uA:{value:o.c1}, uB:{value:o.c2}, uSeed:{value:o.seed} },
+      vertexShader:NVS, fragmentShader:NFS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+      side:THREE.DoubleSide
+    });
+    var pl=new THREE.Mesh(new THREE.PlaneGeometry(o.s,o.s), m);
+    pl.position.set((Math.random()-0.5)*40, (Math.random()-0.5)*30, o.z);
+    pl.rotation.z=Math.random()*Math.PI;
+    scene.add(pl);
+    window._nebulas.push(m);
+  });
+})();
+
 /* 은하 코어 */
 var core = new THREE.Mesh(
   new THREE.SphereGeometry(2.1, 32, 24),
@@ -266,12 +307,114 @@ function spawnMeteor(color, target){
   }
 }
 
+/* 우주 정원 — 성운 꽃 (모든 행성 통합, 드로우콜 1) */
+var FLORA_MAX = 4000;
+var flPos  = new Float32Array(FLORA_MAX*3);
+var flCol  = new Float32Array(FLORA_MAX*3);
+var flSeed = new Float32Array(FLORA_MAX);
+var flSize = new Float32Array(FLORA_MAX);
+var flOwner = [];              // 어느 행성에 붙은 꽃인지
+var flLocal = [];              // 행성 로컬 좌표
+var flCount = 0;
+
+var flGeo = new THREE.BufferGeometry();
+flGeo.setAttribute('position', new THREE.BufferAttribute(flPos,3));
+flGeo.setAttribute('aCol',  new THREE.BufferAttribute(flCol,3));
+flGeo.setAttribute('aSeed', new THREE.BufferAttribute(flSeed,1));
+flGeo.setAttribute('aSize', new THREE.BufferAttribute(flSize,1));
+
+var flMat = new THREE.ShaderMaterial({
+  uniforms:{ uT:{value:0} },
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  vertexShader:
+    'attribute vec3 aCol; attribute float aSeed; attribute float aSize;'+
+    'varying vec3 vC; varying float vS;'+
+    'uniform float uT;'+
+    'void main(){ vC=aCol; vS=aSeed;'+
+    ' vec3 p=position;'+
+    ' p.y += sin(uT*0.9 + aSeed*20.0)*0.035;'+        // 흔들림
+    ' vec4 mv=modelViewMatrix*vec4(p,1.0);'+
+    ' float bloom=0.75+0.25*sin(uT*1.4+aSeed*30.0);'+ // 개화 맥동
+    ' gl_PointSize=aSize*bloom*(150.0/-mv.z);'+
+    ' gl_Position=projectionMatrix*mv; }',
+  fragmentShader:
+    'varying vec3 vC; varying float vS; uniform float uT;'+
+    'void main(){ vec2 c=gl_PointCoord-0.5; float d=length(c);'+
+    ' if(d>0.5) discard;'+
+    // 꽃잎 4장 (십자 형태로 부드럽게)
+    ' float a=atan(c.y,c.x);'+
+    ' float petal=0.55+0.45*abs(cos(a*2.0+vS*6.28));'+
+    ' float m=smoothstep(petal*0.5, 0.0, d);'+
+    ' float glow=0.65+0.35*sin(uT*1.6+vS*25.0);'+
+    ' gl_FragColor=vec4(vC*glow, m*0.9); }'
+});
+scene.add(new THREE.Points(flGeo, flMat));
+
+function resetFlora(){
+  flCount=0; flOwner=[]; flLocal=[];
+  for (var i=0;i<FLORA_MAX;i++){ flSize[i]=0; }
+}
+
+// 그 판의 속집(빈칸)에서 꽃이 핀다 — 바둑판이 곧 화단
+function plantFlora(pIdx, d, radius){
+  // 개화량: 수순(치열함) + 승리 + 영토
+  var moves = d.moves || 0;
+  var n = Math.floor(
+    10 + Math.min(moves, 300) * 0.18 + (d.iWon ? 14 : 0) + Math.min((d.size||0)/12, 20)
+  );
+  n = Math.min(n, 90);
+
+  var palA = d.iWon ? [0.35,1.0,0.62] : [0.55,0.85,1.0];   // 승: 에메랄드 / 패: 아이스블루
+  var palB = d.iWon ? [1.0,0.82,0.35] : [0.85,0.62,1.0];   // 승: 골드 / 패: 라벤더
+
+  for (var i=0;i<n && flCount<FLORA_MAX;i++){
+    var k = i/n;
+    // 나선형 덩굴 — 행성 표면에서 감아 올라감
+    var th = k * Math.PI * 7.5 + pIdx * 1.3;
+    var rr = radius * (1.12 + Math.sin(k*Math.PI)*0.42);
+    var yy = Math.cos(k * Math.PI) * radius * 1.25;
+
+    flLocal.push({
+      x: Math.cos(th)*rr,
+      y: yy,
+      z: Math.sin(th)*rr
+    });
+    flOwner.push(pIdx);
+
+    var mix = k*0.7 + Math.random()*0.3;
+    flCol[flCount*3]   = palA[0]*(1-mix) + palB[0]*mix;
+    flCol[flCount*3+1] = palA[1]*(1-mix) + palB[1]*mix;
+    flCol[flCount*3+2] = palA[2]*(1-mix) + palB[2]*mix;
+
+    flSeed[flCount] = Math.random();
+    // 끝으로 갈수록 큰 꽃 (장명국일수록 활짝)
+    flSize[flCount] = (1.6 + k*3.4) * (moves > 200 ? 1.45 : 1.0);
+    flCount++;
+  }
+}
+
+function syncFlora(){
+  for (var i=0;i<flCount;i++){
+    var p = planets[flOwner[i]];
+    if (!p) continue;
+    var L = flLocal[i];
+    flPos[i*3]   = p.grp.position.x + L.x;
+    flPos[i*3+1] = p.grp.position.y + L.y;
+    flPos[i*3+2] = p.grp.position.z + L.z;
+  }
+  flGeo.attributes.position.needsUpdate = true;
+  flGeo.attributes.aCol.needsUpdate = true;
+  flGeo.attributes.aSeed.needsUpdate = true;
+  flGeo.attributes.aSize.needsUpdate = true;
+  flGeo.setDrawRange(0, flCount);
+}
+
 /* 행성 빌드 */
 var planets = [], clickables = [];
 
 function build(){
   planets.forEach(function(p){ scene.remove(p.grp); });
-  planets = []; clickables = [];
+  planets = []; clickables = []; resetFlora();
 
   var G = window.Galaxy ? Galaxy.load() : [];
   document.getElementById('empty').style.display = G.length ? 'none' : 'block';
@@ -316,11 +459,67 @@ function build(){
 
     var moons = [];
     (d.moons||[]).forEach(function(mn, k){
-      var mm = new THREE.Mesh(
-        new THREE.SphereGeometry(size*0.24, 12, 8),
-        new THREE.MeshBasicMaterial({color:new THREE.Color(mn.color||'#7fd4ff')}));
-      grp.add(mm);
-      moons.push({mesh:mm, r:size*(mn.orbit||1.8), sp:mn.speed||0.7, ph:k*2.1});
+      var bc = new THREE.Color(mn.color||'#ff9dd4');
+      // 나비 몸통 + 날개 (Points, 셰이더로 팔랑거림)
+      var NW = 26, wp = new Float32Array(NW*3), ws = new Float32Array(NW);
+      for (var w=0; w<NW; w++){
+        var side = (w % 2 === 0) ? 1 : -1;
+        var t2 = Math.floor(w/2)/(NW/2);
+        wp[w*3]   = side * t2 * size*0.28;
+        wp[w*3+1] = Math.sin(t2*Math.PI) * size*0.16;
+        wp[w*3+2] = (Math.random()-0.5) * size*0.05;
+        ws[w] = t2;
+      }
+      var wg = new THREE.BufferGeometry();
+      wg.setAttribute('position', new THREE.BufferAttribute(wp,3));
+      wg.setAttribute('aW', new THREE.BufferAttribute(ws,1));
+      var wm = new THREE.ShaderMaterial({
+        uniforms:{ uT:{value:0}, uC:{value:bc} },
+        transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+        vertexShader:
+          'attribute float aW; varying float vW; uniform float uT;'+
+          'void main(){ vW=aW;'+
+          ' vec3 p=position;'+
+          ' float flap=sin(uT*7.0)*0.5;'+          // 날갯짓
+          ' p.y += abs(p.x)*flap;'+
+          ' p.x *= 0.75+0.25*cos(uT*7.0);'+
+          ' vec4 mv=modelViewMatrix*vec4(p,1.0);'+
+          ' gl_PointSize=(5.5-aW*2.5)*(140.0/-mv.z);'+
+          ' gl_Position=projectionMatrix*mv; }',
+        fragmentShader:
+          'varying float vW; uniform vec3 uC; uniform float uT;'+
+          'void main(){ vec2 c=gl_PointCoord-0.5; float d=length(c);'+
+          ' if(d>0.5) discard;'+
+          ' float g=0.7+0.3*sin(uT*3.0+vW*10.0);'+
+          ' gl_FragColor=vec4(uC*g, (1.0-d*2.0)*(0.95-vW*0.45)); }'
+      });
+      var bfly = new THREE.Points(wg, wm);
+      grp.add(bfly);
+
+      // 빛 꼬리 (잔상)
+      var TL = 14, tp = new Float32Array(TL*3), ta = new Float32Array(TL);
+      for (var q=0;q<TL;q++){ ta[q]=1-q/TL; }
+      var tg2 = new THREE.BufferGeometry();
+      tg2.setAttribute('position', new THREE.BufferAttribute(tp,3));
+      tg2.setAttribute('aA', new THREE.BufferAttribute(ta,1));
+      var tm = new THREE.ShaderMaterial({
+        uniforms:{ uC:{value:bc} },
+        transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+        vertexShader:'attribute float aA; varying float vA;'+
+          'void main(){ vA=aA;'+
+          ' vec4 mv=modelViewMatrix*vec4(position,1.0);'+
+          ' gl_PointSize=aA*4.5*(140.0/-mv.z);'+
+          ' gl_Position=projectionMatrix*mv; }',
+        fragmentShader:'varying float vA; uniform vec3 uC;'+
+          'void main(){ vec2 c=gl_PointCoord-0.5; float d=length(c);'+
+          ' if(d>0.5) discard;'+
+          ' gl_FragColor=vec4(uC, (1.0-d*2.0)*vA*0.5); }'
+      });
+      var tail = new THREE.Points(tg2, tm);
+      grp.add(tail);
+
+      moons.push({ mesh:bfly, wm:wm, tail:tail, trail:[],
+                   r:size*(mn.orbit||1.8), sp:mn.speed||0.7, ph:k*2.1 });
     });
 
     (d.particles||[]).forEach(function(pt){
@@ -352,6 +551,7 @@ function build(){
     scene.add(orbitRing(orbitR));
     planets.push({grp:grp, mesh:mesh, mat:mat, moons:moons,
                   r:orbitR, sp:speed, ph:(i*1.9)%(Math.PI*2), data:d});
+    plantFlora(i, d, size);
   });
 }
 
@@ -426,6 +626,7 @@ function loop(){
   var t = (Date.now()-t0)/1000;
 
   window._stars.uniforms.uT.value = t;
+  if(window._nebulas) window._nebulas.forEach(function(m){ m.uniforms.uT.value=t; });
   core.material.uniforms.uT.value = t;
   glow.material.uniforms.uT.value = t;
   core.rotation.y = t*0.06;
@@ -437,7 +638,20 @@ function loop(){
     p.mat.uniforms.uT.value = t;
     p.moons.forEach(function(m){
       var ma = m.ph + t*m.sp*2.2;
-      m.mesh.position.set(Math.cos(ma)*m.r, Math.sin(ma*0.7)*m.r*0.35, Math.sin(ma)*m.r);
+      var mx = Math.cos(ma)*m.r;
+      var my = Math.sin(ma*0.7)*m.r*0.35 + Math.sin(t*3.0+m.ph)*0.06;
+      var mz = Math.sin(ma)*m.r;
+      m.mesh.position.set(mx, my, mz);
+      m.mesh.rotation.y = -ma;
+      if (m.wm) m.wm.uniforms.uT.value = t;
+      // 꼬리 잔상
+      m.trail.unshift({x:mx,y:my,z:mz});
+      if (m.trail.length > 14) m.trail.pop();
+      var tp = m.tail.geometry.attributes.position.array;
+      for (var q=0; q<m.trail.length; q++){
+        tp[q*3]=m.trail[q].x; tp[q*3+1]=m.trail[q].y; tp[q*3+2]=m.trail[q].z;
+      }
+      m.tail.geometry.attributes.position.needsUpdate = true;
     });
     if (p.grp.userData.treasureGlow)
       p.grp.userData.treasureGlow.scale.setScalar(1 + Math.sin(t*2.2)*0.12);
@@ -461,6 +675,7 @@ function loop(){
       if (ml[i] < 0) ml[i] = 0;
     }
   }
+  flMat.uniforms.uT.value = t; syncFlora();
   mGeo.attributes.position.needsUpdate = true;
   mGeo.attributes.aLife.needsUpdate = true;
 
