@@ -1096,31 +1096,46 @@ function calcSunjangScore() {
         });
     });
 
-    // 경계선 돌은 연결된 같은 색 그룹 전체로 확장
+    // 순장: 경계선 = 자기 집과 직접 맞닿은 돌만 (그룹 확장 없음)
+    // 안쪽 돌(집에 안 닿는 돌)은 흑백 무관 전부 들어냄
     var expanded = isBorder.slice();
-    var changed = true;
-    while (changed) {
-        changed = false;
-        for (var j = 0; j < N * N; j++) {
-            if (!expanded[j] || board[j] === 0) continue;
-            var x2 = j % N, y2 = Math.floor(j / N);
-            var col = board[j];
+
+    // ---- 2단계: 안쪽 돌을 제거한 판으로 집을 다시 계산 ----
+    // (순장 규칙: 안쪽 돌을 먼저 들어내고 나서 집을 센다)
+    var board2 = board.slice();
+    for (var k = 0; k < N * N; k++) {
+        if (board2[k] !== 0 && !expanded[k]) board2[k] = 0;   // 안쪽 돌 제거
+    }
+
+    var vis2 = new Array(N * N).fill(false);
+    var terr2 = [];
+    for (var i2 = 0; i2 < N * N; i2++) {
+        if (board2[i2] !== 0 || vis2[i2]) continue;
+        var q2 = [i2], cs2 = [], bB = false, bW = false;
+        vis2[i2] = true;
+        while (q2.length) {
+            var ix = q2.pop(); cs2.push(ix);
+            var xx = ix % N, yy = Math.floor(ix / N);
             [[1,0],[-1,0],[0,1],[0,-1]].forEach(function (d) {
-                var nx = x2 + d[0], ny = y2 + d[1];
-                if (nx < 0 || nx >= N || ny < 0 || ny >= N) return;
-                var ni = ny * N + nx;
-                if (board[ni] === col && !expanded[ni]) {
-                    expanded[ni] = true;
-                    changed = true;
-                }
+                var nx2 = xx + d[0], ny2 = yy + d[1];
+                if (nx2 < 0 || nx2 >= N || ny2 < 0 || ny2 >= N) return;
+                var ni2 = ny2 * N + nx2;
+                if (vis2[ni2]) return;
+                if (board2[ni2] === 0) { vis2[ni2] = true; q2.push(ni2); }
+                else if (board2[ni2] === 1) bB = true;
+                else bW = true;
             });
         }
+        var ow2 = 0;
+        if (bB && !bW) ow2 = 1;
+        else if (bW && !bB) ow2 = 2;
+        terr2.push({ owner: ow2, cells: cs2 });
     }
 
     // ---- 결과 집계 ----
     var blackTerr = 0, whiteTerr = 0;
     var blackCells = [], whiteCells = [];
-    territories.forEach(function (t) {
+    terr2.forEach(function (t) {
         if (t.owner === 1) { blackTerr += t.cells.length; blackCells = blackCells.concat(t.cells); }
         else if (t.owner === 2) { whiteTerr += t.cells.length; whiteCells = whiteCells.concat(t.cells); }
     });
