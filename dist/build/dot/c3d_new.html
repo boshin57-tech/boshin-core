@@ -1036,6 +1036,36 @@ function _buildBoardArray() {
     return b;
 }
 
+// ---- 공배 계산 (흑·백 양쪽에 닿는 빈칸) ----
+function countGongbae(){
+    var board = _buildBoardArray();
+    var visited = new Array(N*N).fill(false);
+    var gongbae = [];
+
+    for (var i = 0; i < N*N; i++){
+        if (board[i] !== 0 || visited[i]) continue;
+        var q = [i], cells = [], bB = false, bW = false;
+        visited[i] = true;
+        while (q.length){
+            var idx = q.pop();
+            cells.push(idx);
+            var x = idx % N, y = Math.floor(idx / N);
+            [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){
+                var nx = x+d[0], ny = y+d[1];
+                if (nx<0||nx>=N||ny<0||ny>=N) return;
+                var ni = ny*N+nx;
+                if (visited[ni]) return;
+                if (board[ni] === 0){ visited[ni] = true; q.push(ni); }
+                else if (board[ni] === 1) bB = true;
+                else bW = true;
+            });
+        }
+        // 흑·백 양쪽에 닿으면 공배
+        if (bB && bW) gongbae = gongbae.concat(cells);
+    }
+    return gongbae;
+}
+
 // ---- 계가 계산 (순수 함수, 연출 없음) ----
 function calcSunjangScore() {
     var board = _buildBoardArray();
@@ -1156,6 +1186,17 @@ function calcSunjangScore() {
 var _passCount = 0;
 function passMove(){
     if (typeof _scoringActive !== 'undefined' && _scoringActive) return;
+
+    // 순장 규칙: 공배를 모두 메워야 종국 가능
+    var gb = countGongbae();
+    if (gb.length > 0){
+        var bt0 = document.getElementById('bubbleText');
+        var bb0 = document.getElementById('bubble');
+        if (bt0) bt0.textContent = '\ud83d\udd35 \uacf5\ubc30\uac00 ' + gb.length + '\uacf3 \ub0a8\uc558\uc5b4\uc694! \ubaa8\ub450 \uba54\uc6cc\uc57c \uc885\uad6d\ud560 \uc218 \uc788\uc5b4\uc694.';
+        if (bb0) bb0.style.display = 'block';
+        _showGongbae(gb);
+        return;
+    }
     var who = turnBlack ? '⚫ 흑' : '⚪ 백';
     _passCount++;
     turnBlack = !turnBlack;
@@ -1173,6 +1214,28 @@ function passMove(){
         var bb2 = document.getElementById('bubble');
         if (bb2) bb2.style.display = 'block';
     }
+}
+
+// ---- 공배 표시 (파란 마커) ----
+var _gbGroup = null;
+function _showGongbae(cells){
+    _clearGongbae();
+    _gbGroup = new THREE.Group();
+    var geo = new THREE.SphereGeometry(CELL*0.16, 10, 8);
+    var mat = new THREE.MeshBasicMaterial({
+        color: 0x3498db, transparent: true, opacity: 0.75 });
+    cells.forEach(function(idx){
+        var c = idx % N, r = Math.floor(idx / N);
+        var m = new THREE.Mesh(geo, mat.clone());
+        m.position.set(-BOARD/2 + c*CELL, 1.35, -BOARD/2 + r*CELL);
+        _gbGroup.add(m);
+    });
+    scene.add(_gbGroup);
+    // 3초 후 자동 제거
+    setTimeout(_clearGongbae, 3500);
+}
+function _clearGongbae(){
+    if (_gbGroup){ scene.remove(_gbGroup); _gbGroup = null; }
 }
 
 // ---- 순장 경계 표식 (빨간 경계선) ----
