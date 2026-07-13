@@ -13,20 +13,19 @@ const COLS = 'ABCDEFGHJKLMNOPQRST';
 const PASS_MOVE = 8224;
 
 // 순장바둑 초기 배치
-const SJ_BLACK = ['G16','N16','Q16','D10','Q10','D4','G4','N4'];
-const SJ_WHITE = ['D16','K16','D13','Q13','D7','Q7','K4','Q4'];
-const HANDICAP_TABLE = {1:['K10'],2:['N13','G7'],3:['N13','G7','N7'],4:['N13','G7','N7','G13'],5:['N13','G7','N7','G13','K10'],6:['N13','G13','K13','G7','K7','N7'],7:['N13','G13','K13','G7','K7','N7','K10'],8:['N13','G13','K13','G7','K7','N7','N10','G10'],9:['N13','G13','K13','G7','K7','N7','N10','G10','K10']};
-const HANDICAP_STONES = HANDICAP_TABLE[9];
+const SJ_BLACK = ['D4','D7','D13','K4','K16','Q7','Q13','Q16'];
+const SJ_WHITE = ['D10','D16','G4','G16','N4','N16','Q4','Q10'];
+const HANDICAP_STONES = ['K10','N7','G13','N13','G7','K13','K7','N10','G10'];
 
 function wpos2coord(wpos) {
     if(wpos === PASS_MOVE) return 'pass';
     const x = wpos & 255; const y = (wpos >> 8) & 255;
-    return COLS[x] + (y+1);
+    return COLS[x] + (19 - y);
 }
 function coord2wpos(coord) {
     if(!coord || coord.toLowerCase() === 'pass' || coord.toLowerCase() === 'resign') return PASS_MOVE;
     const x = COLS.indexOf(coord[0].toUpperCase());
-    const y = parseInt(coord.slice(1)) - 1;
+    const y = 19 - parseInt(coord.slice(1));
     return (y << 8) | x;
 }
 
@@ -57,38 +56,28 @@ function initBoard(state, data, callback) {
     gtp.cmd('boardsize '+state.boardsize, function() {
         gtp.cmd('clear_board', function() {
             gtp.cmd('komi 6.5', function() {
-                if(data.rule === 2) {
+                if(state.rule === 2) {
                     // 순장바둑 초기 배치 (접바둑 포함)
                     const cmds = [];
                     SJ_BLACK.forEach(function(c){ cmds.push(['play B '+c]); });
                     SJ_WHITE.forEach(function(c){ cmds.push(['play W '+c]); });
                     if(data.handicap && data.handicap > 0) {
-                        (HANDICAP_TABLE[data.handicap] || []).forEach(function(c){ cmds.push(['play B '+c]); });
+                        HANDICAP_STONES.slice(0, data.handicap).forEach(function(c){ cmds.push(['play B '+c]); });
                     }
                     var runCmd = function(idx) {
                         if(idx >= cmds.length) {
                             // 흑8+백8=16수 후 다음은 흑차례, first_turn===1(백먼저)이면 흑패스로 턴조정
-                            if(data.first_turn === 1) {
-                                gtp.cmd('play B pass', function(r){
-                                    console.log('[GTP] 턴조정 B pass:', r);
-                                    console.log('[GTP] 순장바둑 초기화 완료');
-                                    callback();
-                                });
-                            } else {
-                                console.log('[GTP] 순장바둑 초기화 완료');
-                                callback();
-                            }
+                            console.log('[GTP] 순장바둑 초기화 완료');
+                            callback();
                             return;
                         }
                         gtp.cmd(cmds[idx][0], function(r){ console.log('[GTP] SJ배석:', cmds[idx][0], '->', r); runCmd(idx+1); });
                     };
                     runCmd(0);
                 } else if(data.handicap && data.handicap > 1) {
-                    // 접바둑: 순장 배석 + 접바둑 배석
+                    // 일반 접바둑: 화점 접바둑 배석만 (순장 배석 없음)
                     const cmds = [];
-                    SJ_BLACK.forEach(function(c){ cmds.push('play B '+c); });
-                    SJ_WHITE.forEach(function(c){ cmds.push('play W '+c); });
-                    (HANDICAP_TABLE[data.handicap] || []).forEach(function(c){ cmds.push('play B '+c); });
+                    HANDICAP_STONES.slice(0, data.handicap).forEach(function(c){ cmds.push('play B '+c); });
                     var runCmd = function(idx) {
                         if(idx >= cmds.length) {
                             console.log('[GTP] 접바둑 초기화 완료 handicap='+data.handicap);
@@ -136,7 +125,7 @@ function connectBotToRoom(roomId) {
             console.log('[BOT] SC_GAME_START! colors:', data.colors, 'first_turn:', data.first_turn);
             state.colors = data.colors || [1,2];
             state.boardsize = data.board_size || 19;
-            state.rule = data.rule || 0;
+            state.rule = (data.rule !== undefined && data.rule !== null) ? data.rule : 0;  // goRoom이 보낸 rule 존중 (0=일본식,1=중국식,2=순장)
             state.botColor = state.colors[1] === 1 ? "B" : "W";
             console.log('[BOT] 봇 색상:', state.botColor);
             initBoard(state, data, function() { state._boardReady = true;
