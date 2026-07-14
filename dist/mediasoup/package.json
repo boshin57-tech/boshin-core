@@ -1,0 +1,13 @@
+{
+  "name": "mediasoup-classroom-server",
+  "version": "1.0.0",
+  "description": "3D 교실용 mediasoup SFU 시그널링 서버",
+  "main": "mediasoup-server.js",
+  "scripts": {
+    "start": "node mediasoup-server.js"
+  },
+  "dependencies": {
+    "mediasoup": "^3.14.0",
+    "socket.io": "^4.7.5"
+  }
+}
