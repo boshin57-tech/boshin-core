@@ -27,3 +27,9 @@ core
 *.emergency_bak
 *.final_bak
 *.bak*
+
+# GSOS
+gsos/node_modules/
+gsos/backups/
+gsos/*.log
+gsos/.env
