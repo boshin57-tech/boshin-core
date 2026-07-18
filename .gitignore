@@ -33,3 +33,6 @@ gsos/node_modules/
 gsos/backups/
 gsos/*.log
 gsos/.env
+
+# Track GSOS dependency lockfile
+!gsos/package-lock.json
