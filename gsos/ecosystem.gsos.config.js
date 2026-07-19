@@ -30,7 +30,9 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         HOST: '127.0.0.1',
-        PORT: 8112
+        PORT: 8112,
+        GLOBE_GATEWAY_URL: 'http://127.0.0.1:8110',
+        REQUIRE_ENTRY_TICKET: 'true'
       }
     },
     {
