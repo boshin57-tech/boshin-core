@@ -26,7 +26,6 @@ if (!ticketId) {
 }
 
 const socket = io('http://127.0.0.1:8112', {
-  transports: ['websocket'],
   reconnection: false,
   timeout: 5000
 });
@@ -109,6 +108,10 @@ socket.on('connect', () => {
 
 socket.on('connect_error', error => {
   console.error('CONNECT ERROR:', error.message);
+  console.error('DESCRIPTION:', error.description || null);
+  console.error('CONTEXT:', error.context || null);
+  console.error('TYPE:', error.type || null);
+  console.error('STACK:', error.stack || null);
   finish(1);
 });
 
