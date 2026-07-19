@@ -1,6 +1,11 @@
 'use strict';
 
-const { io } = require('socket.io-client');
+const socketIoClient = require('socket.io-client');
+
+const io =
+  typeof socketIoClient === 'function'
+    ? socketIoClient
+    : socketIoClient.io;
 
 const ticketId = String(process.env.TICKET_ID || '').trim();
 const spaceId = String(
