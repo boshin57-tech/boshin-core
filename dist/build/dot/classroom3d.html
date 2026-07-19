@@ -1751,6 +1751,7 @@ addEventListener('resize', ()=>{
 <script src="/classroom/socket.io/socket.io.js"></script>
 <script src="/dot/galaxy.js?v=1783869112"></script>
 <script src="/dot/avatar.js?v=1783869112"></script>
+<script src="/dot/avatar-gsos.js?v=20260719a"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}
@@ -2166,5 +2167,118 @@ function saveToGalaxy(blackTotal, whiteTotal){
 window.buildPlanets = buildPlanets;
 
 </script>
+
+<script>
+/* TOBMATE_GSOS_CLASSROOM_ENTRY_V1 */
+(function () {
+  'use strict';
+
+  function showGsosStatus(message, isError) {
+    var id = 'gsos-entry-status';
+    var status = document.getElementById(id);
+
+    if (!status) {
+      status = document.createElement('div');
+      status.id = id;
+
+      status.style.position = 'fixed';
+      status.style.left = '12px';
+      status.style.bottom = '12px';
+      status.style.zIndex = '99999';
+      status.style.padding = '7px 11px';
+      status.style.borderRadius = '8px';
+      status.style.fontSize = '12px';
+      status.style.fontFamily = 'monospace';
+      status.style.background = 'rgba(0, 10, 25, 0.88)';
+      status.style.border = '1px solid #17d98b';
+      status.style.color = '#8fffc9';
+
+      document.body.appendChild(status);
+    }
+
+    status.textContent = message;
+
+    if (isError) {
+      status.style.borderColor = '#ff5964';
+      status.style.color = '#ff9da4';
+    }
+  }
+
+  async function startGsosEntry() {
+    if (!window.TobmateAvatarGSOS) {
+      showGsosStatus(
+        'GSOS: 아바타 브리지를 찾을 수 없습니다.',
+        true
+      );
+      return;
+    }
+
+    var params = new URLSearchParams(location.search);
+
+    /*
+     * 실제 Spatial Registry의 spaceId가 다르면
+     * URL에 ?space=<실제-spaceId>를 전달할 수 있습니다.
+     */
+    var spaceId =
+      params.get('space') ||
+      'tobmate-main-world';
+
+    try {
+      var identity =
+        window.TobmateAvatarGSOS.getIdentity();
+
+      showGsosStatus(
+        'GSOS 입장 중 · ' +
+        identity.avatarId.slice(0, 22) +
+        '…',
+        false
+      );
+
+      var session =
+        await window.TobmateAvatarGSOS.enterWorld(
+          spaceId
+        );
+
+      showGsosStatus(
+        'GSOS 연결 · ' +
+        session.spaceId +
+        ' · Ticket 발급',
+        false
+      );
+
+      /*
+       * 기존 classroom3d 코드가 사용할 수 있도록
+       * 전역 변수로도 노출합니다.
+       */
+      window.GSOS_USER_ID = session.userId;
+      window.GSOS_AVATAR_ID = session.avatarId;
+      window.GSOS_SPACE_ID = session.spaceId;
+      window.GSOS_ENTRY_TICKET = session.ticket;
+      window.GSOS_PRESENCE = session.presence;
+    } catch (error) {
+      console.error(
+        '[Classroom GSOS] 입장 실패:',
+        error
+      );
+
+      showGsosStatus(
+        'GSOS 입장 실패 · ' + error.message,
+        true
+      );
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      startGsosEntry,
+      { once: true }
+    );
+  } else {
+    startGsosEntry();
+  }
+})();
+</script>
+
 </body>
 </html>
