@@ -1,0 +1,31 @@
+# Rust
+target/
+**/target/
+
+# Sui Move
+**/build/
+**/.move/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.seed
+*.mnemonic
+*.keystore
+client.yaml
+sui.keystore
+
+# Deployment outputs
+deployments/**/private/
+deployments/**/secrets/
+deployments/**/publish-result.json
+
+# Logs and editors
+*.log
+.vscode/
+.idea/
+*.swp
+.DS_Store
