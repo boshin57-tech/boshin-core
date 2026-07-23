@@ -339,13 +339,13 @@ public fun set_frozen(
 /// Burning the NFT does not release physical reserve weight.
 /// The backing position may still support GOLDPEG principal units.
 /// Reserve release occurs only when the entire backing position is closed.
-public fun burn_gold_nft(
+public(package) fun burn_gold_nft(
     _admin_cap: &GoldNFTAdminCap,
     access_control: &AccessControl,
     registry: &mut GoldNFTRegistry,
     position: &mut GoldBackingPosition,
     nft: GoldNFT,
-    ctx: &mut TxContext,
+    ctx: &TxContext,
 ) {
     access_control::assert_not_paused(access_control);
 
@@ -575,4 +575,144 @@ public fun registry_total_backed_weight_mg(
     registry: &GoldNFTRegistry,
 ): u64 {
     registry.total_backed_weight_mg
+}
+
+// TOBMATE_TEST_GOLD_NFT_FIXTURE
+#[test_only]
+public fun new_admin_cap_for_testing(
+    ctx: &mut TxContext,
+): GoldNFTAdminCap {
+    GoldNFTAdminCap {
+        id: object::new(ctx),
+    }
+}
+
+#[test_only]
+public fun new_registry_for_testing(
+    ctx: &mut TxContext,
+): GoldNFTRegistry {
+    GoldNFTRegistry {
+        id: object::new(ctx),
+        version: 1,
+        total_minted: 0,
+        total_active: 0,
+        total_burned: 0,
+        total_backed_weight_mg: 0,
+    }
+}
+
+#[test_only]
+public fun mint_for_testing(
+    registry: &mut GoldNFTRegistry,
+    position: &mut GoldBackingPosition,
+    recipient: address,
+    ctx: &mut TxContext,
+): GoldNFT {
+    assert!(recipient != @0x0, E_INVALID_RECIPIENT);
+    assert!(
+        backing_position::is_active(position),
+        E_POSITION_NOT_ACTIVE,
+    );
+    assert!(
+        !backing_position::has_gold_nft(position),
+        E_POSITION_ALREADY_HAS_NFT,
+    );
+
+    registry.total_minted =
+        registry.total_minted + 1;
+    registry.total_active =
+        registry.total_active + 1;
+
+    let weight_mg =
+        backing_position::weight_mg(position);
+    let purity_bps =
+        backing_position::purity_bps(position);
+    let position_id =
+        backing_position::position_id(position);
+    let reserve_id =
+        backing_position::reserve_id(position);
+    let serial_number =
+        registry.total_minted;
+    let epoch =
+        tx_context::epoch(ctx);
+
+    registry.total_backed_weight_mg =
+        registry.total_backed_weight_mg + weight_mg;
+
+    let nft = GoldNFT {
+        id: object::new(ctx),
+        serial_number,
+        backing_position_id: position_id,
+        reserve_id,
+        weight_mg,
+        purity_bps,
+        name: b"Test Gold NFT",
+        description: b"Atomic burn fixture",
+        media_url: b"test://gold-nft",
+        metadata_hash: b"test-metadata-hash",
+        issuer: tx_context::sender(ctx),
+        status: STATUS_ACTIVE,
+        frozen: false,
+        minted_at_epoch: epoch,
+        updated_at_epoch: epoch,
+    };
+
+    backing_position::link_gold_nft(
+        position,
+        object::uid_to_inner(&nft.id),
+    );
+
+    nft
+}
+
+#[test_only]
+public fun nft_id_for_testing(
+    nft: &GoldNFT,
+): ID {
+    object::uid_to_inner(&nft.id)
+}
+
+#[test_only]
+public fun registry_total_active_for_testing(
+    registry: &GoldNFTRegistry,
+): u64 {
+    registry.total_active
+}
+
+#[test_only]
+public fun registry_total_burned_for_testing(
+    registry: &GoldNFTRegistry,
+): u64 {
+    registry.total_burned
+}
+
+#[test_only]
+public fun registry_total_backed_weight_for_testing(
+    registry: &GoldNFTRegistry,
+): u64 {
+    registry.total_backed_weight_mg
+}
+
+#[test_only]
+public fun destroy_admin_cap_for_testing(
+    cap: GoldNFTAdminCap,
+) {
+    let GoldNFTAdminCap { id } = cap;
+    object::delete(id);
+}
+
+#[test_only]
+public fun destroy_registry_for_testing(
+    registry: GoldNFTRegistry,
+) {
+    let GoldNFTRegistry {
+        id,
+        version: _,
+        total_minted: _,
+        total_active: _,
+        total_burned: _,
+        total_backed_weight_mg: _,
+    } = registry;
+
+    object::delete(id);
 }

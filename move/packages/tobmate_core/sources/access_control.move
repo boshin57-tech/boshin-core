@@ -114,3 +114,28 @@ public fun is_paused(access_control: &AccessControl): bool {
 public fun version(access_control: &AccessControl): u64 {
     access_control.version
 }
+
+// TOBMATE_TEST_ACCESS_CONTROL_FIXTURE
+#[test_only]
+public fun new_for_testing(
+    ctx: &mut TxContext,
+): AccessControl {
+    AccessControl {
+        id: object::new(ctx),
+        version: 1,
+        paused: false,
+    }
+}
+
+#[test_only]
+public fun destroy_for_testing(
+    access_control: AccessControl,
+) {
+    let AccessControl {
+        id,
+        version: _,
+        paused: _,
+    } = access_control;
+
+    object::delete(id);
+}

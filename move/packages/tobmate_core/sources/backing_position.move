@@ -406,3 +406,51 @@ public fun registry_total_backed_weight_mg(
 ): u64 {
     registry.total_backed_weight_mg
 }
+
+// TOBMATE_TEST_BACKING_POSITION_FIXTURE
+#[test_only]
+public fun new_for_testing(
+    reserve_id: ID,
+    custodian: address,
+    weight_mg: u64,
+    purity_bps: u64,
+    ctx: &mut TxContext,
+): GoldBackingPosition {
+    assert!(weight_mg > 0, E_ZERO_WEIGHT);
+
+    GoldBackingPosition {
+        id: object::new(ctx),
+        sequence: 1,
+        reserve_id,
+        custodian,
+        weight_mg,
+        purity_bps,
+        gold_nft_id: option::none(),
+        goldpeg_issued_units: 0,
+        status: STATUS_ACTIVE,
+        created_at_epoch: tx_context::epoch(ctx),
+        closed_at_epoch: 0,
+    }
+}
+
+#[test_only]
+public fun destroy_for_testing(
+    position: GoldBackingPosition,
+) {
+    let GoldBackingPosition {
+        id,
+        sequence: _,
+        reserve_id: _,
+        custodian: _,
+        weight_mg: _,
+        purity_bps: _,
+        gold_nft_id,
+        goldpeg_issued_units: _,
+        status: _,
+        created_at_epoch: _,
+        closed_at_epoch: _,
+    } = position;
+
+    option::destroy_none(gold_nft_id);
+    object::delete(id);
+}
