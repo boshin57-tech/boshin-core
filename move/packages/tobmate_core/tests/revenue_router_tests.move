@@ -17,6 +17,10 @@ use tobmate_core::insurance_fund::{
     Self as insurance_fund,
 };
 
+use tobmate_core::lp_reward_distributor::{
+    Self as lp_reward_distributor,
+};
+
 use tobmate_core::revenue_router::{
     Self as revenue_router,
 };
@@ -258,6 +262,11 @@ fun paused_revenue_router_blocks_routing() {
             test_scenario::ctx(&mut scenario),
         );
 
+    let mut lp_reward_distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
     let mut router =
         revenue_router::new_for_testing(
             test_scenario::ctx(&mut scenario),
@@ -276,6 +285,7 @@ fun paused_revenue_router_blocks_routing() {
         &mut vault,
         &mut protocol_treasury,
         &mut insurance_fund,
+        &mut lp_reward_distributor,
         &mut router,
         test_scenario::ctx(&mut scenario),
     );
@@ -320,6 +330,11 @@ fun pending_fees_are_routed_without_value_loss() {
             test_scenario::ctx(&mut scenario),
         );
 
+    let mut lp_reward_distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
     let mut router =
         revenue_router::new_for_testing(
             test_scenario::ctx(&mut scenario),
@@ -351,6 +366,7 @@ fun pending_fees_are_routed_without_value_loss() {
         &mut vault,
         &mut protocol_treasury,
         &mut insurance_fund,
+        &mut lp_reward_distributor,
         &mut router,
         test_scenario::ctx(&mut scenario),
     );
@@ -386,8 +402,9 @@ fun pending_fees_are_routed_without_value_loss() {
     );
 
     assert!(
-        revenue_router::lp_reward_balance(&router)
-            == EXPECTED_LP_REWARDS,
+        lp_reward_distributor::reward_balance(
+            &lp_reward_distributor,
+        ) == EXPECTED_LP_REWARDS,
         306,
     );
 
@@ -467,8 +484,13 @@ fun pending_fees_are_routed_without_value_loss() {
             test_scenario::ctx(&mut scenario),
         );
 
+    let lp_reward_coin =
+        lp_reward_distributor::drain_for_testing(
+            &mut lp_reward_distributor,
+            test_scenario::ctx(&mut scenario),
+        );
+
     let (
-        lp_reward_coin,
         reserve_operation_coin,
         dao_coin,
     ) = revenue_router::drain_all_for_testing(
@@ -517,6 +539,10 @@ fun pending_fees_are_routed_without_value_loss() {
 
     insurance_fund::destroy_for_testing(
         insurance_fund,
+    );
+
+    lp_reward_distributor::destroy_for_testing(
+        lp_reward_distributor,
     );
 
     revenue_router::destroy_empty_for_testing(router);

@@ -24,6 +24,11 @@ use tobmate_core::insurance_fund::{
     InsuranceFund,
 };
 
+use tobmate_core::lp_reward_distributor::{
+    Self as lp_reward_distributor,
+    LPRewardDistributor,
+};
+
 use tobmate_core::treasury::{
     Self as treasury,
     ProtocolTreasury,
@@ -53,7 +58,6 @@ public struct RevenueRouter has key {
     reserve_operation_bps: u64,
     dao_bps: u64,
 
-    lp_reward_funds: Balance<SUI>,
     reserve_operation_funds: Balance<SUI>,
     dao_funds: Balance<SUI>,
 
@@ -132,7 +136,6 @@ fun init(ctx: &mut TxContext) {
             reserve_operation_bps: 1_500,
             dao_bps: 1_000,
 
-            lp_reward_funds: balance::zero<SUI>(),
             reserve_operation_funds: balance::zero<SUI>(),
             dao_funds: balance::zero<SUI>(),
 
@@ -155,6 +158,7 @@ public fun route_all_pending_fees(
     fee_vault: &mut FeeVault,
     protocol_treasury: &mut ProtocolTreasury,
     insurance_fund: &mut InsuranceFund,
+    lp_reward_distributor: &mut LPRewardDistributor,
     router: &mut RevenueRouter,
     ctx: &mut TxContext,
 ) {
@@ -242,9 +246,17 @@ public fun route_all_pending_fees(
                 lp_reward_amount,
             );
 
-        balance::join(
-            &mut router.lp_reward_funds,
-            lp_reward_balance,
+        let lp_reward_coin =
+            coin::from_balance(
+                lp_reward_balance,
+                ctx,
+            );
+
+        lp_reward_distributor::fund(
+            access_control,
+            lp_reward_distributor,
+            lp_reward_coin,
+            ctx,
         );
     };
 
@@ -439,12 +451,6 @@ public fun assert_accounting_invariant(
     );
 
     assert!(
-        balance::value(&router.lp_reward_funds)
-            == router.total_to_lp_rewards,
-        E_ACCOUNTING_INVARIANT,
-    );
-
-    assert!(
         balance::value(
             &router.reserve_operation_funds,
         ) == router.total_to_reserve_operations,
@@ -494,12 +500,6 @@ public fun reserve_operation_bps(
 
 public fun dao_bps(router: &RevenueRouter): u64 {
     router.dao_bps
-}
-
-public fun lp_reward_balance(
-    router: &RevenueRouter,
-): u64 {
-    balance::value(&router.lp_reward_funds)
 }
 
 public fun reserve_operation_balance(
@@ -576,7 +576,6 @@ public fun new_for_testing(
         reserve_operation_bps: 1_500,
         dao_bps: 1_000,
 
-        lp_reward_funds: balance::zero<SUI>(),
         reserve_operation_funds: balance::zero<SUI>(),
         dao_funds: balance::zero<SUI>(),
 
@@ -605,11 +604,6 @@ public fun destroy_empty_for_testing(
     router: RevenueRouter,
 ) {
     assert!(
-        balance::value(&router.lp_reward_funds) == 0,
-        E_ACCOUNTING_INVARIANT,
-    );
-
-    assert!(
         balance::value(
             &router.reserve_operation_funds,
         ) == 0,
@@ -632,7 +626,6 @@ public fun destroy_empty_for_testing(
         reserve_operation_bps: _,
         dao_bps: _,
 
-        lp_reward_funds,
         reserve_operation_funds,
         dao_funds,
 
@@ -647,7 +640,6 @@ public fun destroy_empty_for_testing(
         last_routing_epoch: _,
     } = router;
 
-    balance::destroy_zero(lp_reward_funds);
     balance::destroy_zero(reserve_operation_funds);
     balance::destroy_zero(dao_funds);
 
@@ -666,13 +658,7 @@ public fun drain_all_for_testing(
 ): (
     coin::Coin<SUI>,
     coin::Coin<SUI>,
-    coin::Coin<SUI>,
 ) {
-    let lp_rewards =
-        balance::withdraw_all(
-            &mut router.lp_reward_funds,
-        );
-
     let reserve_operations =
         balance::withdraw_all(
             &mut router.reserve_operation_funds,
@@ -684,7 +670,6 @@ public fun drain_all_for_testing(
         );
 
     (
-        coin::from_balance(lp_rewards, ctx),
         coin::from_balance(
             reserve_operations,
             ctx,
