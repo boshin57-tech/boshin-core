@@ -546,3 +546,70 @@ public fun custodian_is_active(
 ): bool {
     custodian_cap.active
 }
+
+/// ================================================================
+/// Test-only reserve construction and destruction
+/// ================================================================
+
+#[test_only]
+public fun new_reserve_for_testing(
+    custodian: address,
+    gross_weight_mg: u64,
+    purity_bps: u64,
+    ctx: &mut TxContext,
+): GoldReserve {
+    assert!(gross_weight_mg > 0, E_ZERO_WEIGHT);
+
+    assert!(
+        purity_bps > 0 && purity_bps <= MAX_PURITY_BPS,
+        E_INVALID_PURITY,
+    );
+
+    GoldReserve {
+        id: object::new(ctx),
+        sequence: 1,
+        custodian,
+        vault_id: b"TEST-VAULT",
+        bar_reference: b"TEST-BAR",
+        gross_weight_mg,
+        allocated_weight_mg: gross_weight_mg,
+        available_weight_mg: 0,
+        purity_bps,
+        audit_hash: b"TEST-AUDIT",
+        last_audit_epoch: tx_context::epoch(ctx),
+        status: STATUS_ACTIVE,
+        created_at_epoch: tx_context::epoch(ctx),
+    }
+}
+
+#[test_only]
+public fun destroy_reserve_for_testing(
+    reserve: GoldReserve,
+) {
+    let GoldReserve {
+        id,
+        sequence: _,
+        custodian: _,
+        vault_id: _,
+        bar_reference: _,
+        gross_weight_mg: _,
+        allocated_weight_mg: _,
+        available_weight_mg: _,
+        purity_bps: _,
+        audit_hash: _,
+        last_audit_epoch: _,
+        status: _,
+        created_at_epoch: _,
+    } = reserve;
+
+    object::delete(id);
+}
+
+#[test_only]
+public fun suspend_for_testing(
+    reserve: &mut GoldReserve,
+) {
+    reserve.status = STATUS_SUSPENDED;
+}
+
+// TOBMATE_GOLD_MARKETPLACE_RESERVE_TEST_HELPERS

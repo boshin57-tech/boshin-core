@@ -1268,11 +1268,12 @@ public fun registry_has_active_position_for_testing(
 
 #[test_only]
 public fun destroy_record_for_testing(
+    registry: &mut DualOwnershipRegistry,
     record: DualOwnershipRecord,
 ) {
     let DualOwnershipRecord {
         id,
-        backing_position_id: _,
+        backing_position_id,
         reserve_id: _,
         gold_nft_id: _,
         original_investor: _,
@@ -1287,6 +1288,28 @@ public fun destroy_record_for_testing(
         created_at_epoch: _,
         updated_at_epoch: _,
     } = record;
+
+    if (
+        table::contains(
+            &registry.active_record_by_position,
+            backing_position_id,
+        )
+    ) {
+        let record_id = table::remove(
+            &mut registry.active_record_by_position,
+            backing_position_id,
+        );
+
+        assert!(
+            record_id == object::uid_to_inner(&id),
+            9002,
+        );
+
+        if (registry.total_active > 0) {
+            registry.total_active =
+                registry.total_active - 1;
+        };
+    };
 
     object::delete(id);
 }
@@ -1318,4 +1341,66 @@ public fun destroy_registry_for_testing(
 
     table::destroy_empty(active_record_by_position);
     object::delete(id);
+}
+
+/// ================================================================
+/// Marketplace and integration read API
+/// ================================================================
+
+public fun record_id(record: &DualOwnershipRecord): ID {
+    object::id(record)
+}
+
+public fun backing_position_id(
+    record: &DualOwnershipRecord,
+): ID {
+    record.backing_position_id
+}
+
+public fun reserve_id(
+    record: &DualOwnershipRecord,
+): ID {
+    record.reserve_id
+}
+
+public fun gold_nft_id(
+    record: &DualOwnershipRecord,
+): ID {
+    record.gold_nft_id
+}
+
+public fun original_investor(
+    record: &DualOwnershipRecord,
+): address {
+    record.original_investor
+}
+
+public fun principal_owner(
+    record: &DualOwnershipRecord,
+): address {
+    record.principal_owner
+}
+
+public fun collectible_owner(
+    record: &DualOwnershipRecord,
+): address {
+    record.collectible_owner
+}
+
+public fun is_frozen(
+    record: &DualOwnershipRecord,
+): bool {
+    record.frozen
+}
+
+public fun is_active_record(
+    record: &DualOwnershipRecord,
+): bool {
+    record.status == STATUS_ACTIVE
+}
+
+public fun is_closed(
+    record: &DualOwnershipRecord,
+): bool {
+    record.status == STATUS_CLOSED
 }

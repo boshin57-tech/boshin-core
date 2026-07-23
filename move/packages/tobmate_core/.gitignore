@@ -3,3 +3,8 @@ traces/*
 .trace
 .coverage*
 Pub.*.toml
+
+# Local implementation inspection files
+gold-adapter-api.txt
+*.log
+*.bak-*

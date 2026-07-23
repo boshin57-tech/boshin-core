@@ -454,3 +454,32 @@ public fun destroy_for_testing(
     option::destroy_none(gold_nft_id);
     object::delete(id);
 }
+
+// TOBMATE_GOLD_MARKETPLACE_POSITION_TEST_HELPERS
+
+#[test_only]
+public fun destroy_linked_for_testing(
+    position: GoldBackingPosition,
+) {
+    let GoldBackingPosition {
+        id,
+        sequence: _,
+        reserve_id: _,
+        custodian: _,
+        weight_mg: _,
+        purity_bps: _,
+        gold_nft_id,
+        goldpeg_issued_units: _,
+        status: _,
+        created_at_epoch: _,
+        closed_at_epoch: _,
+    } = position;
+
+    if (option::is_some(&gold_nft_id)) {
+        let _ = option::destroy_some(gold_nft_id);
+    } else {
+        option::destroy_none(gold_nft_id);
+    };
+
+    object::delete(id);
+}

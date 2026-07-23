@@ -716,3 +716,71 @@ public fun destroy_registry_for_testing(
 
     object::delete(id);
 }
+
+/// ================================================================
+/// Package-controlled marketplace escrow
+
+/// ================================================================
+/// Package-controlled marketplace object escrow
+/// ================================================================
+
+/// Transfers an active GoldNFT to the address of a marketplace listing.
+///
+/// The destination must be the ID-derived address of the newly created
+/// listing object. The NFT remains an owned child object and never
+/// becomes a shared object.
+public(package) fun transfer_to_marketplace_escrow(
+    nft: GoldNFT,
+    listing_address: address,
+) {
+    assert!(listing_address != @0x0, E_INVALID_RECIPIENT);
+    assert!(nft.status == STATUS_ACTIVE, E_NFT_NOT_ACTIVE);
+    assert!(!nft.frozen, E_NFT_FROZEN);
+
+    transfer::transfer(nft, listing_address);
+}
+
+/// Receives a GoldNFT owned by a marketplace listing.
+///
+/// GoldNFT has `key` but intentionally lacks `store`, so receiving must
+/// occur through the GoldNFT defining module.
+public(package) fun receive_from_marketplace_escrow(
+    listing_uid: &mut UID,
+    receiving: transfer::Receiving<GoldNFT>,
+): GoldNFT {
+    transfer::receive(listing_uid, receiving)
+}
+
+// TOBMATE_GOLD_MARKETPLACE_NFT_TEST_HELPERS
+
+#[test_only]
+public fun freeze_for_testing(
+    nft: &mut GoldNFT,
+) {
+    nft.frozen = true;
+}
+
+#[test_only]
+public fun destroy_nft_for_testing(
+    nft: GoldNFT,
+) {
+    let GoldNFT {
+        id,
+        serial_number: _,
+        backing_position_id: _,
+        reserve_id: _,
+        weight_mg: _,
+        purity_bps: _,
+        name: _,
+        description: _,
+        media_url: _,
+        metadata_hash: _,
+        issuer: _,
+        status: _,
+        frozen: _,
+        minted_at_epoch: _,
+        updated_at_epoch: _,
+    } = nft;
+
+    object::delete(id);
+}

@@ -342,7 +342,10 @@ fun successful_atomic_burn_closes_all_linked_state() {
         &dual_registry,
     );
 
-    dual_ownership::destroy_record_for_testing(record);
+    dual_ownership::destroy_record_for_testing(
+        &mut dual_registry,
+        record,
+    );
     dual_ownership::destroy_registry_for_testing(
         dual_registry,
     );
