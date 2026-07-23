@@ -13,6 +13,10 @@ use tobmate_core::fee_vault::{
     Self as fee_vault,
 };
 
+use tobmate_core::insurance_fund::{
+    Self as insurance_fund,
+};
+
 use tobmate_core::revenue_router::{
     Self as revenue_router,
 };
@@ -249,6 +253,11 @@ fun paused_revenue_router_blocks_routing() {
             test_scenario::ctx(&mut scenario),
         );
 
+    let mut insurance_fund =
+        insurance_fund::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
     let mut router =
         revenue_router::new_for_testing(
             test_scenario::ctx(&mut scenario),
@@ -266,6 +275,7 @@ fun paused_revenue_router_blocks_routing() {
         &access,
         &mut vault,
         &mut protocol_treasury,
+        &mut insurance_fund,
         &mut router,
         test_scenario::ctx(&mut scenario),
     );
@@ -305,6 +315,11 @@ fun pending_fees_are_routed_without_value_loss() {
             test_scenario::ctx(&mut scenario),
         );
 
+    let mut insurance_fund =
+        insurance_fund::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
     let mut router =
         revenue_router::new_for_testing(
             test_scenario::ctx(&mut scenario),
@@ -335,6 +350,7 @@ fun pending_fees_are_routed_without_value_loss() {
         &access,
         &mut vault,
         &mut protocol_treasury,
+        &mut insurance_fund,
         &mut router,
         test_scenario::ctx(&mut scenario),
     );
@@ -363,8 +379,9 @@ fun pending_fees_are_routed_without_value_loss() {
     );
 
     assert!(
-        revenue_router::insurance_balance(&router)
-            == EXPECTED_INSURANCE,
+        insurance_fund::fund_balance(
+            &insurance_fund,
+        ) == EXPECTED_INSURANCE,
         305,
     );
 
@@ -444,8 +461,13 @@ fun pending_fees_are_routed_without_value_loss() {
     revenue_router::assert_accounting_invariant(&router);
 
     // Remove and burn the four balances retained by RevenueRouter.
+    let insurance_coin =
+        insurance_fund::drain_for_testing(
+            &mut insurance_fund,
+            test_scenario::ctx(&mut scenario),
+        );
+
     let (
-        insurance_coin,
         lp_reward_coin,
         reserve_operation_coin,
         dao_coin,
@@ -491,6 +513,10 @@ fun pending_fees_are_routed_without_value_loss() {
     assert!(
         treasury::balance(&protocol_treasury) == 0,
         321,
+    );
+
+    insurance_fund::destroy_for_testing(
+        insurance_fund,
     );
 
     revenue_router::destroy_empty_for_testing(router);
