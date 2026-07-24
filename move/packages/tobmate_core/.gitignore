@@ -8,3 +8,4 @@ Pub.*.toml
 gold-adapter-api.txt
 *.log
 *.bak-*
+sources/*.bak-*

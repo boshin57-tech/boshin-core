@@ -566,3 +566,136 @@ public fun feed_observation_count(
     let index = find_feed_index(store, feed_id);
     vector::borrow(&store.feeds, index).observation_count
 }
+
+/* TOBMATE_ORACLE_STAGE_2B2_FEED_INTEGRATION_API */
+
+/* ============================================================
+   Stage 2B-2 package integration API
+   ============================================================ */
+
+/// Returns all observations belonging to one feed and one round.
+///
+/// The vectors use the same positional index:
+/// - publisher_ids[i]
+/// - prices[i]
+/// - confidence_bps_values[i]
+/// - timestamps_ms[i]
+///
+/// This API is package-scoped because raw observations must only be
+/// consumed by trusted Oracle protocol modules.
+public(package) fun round_observation_snapshot(
+    store: &OracleFeedStore,
+    feed_id: u64,
+    round: u64,
+): (
+    vector<u64>,
+    vector<u64>,
+    vector<u64>,
+    vector<u64>,
+) {
+    assert!(round > 0, E_INVALID_ROUND);
+
+    // Also validates that the feed exists.
+    let _feed_index = find_feed_index(store, feed_id);
+
+    let mut publisher_ids = vector[];
+    let mut prices = vector[];
+    let mut confidence_bps_values = vector[];
+    let mut timestamps_ms = vector[];
+
+    let length = vector::length(&store.observations);
+    let mut index = 0;
+
+    while (index < length) {
+        let observation =
+            vector::borrow(&store.observations, index);
+
+        if (
+            observation.feed_id == feed_id
+                && observation.round == round
+        ) {
+            vector::push_back(
+                &mut publisher_ids,
+                observation.publisher_id,
+            );
+
+            vector::push_back(
+                &mut prices,
+                observation.price,
+            );
+
+            vector::push_back(
+                &mut confidence_bps_values,
+                observation.confidence_bps,
+            );
+
+            vector::push_back(
+                &mut timestamps_ms,
+                observation.timestamp_ms,
+            );
+        };
+
+        index = index + 1;
+    };
+
+    (
+        publisher_ids,
+        prices,
+        confidence_bps_values,
+        timestamps_ms,
+    )
+}
+
+/// Publishes the final canonical result produced by the trusted
+/// Oracle aggregation integration module.
+///
+/// Raw publisher submission updates remain stored for auditability,
+/// while this function replaces the feed's latest public value with
+/// the final aggregated price.
+public(package) fun update_canonical_price(
+    store: &mut OracleFeedStore,
+    feed_id: u64,
+    round: u64,
+    canonical_price: u64,
+    confidence_bps: u64,
+    timestamp_ms: u64,
+) {
+    assert!(round > 0, E_INVALID_ROUND);
+    assert!(canonical_price > 0, E_ZERO_PRICE);
+
+    assert!(
+        confidence_bps <= MAX_CONFIDENCE_BPS,
+        E_INVALID_CONFIDENCE,
+    );
+
+    let feed_index = find_feed_index(store, feed_id);
+    let feed = vector::borrow_mut(
+        &mut store.feeds,
+        feed_index,
+    );
+
+    assert!(!feed.paused, E_FEED_PAUSED);
+
+    assert!(
+        canonical_price >= feed.min_price
+            && canonical_price <= feed.max_price,
+        E_PRICE_OUT_OF_RANGE,
+    );
+
+    assert!(
+        round >= feed.latest_round,
+        E_INVALID_ROUND,
+    );
+
+    assert!(
+        timestamp_ms >= feed.latest_timestamp_ms,
+        E_INVALID_ROUND,
+    );
+
+    feed.latest_round = round;
+    feed.latest_price = canonical_price;
+    feed.latest_confidence_bps = confidence_bps;
+    feed.latest_timestamp_ms = timestamp_ms;
+}
+
+}
