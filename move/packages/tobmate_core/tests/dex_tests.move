@@ -11,6 +11,7 @@ use sui::test_scenario;
 use tobmate_core::access_control;
 use tobmate_core::dex;
 use tobmate_core::liquidity_pool;
+use tobmate_core::oracle_price_router;
 
 const ADMIN: address = @0xA11CE;
 
@@ -1040,8 +1041,12 @@ fun expired_deadline_blocks_routed_swap() {
     abort 999
 }
 
-#[test, expected_failure(abort_code = 17)]
-fun oracle_guarded_pool_waits_for_stage5d() {
+/* ============================================================
+   Stage 5D Part 4B — Oracle Guard Tests
+   ============================================================ */
+
+#[test]
+fun oracle_guarded_x_to_y_swap_succeeds() {
     let mut scenario =
         test_scenario::begin(ADMIN);
 
@@ -1057,7 +1062,7 @@ fun oracle_guarded_pool_waits_for_stage5d() {
         );
 
     let mut pool =
-        liquidity_pool::create_pool<SUI, X_TEST>(
+        liquidity_pool::create_pool<SUI, SUI>(
             &pool_admin,
             &access,
             30,
@@ -1065,43 +1070,491 @@ fun oracle_guarded_pool_waits_for_stage5d() {
             scenario.ctx(),
         );
 
+    let initial_x =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            scenario.ctx(),
+        );
+
+    let initial_y =
+        coin::mint_for_testing<SUI>(
+            4_000_000_000,
+            scenario.ctx(),
+        );
+
+    let mut position =
+        liquidity_pool::initialize_liquidity(
+            &access,
+            &mut pool,
+            initial_x,
+            initial_y,
+            scenario.ctx(),
+        );
+
     let dex_pool_id =
-        dex::register_pool(
+        dex::register_pool<SUI, SUI>(
             &dex_admin,
             &access,
             &mut registry,
             &pool,
-            string::utf8(b"SUI"),
-            string::utf8(b"X_TEST"),
+            string::utf8(b"SUI_X"),
+            string::utf8(b"SUI_Y"),
             true,
             scenario.ctx(),
         );
 
-    let clock =
+    let mut test_clock =
         clock::create_for_testing(
             scenario.ctx(),
         );
 
+    clock::increment_for_testing(
+        &mut test_clock,
+        10_000,
+    );
+
+    let quote =
+        oracle_price_router::new_quote_for_testing(
+            dex::registry_id(&registry),
+            1,
+            1,
+            4_000_000,
+            40,
+            10_000,
+            10_000,
+            60_000,
+        );
+
     let input =
         coin::mint_for_testing<SUI>(
-            1,
+            100_000_000,
             scenario.ctx(),
         );
 
-    let (output, _receipt) =
-        dex::swap_exact_x_for_y(
-        &access,
-        &mut registry,
-        dex_pool_id,
-        &mut pool,
-        input,
-        0,
-        60_000,
-        &clock,
-        scenario.ctx(),
+    let (output, receipt) =
+        dex::swap_exact_x_for_y_with_oracle(
+            &access,
+            &mut registry,
+            dex_pool_id,
+            &mut pool,
+            input,
+            0,
+            60_000,
+            &quote,
+            1_000_000,
+            &test_clock,
+            scenario.ctx(),
         );
 
+    assert!(
+        coin::value(&output) > 0,
+        500,
+    );
+
+    assert!(
+        dex::receipt_dex_pool_id(&receipt)
+            == dex_pool_id,
+        501,
+    );
+
+    assert!(
+        dex::receipt_x_to_y(&receipt),
+        502,
+    );
+
+    assert!(
+        dex::total_swap_count(&registry) == 1,
+        503,
+    );
+
     coin::burn_for_testing(output);
+
+    let (
+        protocol_fees_x,
+        protocol_fees_y,
+    ) =
+        liquidity_pool::withdraw_protocol_fees(
+            &pool_admin,
+            &mut pool,
+            scenario.ctx(),
+        );
+
+    coin::burn_for_testing(protocol_fees_x);
+    coin::burn_for_testing(protocol_fees_y);
+
+    let remaining_x =
+        liquidity_pool::reserve_x(&pool);
+
+    let remaining_y =
+        liquidity_pool::reserve_y(&pool);
+
+    let position_liquidity =
+        liquidity_pool::position_liquidity(
+            &position,
+        );
+
+    let (
+        withdrawn_x,
+        withdrawn_y,
+    ) =
+        liquidity_pool::remove_liquidity(
+            &access,
+            &mut pool,
+            &mut position,
+            position_liquidity,
+            0,
+            0,
+            scenario.ctx(),
+        );
+
+    assert!(
+        coin::value(&withdrawn_x)
+            == remaining_x,
+        504,
+    );
+
+    assert!(
+        coin::value(&withdrawn_y)
+            == remaining_y,
+        505,
+    );
+
+    coin::burn_for_testing(withdrawn_x);
+    coin::burn_for_testing(withdrawn_y);
+
+    liquidity_pool::destroy_position_for_testing(
+        position,
+    );
+
+    clock::destroy_for_testing(test_clock);
+
+    liquidity_pool::destroy_pool_for_testing(pool);
+
+    liquidity_pool::destroy_admin_cap_for_testing(
+        pool_admin,
+    );
+
+    dex::destroy_admin_cap_for_testing(dex_admin);
+    dex::destroy_registry_for_testing(registry);
+
+    access_control::destroy_for_testing(access);
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = 22)]
+fun oracle_price_deviation_blocks_guarded_swap() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, SUI>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let initial_x =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            scenario.ctx(),
+        );
+
+    let initial_y =
+        coin::mint_for_testing<SUI>(
+            4_000_000_000,
+            scenario.ctx(),
+        );
+
+    let _position =
+        liquidity_pool::initialize_liquidity(
+            &access,
+            &mut pool,
+            initial_x,
+            initial_y,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool<SUI, SUI>(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI_X"),
+            string::utf8(b"SUI_Y"),
+            true,
+            scenario.ctx(),
+        );
+
+    let mut test_clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    clock::increment_for_testing(
+        &mut test_clock,
+        10_000,
+    );
+
+    // Pool price is 4.0 while Oracle price is 2.0.
+    // The resulting 10,000 bps deviation exceeds the
+    // registry policy of 500 bps.
+    let quote =
+        oracle_price_router::new_quote_for_testing(
+            dex::registry_id(&registry),
+            1,
+            1,
+            2_000_000,
+            40,
+            10_000,
+            10_000,
+            60_000,
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            100_000_000,
+            scenario.ctx(),
+        );
+
+    let (_output, _receipt) =
+        dex::swap_exact_x_for_y_with_oracle(
+            &access,
+            &mut registry,
+            dex_pool_id,
+            &mut pool,
+            input,
+            0,
+            60_000,
+            &quote,
+            1_000_000,
+            &test_clock,
+            scenario.ctx(),
+        );
+
+    abort 999
+}
+
+#[test, expected_failure(abort_code = 19)]
+fun oracle_circuit_breaker_blocks_guarded_swap() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, SUI>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let initial_x =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            scenario.ctx(),
+        );
+
+    let initial_y =
+        coin::mint_for_testing<SUI>(
+            4_000_000_000,
+            scenario.ctx(),
+        );
+
+    let _position =
+        liquidity_pool::initialize_liquidity(
+            &access,
+            &mut pool,
+            initial_x,
+            initial_y,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool<SUI, SUI>(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI_X"),
+            string::utf8(b"SUI_Y"),
+            true,
+            scenario.ctx(),
+        );
+
+    dex::set_oracle_circuit_breaker(
+        &dex_admin,
+        &access,
+        &mut registry,
+        true,
+    );
+
+    let mut test_clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    clock::increment_for_testing(
+        &mut test_clock,
+        10_000,
+    );
+
+    let quote =
+        oracle_price_router::new_quote_for_testing(
+            dex::registry_id(&registry),
+            1,
+            1,
+            4_000_000,
+            40,
+            10_000,
+            10_000,
+            60_000,
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            100_000_000,
+            scenario.ctx(),
+        );
+
+    let (_output, _receipt) =
+        dex::swap_exact_x_for_y_with_oracle(
+            &access,
+            &mut registry,
+            dex_pool_id,
+            &mut pool,
+            input,
+            0,
+            60_000,
+            &quote,
+            1_000_000,
+            &test_clock,
+            scenario.ctx(),
+        );
+
+    abort 999
+}
+
+#[test, expected_failure(abort_code = 24)]
+fun zero_price_scale_blocks_oracle_guarded_swap() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, SUI>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let initial_x =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            scenario.ctx(),
+        );
+
+    let initial_y =
+        coin::mint_for_testing<SUI>(
+            4_000_000_000,
+            scenario.ctx(),
+        );
+
+    let _position =
+        liquidity_pool::initialize_liquidity(
+            &access,
+            &mut pool,
+            initial_x,
+            initial_y,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool<SUI, SUI>(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI_X"),
+            string::utf8(b"SUI_Y"),
+            true,
+            scenario.ctx(),
+        );
+
+    let test_clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    let quote =
+        oracle_price_router::new_quote_for_testing(
+            dex::registry_id(&registry),
+            1,
+            1,
+            4_000_000,
+            40,
+            0,
+            0,
+            60_000,
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            100_000_000,
+            scenario.ctx(),
+        );
+
+    let (_output, _receipt) =
+        dex::swap_exact_x_for_y_with_oracle(
+            &access,
+            &mut registry,
+            dex_pool_id,
+            &mut pool,
+            input,
+            0,
+            60_000,
+            &quote,
+            0,
+            &test_clock,
+            scenario.ctx(),
+        );
 
     abort 999
 }

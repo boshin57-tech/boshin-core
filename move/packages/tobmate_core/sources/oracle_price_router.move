@@ -281,6 +281,46 @@ fun build_validated_quote(
 }
 
 /* ============================================================
+   Stage 5D — Test-only PriceQuote fixture
+   ============================================================ */
+
+/// Constructs a PriceQuote exclusively for Move unit tests.
+///
+/// Production callers must obtain quotes through get_price or
+/// get_price_by_symbol. This helper cannot be published into the
+/// production bytecode because it is marked test-only.
+#[test_only]
+public fun new_quote_for_testing(
+    registry_id: ID,
+    feed_id: u64,
+    round: u64,
+    price: u64,
+    confidence_bps: u64,
+    observed_at_ms: u64,
+    queried_at_ms: u64,
+    effective_max_age_ms: u64,
+): PriceQuote {
+    let age_ms =
+        if (queried_at_ms >= observed_at_ms) {
+            queried_at_ms - observed_at_ms
+        } else {
+            0
+        };
+
+    PriceQuote {
+        registry_id,
+        feed_id,
+        round,
+        price,
+        confidence_bps,
+        observed_at_ms,
+        queried_at_ms,
+        age_ms,
+        effective_max_age_ms,
+    }
+}
+
+/* ============================================================
    Quote getters
    ============================================================ */
 

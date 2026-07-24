@@ -14,6 +14,11 @@ use tobmate_core::liquidity_pool::{
     LiquidityPool,
 };
 
+use tobmate_core::oracle_price_router::{
+    Self,
+    PriceQuote,
+};
+
 /* ============================================================
    Constants
    ============================================================ */
@@ -39,6 +44,12 @@ const E_SWAP_DEADLINE_TOO_FAR: u64 = 15;
 const E_ZERO_SWAP_INPUT: u64 = 16;
 const E_ORACLE_GUARD_NOT_CONNECTED: u64 = 17;
 const E_SWAP_ACCOUNTING_INVARIANT: u64 = 18;
+const E_ORACLE_CIRCUIT_BREAKER_ACTIVE: u64 = 19;
+const E_ORACLE_CIRCUIT_BREAKER_STATE_UNCHANGED: u64 = 20;
+const E_INVALID_ORACLE_PRICE: u64 = 21;
+const E_ORACLE_DEVIATION_EXCEEDED: u64 = 22;
+const E_ORACLE_QUOTE_TIME_MISMATCH: u64 = 23;
+const E_INVALID_PRICE_SCALE: u64 = 24;
 
 /* ============================================================
    Core Objects
@@ -65,6 +76,7 @@ public struct DexRegistry has key {
     total_fee_collected: u64,
 
     max_oracle_deviation_bps: u64,
+    oracle_circuit_breaker_active: bool,
     default_deadline_window_ms: u64,
 
     pools: vector<DexPoolRecord>,
@@ -131,6 +143,11 @@ public struct DexDeadlinePolicyChanged has copy, drop {
     new_deadline_window_ms: u64,
 }
 
+public struct DexOracleCircuitBreakerChanged has copy, drop {
+    registry_id: ID,
+    active: bool,
+}
+
 /* ============================================================
    Registry Creation
    ============================================================ */
@@ -169,6 +186,7 @@ public fun create_registry(
         total_fee_collected: 0,
 
         max_oracle_deviation_bps,
+        oracle_circuit_breaker_active: false,
         default_deadline_window_ms,
 
         pools: vector[],
@@ -386,6 +404,28 @@ public fun set_max_oracle_deviation_bps(
     });
 }
 
+public fun set_oracle_circuit_breaker(
+    admin_cap: &DexAdminCap,
+    access: &access_control::AccessControl,
+    registry: &mut DexRegistry,
+    active: bool,
+) {
+    access_control::assert_not_paused(access);
+    assert_admin(admin_cap, registry);
+
+    assert!(
+        registry.oracle_circuit_breaker_active != active,
+        E_ORACLE_CIRCUIT_BREAKER_STATE_UNCHANGED,
+    );
+
+    registry.oracle_circuit_breaker_active = active;
+
+    event::emit(DexOracleCircuitBreakerChanged {
+        registry_id: object::id(registry),
+        active,
+    });
+}
+
 public fun set_default_deadline_window_ms(
     admin_cap: &DexAdminCap,
     access: &access_control::AccessControl,
@@ -585,6 +625,12 @@ public fun max_oracle_deviation_bps(
     registry.max_oracle_deviation_bps
 }
 
+public fun oracle_circuit_breaker_active(
+    registry: &DexRegistry,
+): bool {
+    registry.oracle_circuit_breaker_active
+}
+
 public fun default_deadline_window_ms(
     registry: &DexRegistry,
 ): u64 {
@@ -685,6 +731,278 @@ public fun basis_point_denominator(): u64 {
 
 
 /* ============================================================
+   Stage 5D — Oracle Guard Validation Engine
+   ============================================================ */
+
+/// Validates an Oracle quote against the current DEX pool state.
+///
+/// The Oracle price must represent the price of one unit of X,
+/// expressed in Y, using `price_scale` fixed-point units.
+///
+/// Example:
+/// - price_scale = 1_000_000
+/// - oracle price = 2_500_000
+/// - interpreted price = 2.5 Y per X
+public fun assert_oracle_guard<X, Y>(
+    registry: &DexRegistry,
+    dex_pool_id: u64,
+    pool: &LiquidityPool<X, Y>,
+    quote: &PriceQuote,
+    price_scale: u64,
+    clock: &Clock,
+) {
+    assert_registered_oracle_pool_route(
+        registry,
+        dex_pool_id,
+        liquidity_pool::pool_id(pool),
+    );
+
+    let index =
+        find_pool_index(registry, dex_pool_id);
+
+    let record =
+        vector::borrow(&registry.pools, index);
+
+    assert!(
+        record.oracle_guard_enabled,
+        E_ORACLE_GUARD_NOT_CONNECTED,
+    );
+
+    assert!(
+        !registry.oracle_circuit_breaker_active,
+        E_ORACLE_CIRCUIT_BREAKER_ACTIVE,
+    );
+
+    assert!(
+        price_scale > 0,
+        E_INVALID_PRICE_SCALE,
+    );
+
+    let queried_at_ms =
+        oracle_price_router::quote_queried_at_ms(quote);
+
+    let current_time_ms =
+        clock::timestamp_ms(clock);
+
+    assert!(
+        queried_at_ms == current_time_ms,
+        E_ORACLE_QUOTE_TIME_MISMATCH,
+    );
+
+    let quote_age_ms =
+        oracle_price_router::quote_age_ms(quote);
+
+    let effective_max_age_ms =
+        oracle_price_router::quote_effective_max_age_ms(
+            quote,
+        );
+
+    assert!(
+        effective_max_age_ms > 0
+            && quote_age_ms <= effective_max_age_ms,
+        E_ORACLE_QUOTE_TIME_MISMATCH,
+    );
+
+    let oracle_price =
+        oracle_price_router::quote_price(quote);
+
+    assert!(
+        oracle_price > 0,
+        E_INVALID_ORACLE_PRICE,
+    );
+
+    let spot_price =
+        calculate_pool_spot_price(
+            pool,
+            price_scale,
+        );
+
+    let deviation_bps =
+        calculate_price_deviation_bps(
+            spot_price,
+            oracle_price,
+        );
+
+    assert!(
+        deviation_bps
+            <= registry.max_oracle_deviation_bps,
+        E_ORACLE_DEVIATION_EXCEEDED,
+    );
+}
+
+/// Returns the current pool spot price of X expressed in Y.
+///
+/// The returned value uses `price_scale` fixed-point units.
+public fun calculate_pool_spot_price<X, Y>(
+    pool: &LiquidityPool<X, Y>,
+    price_scale: u64,
+): u64 {
+    assert!(
+        price_scale > 0,
+        E_INVALID_PRICE_SCALE,
+    );
+
+    let reserve_x =
+        liquidity_pool::reserve_x(pool);
+
+    let reserve_y =
+        liquidity_pool::reserve_y(pool);
+
+    assert!(
+        reserve_x > 0 && reserve_y > 0,
+        E_INVALID_ORACLE_PRICE,
+    );
+
+    let scaled_reserve_y =
+        (reserve_y as u128)
+            * (price_scale as u128);
+
+    let spot_price =
+        scaled_reserve_y / (reserve_x as u128);
+
+    assert!(
+        spot_price > 0,
+        E_INVALID_ORACLE_PRICE,
+    );
+
+    spot_price as u64
+}
+
+/// Calculates the absolute price deviation in basis points.
+///
+/// The Oracle price is used as the reference denominator.
+public fun calculate_price_deviation_bps(
+    pool_spot_price: u64,
+    oracle_price: u64,
+): u64 {
+    assert!(
+        pool_spot_price > 0 && oracle_price > 0,
+        E_INVALID_ORACLE_PRICE,
+    );
+
+    let absolute_difference =
+        if (pool_spot_price >= oracle_price) {
+            pool_spot_price - oracle_price
+        } else {
+            oracle_price - pool_spot_price
+        };
+
+    let deviation =
+        ((absolute_difference as u128)
+            * (BPS_DENOMINATOR as u128))
+            / (oracle_price as u128);
+
+    deviation as u64
+}
+
+/* ============================================================
+   Stage 5D Part 3 — Oracle Guarded Swap API
+   ============================================================ */
+
+/// Executes an exact-input X → Y swap after validating the
+/// current pool spot price against a canonical Oracle quote.
+///
+/// Oracle convention:
+/// - quote price represents one unit of X expressed in Y;
+/// - quote price and pool price use `price_scale` fixed-point
+///   precision;
+/// - Oracle validation is performed immediately before the swap.
+public fun swap_exact_x_for_y_with_oracle<X, Y>(
+    access: &access_control::AccessControl,
+    registry: &mut DexRegistry,
+    dex_pool_id: u64,
+    pool: &mut LiquidityPool<X, Y>,
+    input: Coin<X>,
+    minimum_amount_out: u64,
+    deadline_ms: u64,
+    quote: &PriceQuote,
+    price_scale: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (Coin<Y>, DexSwapReceipt) {
+    access_control::assert_not_paused(access);
+    assert_operational(registry);
+
+    assert_swap_deadline(
+        registry,
+        deadline_ms,
+        clock,
+    );
+
+    assert_oracle_guard(
+        registry,
+        dex_pool_id,
+        pool,
+        quote,
+        price_scale,
+        clock,
+    );
+
+    execute_oracle_validated_x_for_y(
+        access,
+        registry,
+        dex_pool_id,
+        pool,
+        input,
+        minimum_amount_out,
+        deadline_ms,
+        clock,
+        ctx,
+    )
+}
+
+/// Executes an exact-input Y → X swap after validating the
+/// current pool spot price against a canonical Oracle quote.
+///
+/// The same X/Y Oracle price convention is used for both swap
+/// directions. The quote therefore continues to represent the
+/// price of one unit of X expressed in Y.
+public fun swap_exact_y_for_x_with_oracle<X, Y>(
+    access: &access_control::AccessControl,
+    registry: &mut DexRegistry,
+    dex_pool_id: u64,
+    pool: &mut LiquidityPool<X, Y>,
+    input: Coin<Y>,
+    minimum_amount_out: u64,
+    deadline_ms: u64,
+    quote: &PriceQuote,
+    price_scale: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (Coin<X>, DexSwapReceipt) {
+    access_control::assert_not_paused(access);
+    assert_operational(registry);
+
+    assert_swap_deadline(
+        registry,
+        deadline_ms,
+        clock,
+    );
+
+    assert_oracle_guard(
+        registry,
+        dex_pool_id,
+        pool,
+        quote,
+        price_scale,
+        clock,
+    );
+
+    swap_exact_y_for_x(
+        access,
+        registry,
+        dex_pool_id,
+        pool,
+        input,
+        minimum_amount_out,
+        deadline_ms,
+        clock,
+        ctx,
+    )
+}
+
+
+/* ============================================================
    Stage 5B — Swap Routing
    ============================================================ */
 
@@ -727,6 +1045,130 @@ public struct DexSwapExecuted has copy, drop {
 /* ------------------------------------------------------------
    X → Y routed swap
    ------------------------------------------------------------ */
+
+
+/// Executes X → Y after the Oracle-aware route and price
+/// validations have already succeeded.
+///
+/// This private executor skips only the ordinary route validator,
+/// which intentionally rejects Oracle Guard-enabled pools. All
+/// swap accounting, pool mutation, receipt creation and event
+/// emission remain identical to the normal X → Y swap.
+fun execute_oracle_validated_x_for_y<X, Y>(
+    access: &access_control::AccessControl,
+    registry: &mut DexRegistry,
+    dex_pool_id: u64,
+    pool: &mut LiquidityPool<X, Y>,
+    input: Coin<X>,
+    minimum_amount_out: u64,
+    deadline_ms: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (Coin<Y>, DexSwapReceipt) {
+    access_control::assert_not_paused(access);
+    assert_operational(registry);
+
+
+    assert!(
+        !liquidity_pool::is_paused(pool),
+        E_UNDERLYING_POOL_PAUSED,
+    );
+
+    assert_swap_deadline(
+        registry,
+        deadline_ms,
+        clock,
+    );
+
+    let amount_in = coin::value(&input);
+
+    assert!(
+        amount_in > 0,
+        E_ZERO_SWAP_INPUT,
+    );
+
+    let trading_fee =
+        calculate_trading_fee(
+            amount_in,
+            liquidity_pool::trading_fee_bps(pool),
+        );
+
+    let protocol_fee_before =
+        liquidity_pool::protocol_fees_x(pool);
+
+    let output =
+        liquidity_pool::swap_exact_x_for_y(
+            access,
+            pool,
+            input,
+            minimum_amount_out,
+            ctx,
+        );
+
+    let amount_out =
+        coin::value(&output);
+
+    let protocol_fee_after =
+        liquidity_pool::protocol_fees_x(pool);
+
+    assert!(
+        protocol_fee_after >= protocol_fee_before,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+
+    let protocol_fee =
+        protocol_fee_after - protocol_fee_before;
+
+    let executed_at_ms =
+        clock::timestamp_ms(clock);
+
+    record_swap(
+        registry,
+        amount_in,
+        amount_out,
+        trading_fee,
+    );
+
+    let receipt = DexSwapReceipt {
+        registry_id: object::id(registry),
+        dex_pool_id,
+        underlying_pool_id:
+            liquidity_pool::pool_id(pool),
+
+        trader: tx_context::sender(ctx),
+        x_to_y: true,
+
+        amount_in,
+        amount_out,
+        minimum_amount_out,
+
+        trading_fee,
+        protocol_fee,
+
+        executed_at_ms,
+        deadline_ms,
+    };
+
+    event::emit(DexSwapExecuted {
+        registry_id: object::id(registry),
+        dex_pool_id,
+        underlying_pool_id:
+            liquidity_pool::pool_id(pool),
+
+        trader: tx_context::sender(ctx),
+        x_to_y: true,
+
+        amount_in,
+        amount_out,
+
+        trading_fee,
+        protocol_fee,
+
+        executed_at_ms,
+    });
+
+    (output, receipt)
+}
 
 public fun swap_exact_x_for_y<X, Y>(
     access: &access_control::AccessControl,
@@ -1008,6 +1450,41 @@ fun assert_registered_pool_route(
     );
 }
 
+
+/// Validates the registered DEX-to-pool route for an Oracle
+/// guarded swap.
+///
+/// Unlike `assert_registered_pool_route`, this validator permits
+/// a pool whose Oracle Guard is enabled. The Oracle Guard state,
+/// circuit breaker, quote freshness, price scale and deviation
+/// are validated immediately afterward by `assert_oracle_guard`.
+fun assert_registered_oracle_pool_route(
+    registry: &DexRegistry,
+    dex_pool_id: u64,
+    supplied_pool_object_id: ID,
+) {
+    let index =
+        find_pool_index(registry, dex_pool_id);
+
+    let record =
+        vector::borrow(&registry.pools, index);
+
+    assert!(
+        record.active,
+        E_POOL_INACTIVE,
+    );
+
+    assert!(
+        record.pool_object_id
+            == supplied_pool_object_id,
+        E_POOL_OBJECT_MISMATCH,
+    );
+
+    // Stage 5D will replace this temporary rejection
+    // with canonical Oracle Price Router validation.
+}
+
+
 fun assert_swap_deadline(
     registry: &DexRegistry,
     deadline_ms: u64,
@@ -1207,6 +1684,7 @@ public fun destroy_registry_for_testing(
         total_fee_collected: _,
 
         max_oracle_deviation_bps: _,
+        oracle_circuit_breaker_active: _,
         default_deadline_window_ms: _,
 
         pools: _,
