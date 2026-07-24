@@ -29,3 +29,8 @@ deployments/**/publish-result.json
 .idea/
 *.swp
 .DS_Store
+
+# Local Move development backups
+move/packages/*/backups/
+*.move.backup-*
+*.move.backup-duplicate

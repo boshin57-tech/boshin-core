@@ -74,6 +74,11 @@ public struct FeedPolicy has copy, drop, store {
     latest_price: u64,
     latest_confidence_bps: u64,
     latest_timestamp_ms: u64,
+
+    /// True only when the latest public price was published by the
+    /// trusted aggregation integration module.
+    canonical_ready: bool,
+
     observation_count: u64,
 }
 
@@ -165,6 +170,7 @@ public fun register_feed(
             latest_price: 0,
             latest_confidence_bps: 0,
             latest_timestamp_ms: 0,
+            canonical_ready: false,
             observation_count: 0,
         },
     );
@@ -330,6 +336,14 @@ public fun submit_observation(
             feed.latest_price = price;
             feed.latest_confidence_bps = confidence_bps;
             feed.latest_timestamp_ms = observed_at_ms;
+
+            /*
+               A direct publisher observation is not a canonical
+               aggregated price. Any new accepted observation makes
+               the latest feed value unavailable to protocol consumers
+               until trusted aggregation republishes the round.
+            */
+            feed.canonical_ready = false;
         };
 
         feed.observation_count =
@@ -378,7 +392,7 @@ fun publisher_cap_id(
     tobmate_core::oracle::publisher_cap_id(publisher_cap)
 }
 
-fun feed_symbol_exists(
+public(package) fun feed_symbol_exists(
     store: &OracleFeedStore,
     symbol: &String,
 ): bool {
@@ -696,6 +710,45 @@ public(package) fun update_canonical_price(
     feed.latest_price = canonical_price;
     feed.latest_confidence_bps = confidence_bps;
     feed.latest_timestamp_ms = timestamp_ms;
+    feed.canonical_ready = true;
+}
+
+/* ============================================================
+   Stage 2D Price Router integration API
+   ============================================================ */
+
+/// Returns whether the latest public feed value was produced by
+/// trusted canonical aggregation.
+public(package) fun canonical_price_is_ready(
+    store: &OracleFeedStore,
+    feed_id: u64,
+): bool {
+    let index = find_feed_index(store, feed_id);
+    vector::borrow(&store.feeds, index).canonical_ready
+}
+
+/// Resolves a registered feed symbol to its numeric feed ID.
+///
+/// The caller should use feed_symbol_exists first when it needs its
+/// own module-specific symbol-not-found abort code.
+public(package) fun feed_id_by_symbol(
+    store: &OracleFeedStore,
+    symbol: &String,
+): u64 {
+    let length = vector::length(&store.feeds);
+    let mut index = 0;
+
+    while (index < length) {
+        let feed = vector::borrow(&store.feeds, index);
+
+        if (&feed.symbol == symbol) {
+            return feed.feed_id
+        };
+
+        index = index + 1;
+    };
+
+    abort E_FEED_NOT_FOUND
 }
 
 }
