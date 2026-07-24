@@ -1928,3 +1928,309 @@ public fun destroy_for_testing(
 
     object::delete(id);
 }
+
+/* ============================================================
+   Stage 6D-2
+   Liquidation Execution Support
+   ============================================================ */
+
+public fun seize_collateral_for_liquidation(
+    _admin_cap: &CollateralManagerAdminCap,
+    access: &AccessControl,
+    manager: &mut CollateralManager,
+    position_id: u64,
+    seize_amount: u64,
+    quote: &PriceQuote,
+    ctx: &mut TxContext,
+): u64 {
+    assert_operational(
+        access,
+        manager,
+    );
+
+    assert!(
+        seize_amount > 0,
+        E_ZERO_COLLATERAL,
+    );
+
+    assert_quote_matches_policy(
+        manager,
+        position_id,
+        quote,
+    );
+
+    assert!(
+        is_position_liquidatable_with_quote(
+            manager,
+            position_id,
+            quote,
+        ),
+        E_DEBT_EXCEEDS_CAPACITY,
+    );
+
+    let position_index =
+        find_position_index(
+            manager,
+            position_id,
+        );
+
+    let policy_id;
+    let collateral_before;
+
+    {
+        let position =
+            vector::borrow(
+                &manager.positions,
+                position_index,
+            );
+
+        assert!(
+            position.active,
+            E_POSITION_INACTIVE,
+        );
+
+        assert!(
+            position.collateral_units
+                >= seize_amount,
+            E_WITHDRAW_ABOVE_COLLATERAL,
+        );
+
+        policy_id =
+            position.policy_id;
+
+        collateral_before =
+            position.collateral_units;
+    };
+
+    {
+        let position =
+            vector::borrow_mut(
+                &mut manager.positions,
+                position_index,
+            );
+
+        position.collateral_units =
+            position.collateral_units
+                - seize_amount;
+
+        position.updated_epoch =
+            tx_context::epoch(ctx);
+    };
+
+    let policy_index =
+        find_policy_index(
+            manager,
+            policy_id,
+        );
+
+    {
+        let policy =
+            vector::borrow_mut(
+                &mut manager.policies,
+                policy_index,
+            );
+
+        policy.total_collateral_units =
+            policy.total_collateral_units
+                - seize_amount;
+    };
+
+    manager.total_collateral_units =
+        manager.total_collateral_units
+            - seize_amount;
+
+    let collateral_after =
+        collateral_before - seize_amount;
+
+    event::emit(CollateralWithdrawn {
+        manager_id:
+            object::uid_to_inner(&manager.id),
+
+        position_id,
+
+        amount:
+            seize_amount,
+
+        collateral_after,
+    });
+
+    collateral_after
+}
+
+/* ============================================================
+   Stage 6D-2
+   Liquidation Execution Read API
+   ============================================================ */
+
+public fun policy_asset_decimals(
+    manager: &CollateralManager,
+    policy_id: u64,
+): u8 {
+    let index =
+        find_policy_index(
+            manager,
+            policy_id,
+        );
+
+    vector::borrow(
+        &manager.policies,
+        index,
+    ).asset_decimals
+}
+
+public fun liquidation_health_factor_bps_with_quote(
+    manager: &CollateralManager,
+    position_id: u64,
+    quote: &PriceQuote,
+): u64 {
+    assert_quote_matches_policy(
+        manager,
+        position_id,
+        quote,
+    );
+
+    let hf =
+        position_health_factor_with_quote(
+            manager,
+            position_id,
+            quote,
+        );
+
+    hf * 10_000 / HEALTH_FACTOR_SCALE
+}
+
+/* ============================================================
+   Stage 6D-2
+   Atomic Liquidation Collateral Mutation
+
+   IMPORTANT:
+   Liquidation eligibility must already have been validated
+   against the PRE-LIQUIDATION state by the orchestrating
+   liquidation executor.
+
+   This function intentionally does NOT re-evaluate
+   liquidatability after debt repayment because the repayment
+   may make the position healthy before collateral seizure.
+   ============================================================ */
+
+public(package) fun seize_collateral_after_liquidation_validation(
+    _admin_cap: &CollateralManagerAdminCap,
+    access: &AccessControl,
+    manager: &mut CollateralManager,
+    position_id: u64,
+    seize_amount: u64,
+    quote: &PriceQuote,
+    ctx: &mut TxContext,
+): u64 {
+    assert_operational(
+        access,
+        manager,
+    );
+
+    assert!(
+        seize_amount > 0,
+        E_ZERO_COLLATERAL,
+    );
+
+    /*
+       Quote-policy binding is still enforced.
+
+       Only the second liquidatability check is intentionally
+       omitted because eligibility belongs to PRE-STATE.
+    */
+    assert_quote_matches_policy(
+        manager,
+        position_id,
+        quote,
+    );
+
+    let position_index =
+        find_position_index(
+            manager,
+            position_id,
+        );
+
+    let policy_id;
+    let collateral_before;
+
+    {
+        let position =
+            vector::borrow(
+                &manager.positions,
+                position_index,
+            );
+
+        assert!(
+            position.active,
+            E_POSITION_INACTIVE,
+        );
+
+        assert!(
+            position.collateral_units
+                >= seize_amount,
+            E_WITHDRAW_ABOVE_COLLATERAL,
+        );
+
+        policy_id =
+            position.policy_id;
+
+        collateral_before =
+            position.collateral_units;
+    };
+
+    {
+        let position =
+            vector::borrow_mut(
+                &mut manager.positions,
+                position_index,
+            );
+
+        position.collateral_units =
+            position.collateral_units
+                - seize_amount;
+
+        position.updated_epoch =
+            tx_context::epoch(ctx);
+    };
+
+    let policy_index =
+        find_policy_index(
+            manager,
+            policy_id,
+        );
+
+    {
+        let policy =
+            vector::borrow_mut(
+                &mut manager.policies,
+                policy_index,
+            );
+
+        policy.total_collateral_units =
+            policy.total_collateral_units
+                - seize_amount;
+    };
+
+    manager.total_collateral_units =
+        manager.total_collateral_units
+            - seize_amount;
+
+    let collateral_after =
+        collateral_before - seize_amount;
+
+    event::emit(CollateralWithdrawn {
+        manager_id:
+            object::uid_to_inner(
+                &manager.id,
+            ),
+
+        position_id,
+
+        amount:
+            seize_amount,
+
+        collateral_after,
+    });
+
+    collateral_after
+}

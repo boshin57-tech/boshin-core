@@ -34,6 +34,8 @@ const E_SUPPLY_POSITION_NOT_FOUND: u64 = 6;
 const E_BORROW_POSITION_NOT_FOUND: u64 = 7;
 const E_NOT_POSITION_OWNER: u64 = 8;
 const E_REPAY_ABOVE_DEBT: u64 = 9;
+
+const E_POSITION_NOT_LIQUIDATABLE: u64 = 1001;
 const E_WITHDRAW_ABOVE_SUPPLY: u64 = 10;
 const E_INVALID_RESERVE_FACTOR: u64 = 11;
 const E_INVALID_BORROW_RATE: u64 = 12;
@@ -1588,4 +1590,147 @@ public fun destroy_empty_for_testing(
     );
 
     object::delete(id);
+}
+
+/* ============================================================
+   Stage 6D-2
+   Liquidation Repayment Support
+   ============================================================ */
+
+public fun repay_for_liquidation(
+    collateral_admin_cap: &CollateralManagerAdminCap,
+    access: &AccessControl,
+    pool: &mut LendingPool,
+    collateral_manager: &mut CollateralManager,
+    borrow_position_id: u64,
+    payment: Coin<SUI>,
+    quote: &PriceQuote,
+    ctx: &mut TxContext,
+): u64 {
+    assert_operational(
+        access,
+        pool,
+    );
+
+    let amount =
+        coin::value(&payment);
+
+    assert!(
+        amount > 0,
+        E_ZERO_AMOUNT,
+    );
+
+    let index =
+        find_borrow_position_index(
+            pool,
+            borrow_position_id,
+        );
+
+    let collateral_position_id;
+    let current_principal;
+
+    {
+        let position =
+            vector::borrow(
+                &pool.borrow_positions,
+                index,
+            );
+
+        assert!(
+            position.active,
+            E_BORROW_POSITION_NOT_FOUND,
+        );
+
+        collateral_position_id =
+            position.collateral_position_id;
+
+        current_principal =
+            position.principal_debt;
+    };
+
+    /* --------------------------------------------------------
+       The linked collateral position must actually be
+       liquidatable under the supplied canonical quote.
+       -------------------------------------------------------- */
+
+    assert!(
+        collateral_manager::is_position_liquidatable_with_quote(
+            collateral_manager,
+            collateral_position_id,
+            quote,
+        ),
+        E_POSITION_NOT_LIQUIDATABLE,
+    );
+
+    assert!(
+        amount <= current_principal,
+        E_REPAY_ABOVE_DEBT,
+    );
+
+    /* --------------------------------------------------------
+       Repayment enters LendingPool liquidity.
+       -------------------------------------------------------- */
+
+    balance::join(
+        &mut pool.liquidity,
+        coin::into_balance(payment),
+    );
+
+    let remaining_principal =
+        current_principal - amount;
+
+    {
+        let position =
+            vector::borrow_mut(
+                &mut pool.borrow_positions,
+                index,
+            );
+
+        position.principal_debt =
+            remaining_principal;
+
+        position.updated_epoch =
+            tx_context::epoch(ctx);
+
+        if (
+            remaining_principal == 0
+            && position.accrued_interest == 0
+        ) {
+            position.active = false;
+        };
+    };
+
+    pool.total_repaid_principal =
+        pool.total_repaid_principal + amount;
+
+    /* --------------------------------------------------------
+       Keep CollateralManager debt accounting synchronized.
+       -------------------------------------------------------- */
+
+    collateral_manager::set_position_debt_value_with_quote(
+        collateral_admin_cap,
+        access,
+        collateral_manager,
+        collateral_position_id,
+        remaining_principal,
+        quote,
+        ctx,
+    );
+
+    event::emit(PrincipalRepaid {
+        pool_id:
+            object::uid_to_inner(&pool.id),
+
+        borrow_position_id,
+
+        payer:
+            tx_context::sender(ctx),
+
+        amount,
+
+        debt_after:
+            remaining_principal,
+    });
+
+    remaining_principal
 }
