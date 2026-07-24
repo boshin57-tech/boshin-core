@@ -1410,7 +1410,8 @@ public fun assert_accounting_invariant(
 
     let expected_assets =
         net_supplied_principal(pool)
-            + pool.total_borrow_interest_paid;
+            + pool.total_borrow_interest_paid
+            + pool.total_bad_debt_recovered;
 
     let actual_assets =
         balance::value(&pool.liquidity)
