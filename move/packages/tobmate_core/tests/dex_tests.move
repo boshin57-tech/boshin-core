@@ -3,6 +3,9 @@ module tobmate_core::dex_tests;
 
 use std::string;
 
+use sui::clock;
+use sui::coin;
+use sui::sui::SUI;
 use sui::test_scenario;
 
 use tobmate_core::access_control;
@@ -515,6 +518,590 @@ fun non_increasing_version_aborts() {
         &mut registry,
         1,
     );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Stage 5B — Swap Routing Tests
+   ============================================================ */
+
+#[test]
+fun x_to_y_routed_swap_succeeds() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, X_TEST>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let initial_x =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            scenario.ctx(),
+        );
+
+    let initial_y =
+        coin::mint_for_testing<X_TEST>(
+            4_000_000_000,
+            scenario.ctx(),
+        );
+
+    let mut position =
+        liquidity_pool::initialize_liquidity(
+            &access,
+            &mut pool,
+            initial_x,
+            initial_y,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI"),
+            string::utf8(b"X_TEST"),
+            false,
+            scenario.ctx(),
+        );
+
+    let clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            100_000_000,
+            scenario.ctx(),
+        );
+
+    let (output, receipt) =
+        dex::swap_exact_x_for_y(
+            &access,
+            &mut registry,
+            dex_pool_id,
+            &mut pool,
+            input,
+            362_644_357,
+            60_000,
+            &clock,
+            scenario.ctx(),
+        );
+
+    assert!(
+        coin::value(&output) == 362_644_357,
+        600,
+    );
+
+    assert!(
+        dex::total_swap_count(&registry) == 1,
+        601,
+    );
+
+    assert!(
+        dex::total_input_volume(&registry)
+            == 100_000_000,
+        602,
+    );
+
+    assert!(
+        dex::total_output_volume(&registry)
+            == 362_644_357,
+        603,
+    );
+
+    assert!(
+        dex::total_fee_collected(&registry)
+            == 300_000,
+        604,
+    );
+
+    assert!(
+        dex::receipt_amount_in(&receipt)
+            == 100_000_000,
+        605,
+    );
+
+    assert!(
+        dex::receipt_amount_out(&receipt)
+            == 362_644_357,
+        606,
+    );
+
+    assert!(
+        dex::receipt_trading_fee(&receipt)
+            == 300_000,
+        607,
+    );
+
+    assert!(
+        dex::receipt_protocol_fee(&receipt)
+            == 60_000,
+        608,
+    );
+
+    assert!(
+        dex::receipt_x_to_y(&receipt),
+        609,
+    );
+
+    coin::burn_for_testing(output);
+
+    let remaining_liquidity =
+        liquidity_pool::position_liquidity(
+            &position,
+        );
+
+    let (
+        withdrawn_x,
+        withdrawn_y,
+    ) = liquidity_pool::remove_liquidity(
+        &access,
+        &mut pool,
+        &mut position,
+        remaining_liquidity,
+        0,
+        0,
+        scenario.ctx(),
+    );
+
+    coin::burn_for_testing(withdrawn_x);
+    coin::burn_for_testing(withdrawn_y);
+
+    let (
+        protocol_fees_x,
+        protocol_fees_y,
+    ) = liquidity_pool::withdraw_protocol_fees(
+        &pool_admin,
+        &mut pool,
+        scenario.ctx(),
+    );
+
+    coin::burn_for_testing(protocol_fees_x);
+    coin::burn_for_testing(protocol_fees_y);
+
+    liquidity_pool::destroy_position_for_testing(
+        position,
+    );
+
+    liquidity_pool::destroy_pool_for_testing(pool);
+
+    liquidity_pool::destroy_admin_cap_for_testing(
+        pool_admin,
+    );
+
+    clock::destroy_for_testing(clock);
+
+    dex::destroy_admin_cap_for_testing(dex_admin);
+    dex::destroy_registry_for_testing(registry);
+    access_control::destroy_for_testing(access);
+
+    scenario.end();
+}
+
+#[test]
+fun y_to_x_routed_swap_succeeds() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<X_TEST, SUI>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let initial_x =
+        coin::mint_for_testing<X_TEST>(
+            1_000_000_000,
+            scenario.ctx(),
+        );
+
+    let initial_y =
+        coin::mint_for_testing<SUI>(
+            4_000_000_000,
+            scenario.ctx(),
+        );
+
+    let mut position =
+        liquidity_pool::initialize_liquidity(
+            &access,
+            &mut pool,
+            initial_x,
+            initial_y,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"X_TEST"),
+            string::utf8(b"SUI"),
+            false,
+            scenario.ctx(),
+        );
+
+    let clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            400_000_000,
+            scenario.ctx(),
+        );
+
+    let (output, receipt) =
+        dex::swap_exact_y_for_x(
+            &access,
+            &mut registry,
+            dex_pool_id,
+            &mut pool,
+            input,
+            90_661_089,
+            60_000,
+            &clock,
+            scenario.ctx(),
+        );
+
+    assert!(
+        coin::value(&output) == 90_661_089,
+        620,
+    );
+
+    assert!(
+        dex::total_swap_count(&registry) == 1,
+        621,
+    );
+
+    assert!(
+        dex::total_input_volume(&registry)
+            == 400_000_000,
+        622,
+    );
+
+    assert!(
+        dex::total_output_volume(&registry)
+            == 90_661_089,
+        623,
+    );
+
+    assert!(
+        dex::total_fee_collected(&registry)
+            == 1_200_000,
+        624,
+    );
+
+    assert!(
+        !dex::receipt_x_to_y(&receipt),
+        625,
+    );
+
+    assert!(
+        dex::receipt_protocol_fee(&receipt)
+            == 240_000,
+        626,
+    );
+
+    coin::burn_for_testing(output);
+
+    let remaining_liquidity =
+        liquidity_pool::position_liquidity(
+            &position,
+        );
+
+    let (
+        withdrawn_x,
+        withdrawn_y,
+    ) = liquidity_pool::remove_liquidity(
+        &access,
+        &mut pool,
+        &mut position,
+        remaining_liquidity,
+        0,
+        0,
+        scenario.ctx(),
+    );
+
+    coin::burn_for_testing(withdrawn_x);
+    coin::burn_for_testing(withdrawn_y);
+
+    let (
+        protocol_fees_x,
+        protocol_fees_y,
+    ) = liquidity_pool::withdraw_protocol_fees(
+        &pool_admin,
+        &mut pool,
+        scenario.ctx(),
+    );
+
+    coin::burn_for_testing(protocol_fees_x);
+    coin::burn_for_testing(protocol_fees_y);
+
+    liquidity_pool::destroy_position_for_testing(
+        position,
+    );
+
+    liquidity_pool::destroy_pool_for_testing(pool);
+
+    liquidity_pool::destroy_admin_cap_for_testing(
+        pool_admin,
+    );
+
+    clock::destroy_for_testing(clock);
+
+    dex::destroy_admin_cap_for_testing(dex_admin);
+    dex::destroy_registry_for_testing(registry);
+    access_control::destroy_for_testing(access);
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = 12)]
+fun inactive_pool_blocks_routed_swap() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, X_TEST>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI"),
+            string::utf8(b"X_TEST"),
+            false,
+            scenario.ctx(),
+        );
+
+    dex::set_pool_active(
+        &dex_admin,
+        &access,
+        &mut registry,
+        dex_pool_id,
+        false,
+    );
+
+    let clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            1,
+            scenario.ctx(),
+        );
+
+    let (output, _receipt) =
+        dex::swap_exact_x_for_y(
+        &access,
+        &mut registry,
+        dex_pool_id,
+        &mut pool,
+        input,
+        0,
+        60_000,
+        &clock,
+        scenario.ctx(),
+        );
+
+    coin::burn_for_testing(output);
+
+    abort 999
+}
+
+#[test, expected_failure(abort_code = 14)]
+fun expired_deadline_blocks_routed_swap() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, X_TEST>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI"),
+            string::utf8(b"X_TEST"),
+            false,
+            scenario.ctx(),
+        );
+
+    let mut clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    clock::increment_for_testing(
+        &mut clock,
+        1_001,
+    );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            1,
+            scenario.ctx(),
+        );
+
+    let (output, _receipt) =
+        dex::swap_exact_x_for_y(
+        &access,
+        &mut registry,
+        dex_pool_id,
+        &mut pool,
+        input,
+        0,
+        1_000,
+        &clock,
+        scenario.ctx(),
+        );
+
+    coin::burn_for_testing(output);
+
+    abort 999
+}
+
+#[test, expected_failure(abort_code = 17)]
+fun oracle_guarded_pool_waits_for_stage5d() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        setup_access(&mut scenario);
+
+    let (mut registry, dex_admin) =
+        setup_registry(&access, &mut scenario);
+
+    let pool_admin =
+        liquidity_pool::new_admin_cap_for_testing(
+            scenario.ctx(),
+        );
+
+    let mut pool =
+        liquidity_pool::create_pool<SUI, X_TEST>(
+            &pool_admin,
+            &access,
+            30,
+            2_000,
+            scenario.ctx(),
+        );
+
+    let dex_pool_id =
+        dex::register_pool(
+            &dex_admin,
+            &access,
+            &mut registry,
+            &pool,
+            string::utf8(b"SUI"),
+            string::utf8(b"X_TEST"),
+            true,
+            scenario.ctx(),
+        );
+
+    let clock =
+        clock::create_for_testing(
+            scenario.ctx(),
+        );
+
+    let input =
+        coin::mint_for_testing<SUI>(
+            1,
+            scenario.ctx(),
+        );
+
+    let (output, _receipt) =
+        dex::swap_exact_x_for_y(
+        &access,
+        &mut registry,
+        dex_pool_id,
+        &mut pool,
+        input,
+        0,
+        60_000,
+        &clock,
+        scenario.ctx(),
+        );
+
+    coin::burn_for_testing(output);
 
     abort 999
 }

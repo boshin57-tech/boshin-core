@@ -2,6 +2,8 @@ module tobmate_core::dex;
 
 use std::string::String;
 
+use sui::clock::{Self, Clock};
+use sui::coin::{Self, Coin};
 use sui::event;
 use sui::object::{Self, ID, UID};
 use sui::tx_context::{Self, TxContext};
@@ -30,6 +32,13 @@ const E_DEX_STATE_UNCHANGED: u64 = 8;
 const E_VERSION_NOT_INCREASING: u64 = 9;
 const E_UNDERLYING_POOL_PAUSED: u64 = 10;
 const E_ACCOUNTING_INVARIANT: u64 = 11;
+const E_POOL_INACTIVE: u64 = 12;
+const E_POOL_OBJECT_MISMATCH: u64 = 13;
+const E_SWAP_DEADLINE_EXPIRED: u64 = 14;
+const E_SWAP_DEADLINE_TOO_FAR: u64 = 15;
+const E_ZERO_SWAP_INPUT: u64 = 16;
+const E_ORACLE_GUARD_NOT_CONNECTED: u64 = 17;
+const E_SWAP_ACCOUNTING_INVARIANT: u64 = 18;
 
 /* ============================================================
    Core Objects
@@ -673,6 +682,494 @@ public fun pool_quote_symbol(
 public fun basis_point_denominator(): u64 {
     BPS_DENOMINATOR
 }
+
+
+/* ============================================================
+   Stage 5B — Swap Routing
+   ============================================================ */
+
+public struct DexSwapReceipt has copy, drop, store {
+    registry_id: ID,
+    dex_pool_id: u64,
+    underlying_pool_id: ID,
+
+    trader: address,
+    x_to_y: bool,
+
+    amount_in: u64,
+    amount_out: u64,
+    minimum_amount_out: u64,
+
+    trading_fee: u64,
+    protocol_fee: u64,
+
+    executed_at_ms: u64,
+    deadline_ms: u64,
+}
+
+public struct DexSwapExecuted has copy, drop {
+    registry_id: ID,
+    dex_pool_id: u64,
+    underlying_pool_id: ID,
+
+    trader: address,
+    x_to_y: bool,
+
+    amount_in: u64,
+    amount_out: u64,
+
+    trading_fee: u64,
+    protocol_fee: u64,
+
+    executed_at_ms: u64,
+}
+
+/* ------------------------------------------------------------
+   X → Y routed swap
+   ------------------------------------------------------------ */
+
+public fun swap_exact_x_for_y<X, Y>(
+    access: &access_control::AccessControl,
+    registry: &mut DexRegistry,
+    dex_pool_id: u64,
+    pool: &mut LiquidityPool<X, Y>,
+    input: Coin<X>,
+    minimum_amount_out: u64,
+    deadline_ms: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (Coin<Y>, DexSwapReceipt) {
+    access_control::assert_not_paused(access);
+    assert_operational(registry);
+
+    assert_registered_pool_route(
+        registry,
+        dex_pool_id,
+        liquidity_pool::pool_id(pool),
+    );
+
+    assert!(
+        !liquidity_pool::is_paused(pool),
+        E_UNDERLYING_POOL_PAUSED,
+    );
+
+    assert_swap_deadline(
+        registry,
+        deadline_ms,
+        clock,
+    );
+
+    let amount_in = coin::value(&input);
+
+    assert!(
+        amount_in > 0,
+        E_ZERO_SWAP_INPUT,
+    );
+
+    let trading_fee =
+        calculate_trading_fee(
+            amount_in,
+            liquidity_pool::trading_fee_bps(pool),
+        );
+
+    let protocol_fee_before =
+        liquidity_pool::protocol_fees_x(pool);
+
+    let output =
+        liquidity_pool::swap_exact_x_for_y(
+            access,
+            pool,
+            input,
+            minimum_amount_out,
+            ctx,
+        );
+
+    let amount_out =
+        coin::value(&output);
+
+    let protocol_fee_after =
+        liquidity_pool::protocol_fees_x(pool);
+
+    assert!(
+        protocol_fee_after >= protocol_fee_before,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+
+    let protocol_fee =
+        protocol_fee_after - protocol_fee_before;
+
+    let executed_at_ms =
+        clock::timestamp_ms(clock);
+
+    record_swap(
+        registry,
+        amount_in,
+        amount_out,
+        trading_fee,
+    );
+
+    let receipt = DexSwapReceipt {
+        registry_id: object::id(registry),
+        dex_pool_id,
+        underlying_pool_id:
+            liquidity_pool::pool_id(pool),
+
+        trader: tx_context::sender(ctx),
+        x_to_y: true,
+
+        amount_in,
+        amount_out,
+        minimum_amount_out,
+
+        trading_fee,
+        protocol_fee,
+
+        executed_at_ms,
+        deadline_ms,
+    };
+
+    event::emit(DexSwapExecuted {
+        registry_id: object::id(registry),
+        dex_pool_id,
+        underlying_pool_id:
+            liquidity_pool::pool_id(pool),
+
+        trader: tx_context::sender(ctx),
+        x_to_y: true,
+
+        amount_in,
+        amount_out,
+
+        trading_fee,
+        protocol_fee,
+
+        executed_at_ms,
+    });
+
+    (output, receipt)
+}
+
+/* ------------------------------------------------------------
+   Y → X routed swap
+   ------------------------------------------------------------ */
+
+public fun swap_exact_y_for_x<X, Y>(
+    access: &access_control::AccessControl,
+    registry: &mut DexRegistry,
+    dex_pool_id: u64,
+    pool: &mut LiquidityPool<X, Y>,
+    input: Coin<Y>,
+    minimum_amount_out: u64,
+    deadline_ms: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (Coin<X>, DexSwapReceipt) {
+    access_control::assert_not_paused(access);
+    assert_operational(registry);
+
+    assert_registered_pool_route(
+        registry,
+        dex_pool_id,
+        liquidity_pool::pool_id(pool),
+    );
+
+    assert!(
+        !liquidity_pool::is_paused(pool),
+        E_UNDERLYING_POOL_PAUSED,
+    );
+
+    assert_swap_deadline(
+        registry,
+        deadline_ms,
+        clock,
+    );
+
+    let amount_in = coin::value(&input);
+
+    assert!(
+        amount_in > 0,
+        E_ZERO_SWAP_INPUT,
+    );
+
+    let trading_fee =
+        calculate_trading_fee(
+            amount_in,
+            liquidity_pool::trading_fee_bps(pool),
+        );
+
+    let protocol_fee_before =
+        liquidity_pool::protocol_fees_y(pool);
+
+    let output =
+        liquidity_pool::swap_exact_y_for_x(
+            access,
+            pool,
+            input,
+            minimum_amount_out,
+            ctx,
+        );
+
+    let amount_out =
+        coin::value(&output);
+
+    let protocol_fee_after =
+        liquidity_pool::protocol_fees_y(pool);
+
+    assert!(
+        protocol_fee_after >= protocol_fee_before,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+
+    let protocol_fee =
+        protocol_fee_after - protocol_fee_before;
+
+    let executed_at_ms =
+        clock::timestamp_ms(clock);
+
+    record_swap(
+        registry,
+        amount_in,
+        amount_out,
+        trading_fee,
+    );
+
+    let receipt = DexSwapReceipt {
+        registry_id: object::id(registry),
+        dex_pool_id,
+        underlying_pool_id:
+            liquidity_pool::pool_id(pool),
+
+        trader: tx_context::sender(ctx),
+        x_to_y: false,
+
+        amount_in,
+        amount_out,
+        minimum_amount_out,
+
+        trading_fee,
+        protocol_fee,
+
+        executed_at_ms,
+        deadline_ms,
+    };
+
+    event::emit(DexSwapExecuted {
+        registry_id: object::id(registry),
+        dex_pool_id,
+        underlying_pool_id:
+            liquidity_pool::pool_id(pool),
+
+        trader: tx_context::sender(ctx),
+        x_to_y: false,
+
+        amount_in,
+        amount_out,
+
+        trading_fee,
+        protocol_fee,
+
+        executed_at_ms,
+    });
+
+    (output, receipt)
+}
+
+/* ------------------------------------------------------------
+   Routing assertions
+   ------------------------------------------------------------ */
+
+fun assert_registered_pool_route(
+    registry: &DexRegistry,
+    dex_pool_id: u64,
+    supplied_pool_object_id: ID,
+) {
+    let index =
+        find_pool_index(registry, dex_pool_id);
+
+    let record =
+        vector::borrow(&registry.pools, index);
+
+    assert!(
+        record.active,
+        E_POOL_INACTIVE,
+    );
+
+    assert!(
+        record.pool_object_id
+            == supplied_pool_object_id,
+        E_POOL_OBJECT_MISMATCH,
+    );
+
+    // Stage 5D will replace this temporary rejection
+    // with canonical Oracle Price Router validation.
+    assert!(
+        !record.oracle_guard_enabled,
+        E_ORACLE_GUARD_NOT_CONNECTED,
+    );
+}
+
+fun assert_swap_deadline(
+    registry: &DexRegistry,
+    deadline_ms: u64,
+    clock: &Clock,
+) {
+    let current_time_ms =
+        clock::timestamp_ms(clock);
+
+    assert!(
+        current_time_ms <= deadline_ms,
+        E_SWAP_DEADLINE_EXPIRED,
+    );
+
+    assert!(
+        deadline_ms - current_time_ms
+            <= registry.default_deadline_window_ms,
+        E_SWAP_DEADLINE_TOO_FAR,
+    );
+}
+
+fun calculate_trading_fee(
+    amount_in: u64,
+    trading_fee_bps: u64,
+): u64 {
+    (
+        ((amount_in as u128)
+            * (trading_fee_bps as u128))
+            / (BPS_DENOMINATOR as u128)
+    ) as u64
+}
+
+fun record_swap(
+    registry: &mut DexRegistry,
+    amount_in: u64,
+    amount_out: u64,
+    trading_fee: u64,
+) {
+    let old_swap_count =
+        registry.total_swap_count;
+
+    let old_input_volume =
+        registry.total_input_volume;
+
+    let old_output_volume =
+        registry.total_output_volume;
+
+    let old_fee_collected =
+        registry.total_fee_collected;
+
+    registry.total_swap_count =
+        old_swap_count + 1;
+
+    registry.total_input_volume =
+        old_input_volume + amount_in;
+
+    registry.total_output_volume =
+        old_output_volume + amount_out;
+
+    registry.total_fee_collected =
+        old_fee_collected + trading_fee;
+
+    assert!(
+        registry.total_swap_count
+            > old_swap_count,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+
+    assert!(
+        registry.total_input_volume
+            >= old_input_volume,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+
+    assert!(
+        registry.total_output_volume
+            >= old_output_volume,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+
+    assert!(
+        registry.total_fee_collected
+            >= old_fee_collected,
+        E_SWAP_ACCOUNTING_INVARIANT,
+    );
+}
+
+/* ------------------------------------------------------------
+   Swap Receipt getters
+   ------------------------------------------------------------ */
+
+public fun receipt_registry_id(
+    receipt: &DexSwapReceipt,
+): ID {
+    receipt.registry_id
+}
+
+public fun receipt_dex_pool_id(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.dex_pool_id
+}
+
+public fun receipt_underlying_pool_id(
+    receipt: &DexSwapReceipt,
+): ID {
+    receipt.underlying_pool_id
+}
+
+public fun receipt_trader(
+    receipt: &DexSwapReceipt,
+): address {
+    receipt.trader
+}
+
+public fun receipt_x_to_y(
+    receipt: &DexSwapReceipt,
+): bool {
+    receipt.x_to_y
+}
+
+public fun receipt_amount_in(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.amount_in
+}
+
+public fun receipt_amount_out(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.amount_out
+}
+
+public fun receipt_minimum_amount_out(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.minimum_amount_out
+}
+
+public fun receipt_trading_fee(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.trading_fee
+}
+
+public fun receipt_protocol_fee(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.protocol_fee
+}
+
+public fun receipt_executed_at_ms(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.executed_at_ms
+}
+
+public fun receipt_deadline_ms(
+    receipt: &DexSwapReceipt,
+): u64 {
+    receipt.deadline_ms
+}
+
 
 /* ============================================================
    Testing Helpers
