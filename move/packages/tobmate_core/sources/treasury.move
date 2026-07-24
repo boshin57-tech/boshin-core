@@ -218,6 +218,59 @@ public fun withdraw(
     });
 }
 
+
+/* ============================================================
+   Protocol Internal Withdrawal
+   Treasury Backstop Path
+   ============================================================ */
+
+public(package) fun withdraw_for_backstop(
+    _admin_cap: &TreasuryAdminCap,
+    access_control: &AccessControl,
+    treasury: &mut ProtocolTreasury,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<SUI> {
+    assert_operational(
+        access_control,
+        treasury,
+    );
+
+    assert!(
+        amount > 0,
+        E_ZERO_AMOUNT,
+    );
+
+    assert!(
+        balance::value(&treasury.funds) >= amount,
+        E_INSUFFICIENT_BALANCE,
+    );
+
+    let withdrawn_balance =
+        balance::split(
+            &mut treasury.funds,
+            amount,
+        );
+
+    treasury.total_withdrawn =
+        treasury.total_withdrawn + amount;
+
+    treasury.withdrawal_count =
+        treasury.withdrawal_count + 1;
+
+    treasury.last_withdrawal_epoch =
+        tx_context::epoch(ctx);
+
+    assert_accounting_invariant(
+        treasury,
+    );
+
+    coin::from_balance(
+        withdrawn_balance,
+        ctx,
+    )
+}
+
 /// Changes the Treasury-local pause state.
 ///
 /// Global protocol pause and Treasury-local pause are independent.
