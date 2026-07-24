@@ -98,6 +98,11 @@ public struct LendingPool has key {
 
     protocol_reserves: u64,
 
+    total_bad_debt_created: u64,
+    total_bad_debt_recovered: u64,
+    outstanding_bad_debt: u64,
+    bad_debt_count: u64,
+
     reserve_factor_bps: u64,
 
     base_borrow_rate_bps: u64,
@@ -259,6 +264,11 @@ public fun create_pool(
             total_borrow_interest_paid: 0,
 
             protocol_reserves: 0,
+
+            total_bad_debt_created: 0,
+            total_bad_debt_recovered: 0,
+            outstanding_bad_debt: 0,
+            bad_debt_count: 0,
 
             reserve_factor_bps,
 
@@ -1483,6 +1493,14 @@ public fun new_for_testing(
         supply_position_count: 0,
 
         borrow_position_count: 0,
+
+        total_bad_debt_created: 0,
+
+        total_bad_debt_recovered: 0,
+
+        outstanding_bad_debt: 0,
+
+        bad_debt_count: 0,
     }
 }
 
@@ -1538,6 +1556,10 @@ public fun destroy_empty_for_testing(
         total_borrow_interest_accrued: _,
         total_borrow_interest_paid: _,
         protocol_reserves: _,
+        total_bad_debt_created: _,
+        total_bad_debt_recovered: _,
+        outstanding_bad_debt: _,
+        bad_debt_count: _,
         reserve_factor_bps: _,
         base_borrow_rate_bps: _,
         supply_position_count: _,
@@ -1733,4 +1755,140 @@ public fun repay_for_liquidation(
     });
 
     remaining_principal
+}
+
+/* ============================================================
+   Stage 6D-3
+   Bad Debt Accounting
+   ============================================================ */
+
+const E_ZERO_BAD_DEBT: u64 = 1002;
+const E_RECOVERY_ABOVE_BAD_DEBT: u64 = 1003;
+
+/* ============================================================
+   Record Bad Debt
+   ============================================================ */
+
+public(package) fun record_bad_debt(
+    access: &AccessControl,
+    pool: &mut LendingPool,
+    amount: u64,
+) {
+    assert_operational(
+        access,
+        pool,
+    );
+
+    assert!(
+        amount > 0,
+        E_ZERO_BAD_DEBT,
+    );
+
+    pool.total_bad_debt_created =
+        pool.total_bad_debt_created
+            + amount;
+
+    pool.outstanding_bad_debt =
+        pool.outstanding_bad_debt
+            + amount;
+
+    pool.bad_debt_count =
+        pool.bad_debt_count + 1;
+
+    assert_bad_debt_accounting_invariant(
+        pool,
+    );
+}
+
+/* ============================================================
+   Recover Bad Debt
+   ============================================================ */
+
+public(package) fun recover_bad_debt(
+    access: &AccessControl,
+    pool: &mut LendingPool,
+    recovery: Coin<SUI>,
+) {
+    assert_operational(
+        access,
+        pool,
+    );
+
+    let amount =
+        coin::value(
+            &recovery,
+        );
+
+    assert!(
+        amount > 0,
+        E_ZERO_BAD_DEBT,
+    );
+
+    assert!(
+        amount <= pool.outstanding_bad_debt,
+        E_RECOVERY_ABOVE_BAD_DEBT,
+    );
+
+    balance::join(
+        &mut pool.liquidity,
+        coin::into_balance(
+            recovery,
+        ),
+    );
+
+    pool.total_bad_debt_recovered =
+        pool.total_bad_debt_recovered
+            + amount;
+
+    pool.outstanding_bad_debt =
+        pool.outstanding_bad_debt
+            - amount;
+
+    assert_bad_debt_accounting_invariant(
+        pool,
+    );
+}
+
+/* ============================================================
+   Bad Debt Invariant
+   ============================================================ */
+
+public fun assert_bad_debt_accounting_invariant(
+    pool: &LendingPool,
+) {
+    assert!(
+        pool.total_bad_debt_created
+            ==
+        pool.total_bad_debt_recovered
+            + pool.outstanding_bad_debt,
+        E_RECOVERY_ABOVE_BAD_DEBT,
+    );
+}
+
+/* ============================================================
+   Read API
+   ============================================================ */
+
+public fun total_bad_debt_created(
+    pool: &LendingPool,
+): u64 {
+    pool.total_bad_debt_created
+}
+
+public fun total_bad_debt_recovered(
+    pool: &LendingPool,
+): u64 {
+    pool.total_bad_debt_recovered
+}
+
+public fun outstanding_bad_debt(
+    pool: &LendingPool,
+): u64 {
+    pool.outstanding_bad_debt
+}
+
+public fun bad_debt_count(
+    pool: &LendingPool,
+): u64 {
+    pool.bad_debt_count
 }
