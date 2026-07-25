@@ -35,6 +35,8 @@ const E_STRATEGY_CONCENTRATION_LIMIT_EXCEEDED: u64 = 17;
 const E_STRATEGY_LOSS_GUARDED: u64 = 18;
 const E_STRATEGY_NOT_LOSS_GUARDED: u64 = 19;
 const E_STRATEGY_RECOVERY_MODE: u64 = 20;
+const E_STRATEGY_RETIRED: u64 = 21;
+const E_STRATEGY_HAS_OUTSTANDING: u64 = 22;
 
 const BPS_DENOMINATOR: u64 = 10_000;
 
@@ -46,6 +48,7 @@ public struct YieldStrategy has store {
     strategy_id: u64,
     external_key: vector<u8>,
     active: bool,
+    retired: bool,
     allocation_limit: u64,
     concentration_limit_bps: u64,
     loss_guarded: bool,
@@ -112,6 +115,37 @@ public struct YieldStrategyStateChanged has copy, drop {
     strategy_id: u64,
     active: bool,
     changed_by: address,
+}
+
+public struct YieldStrategyRetired has copy, drop {
+    engine_id: ID,
+    strategy_id: u64,
+    retired_by: address,
+}
+
+public struct YieldStrategyAllocationLimitChanged has copy, drop {
+    engine_id: ID,
+    strategy_id: u64,
+    previous_limit: u64,
+    new_limit: u64,
+}
+
+public struct YieldGlobalExposureLimitChanged has copy, drop {
+    engine_id: ID,
+    previous_limit_bps: u64,
+    new_limit_bps: u64,
+}
+
+public struct YieldStrategyConcentrationLimitChanged has copy, drop {
+    engine_id: ID,
+    strategy_id: u64,
+    previous_limit_bps: u64,
+    new_limit_bps: u64,
+}
+
+public struct YieldStrategyLossGuardCleared has copy, drop {
+    engine_id: ID,
+    strategy_id: u64,
 }
 
 public struct YieldCapitalAllocated has copy, drop {
@@ -276,6 +310,7 @@ public fun register_strategy(
             strategy_id,
             external_key,
             active: false,
+            retired: false,
             allocation_limit,
             concentration_limit_bps: BPS_DENOMINATOR,
             loss_guarded: false,
@@ -326,6 +361,20 @@ public fun set_strategy_active(
         E_STATE_UNCHANGED,
     );
 
+    if (active) {
+        assert!(
+            !strategy.retired,
+            E_STRATEGY_RETIRED,
+        );
+    };
+
+    if (engine.strategy_recovery_mode) {
+        assert!(
+            !active,
+            E_STRATEGY_RECOVERY_MODE,
+        );
+    };
+
     strategy.active = active;
 
     event::emit(YieldStrategyStateChanged {
@@ -367,8 +416,35 @@ public fun set_strategy_allocation_limit(
         E_ALLOCATION_LIMIT_EXCEEDED,
     );
 
+    assert!(
+        strategy.allocation_limit
+            != allocation_limit,
+        E_STATE_UNCHANGED,
+    );
+
+    if (engine.strategy_recovery_mode) {
+        assert!(
+            allocation_limit
+                < strategy.allocation_limit,
+            E_STRATEGY_RECOVERY_MODE,
+        );
+    };
+
+    let previous_limit =
+        strategy.allocation_limit;
+
     strategy.allocation_limit =
         allocation_limit;
+
+    event::emit(
+        YieldStrategyAllocationLimitChanged {
+            engine_id:
+                object::uid_to_inner(&engine.id),
+            strategy_id,
+            previous_limit,
+            new_limit: allocation_limit,
+        },
+    );
 }
 
 
@@ -401,8 +477,35 @@ public fun set_global_exposure_limit_bps(
         E_GLOBAL_EXPOSURE_LIMIT_EXCEEDED,
     );
 
+    assert!(
+        engine.global_exposure_limit_bps
+            != exposure_limit_bps,
+        E_STATE_UNCHANGED,
+    );
+
+    if (engine.strategy_recovery_mode) {
+        assert!(
+            exposure_limit_bps
+                < engine.global_exposure_limit_bps,
+            E_STRATEGY_RECOVERY_MODE,
+        );
+    };
+
+    let previous_limit_bps =
+        engine.global_exposure_limit_bps;
+
     engine.global_exposure_limit_bps =
         exposure_limit_bps;
+
+    event::emit(
+        YieldGlobalExposureLimitChanged {
+            engine_id:
+                object::uid_to_inner(&engine.id),
+            previous_limit_bps,
+            new_limit_bps:
+                exposure_limit_bps,
+        },
+    );
 }
 
 public fun global_exposure_limit_bps(
@@ -486,14 +589,50 @@ public fun set_strategy_concentration_limit_bps(
         E_STRATEGY_CONCENTRATION_LIMIT_EXCEEDED,
     );
 
+    {
+        let strategy =
+            vector::borrow(
+                &engine.strategies,
+                index,
+            );
+
+        assert!(
+            strategy.concentration_limit_bps
+                != concentration_limit_bps,
+            E_STATE_UNCHANGED,
+        );
+
+        if (engine.strategy_recovery_mode) {
+            assert!(
+                concentration_limit_bps
+                    < strategy.concentration_limit_bps,
+                E_STRATEGY_RECOVERY_MODE,
+            );
+        };
+    };
+
     let strategy =
         vector::borrow_mut(
             &mut engine.strategies,
             index,
         );
 
+    let previous_limit_bps =
+        strategy.concentration_limit_bps;
+
     strategy.concentration_limit_bps =
         concentration_limit_bps;
+
+    event::emit(
+        YieldStrategyConcentrationLimitChanged {
+            engine_id:
+                object::uid_to_inner(&engine.id),
+            strategy_id,
+            previous_limit_bps,
+            new_limit_bps:
+                concentration_limit_bps,
+        },
+    );
 }
 
 public fun strategy_concentration_limit_bps(
@@ -580,6 +719,11 @@ public fun clear_strategy_loss_guard(
     engine: &mut TreasuryYieldEngine,
     strategy_id: u64,
 ) {
+    assert!(
+        !engine.strategy_recovery_mode,
+        E_STRATEGY_RECOVERY_MODE,
+    );
+
     let index =
         find_strategy_index(
             engine,
@@ -598,8 +742,81 @@ public fun clear_strategy_loss_guard(
     );
 
     strategy.loss_guarded = false;
+
+    event::emit(
+        YieldStrategyLossGuardCleared {
+            engine_id:
+                object::uid_to_inner(&engine.id),
+            strategy_id,
+        },
+    );
 }
 
+
+
+
+/* ============================================================
+   Stage 9 Part 4-D
+   Strategy Retirement Lifecycle
+   ============================================================ */
+
+public fun retire_strategy(
+    _admin_cap: &YieldEngineAdminCap,
+    engine: &mut TreasuryYieldEngine,
+    strategy_id: u64,
+    ctx: &mut TxContext,
+) {
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    let strategy =
+        vector::borrow_mut(
+            &mut engine.strategies,
+            index,
+        );
+
+    assert!(
+        !strategy.retired,
+        E_STATE_UNCHANGED,
+    );
+
+    assert!(
+        strategy_outstanding(strategy) == 0,
+        E_STRATEGY_HAS_OUTSTANDING,
+    );
+
+    strategy.active = false;
+    strategy.retired = true;
+
+    event::emit(
+        YieldStrategyRetired {
+            engine_id:
+                object::uid_to_inner(&engine.id),
+            strategy_id,
+            retired_by:
+                tx_context::sender(ctx),
+        },
+    );
+}
+
+public fun strategy_is_retired(
+    engine: &TreasuryYieldEngine,
+    strategy_id: u64,
+): bool {
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    vector::borrow(
+        &engine.strategies,
+        index,
+    ).retired
+}
 
 
 /* ============================================================
@@ -676,6 +893,11 @@ public fun allocate_capital(
         assert!(
             strategy.active,
             E_STRATEGY_INACTIVE,
+        );
+
+        assert!(
+            !strategy.retired,
+            E_STRATEGY_RETIRED,
         );
 
         assert!(
@@ -1601,6 +1823,7 @@ public fun destroy_empty_for_testing(
             strategy_id: _,
             external_key: _,
             active: _,
+            retired: _,
             allocation_limit: _,
             concentration_limit_bps: _,
             loss_guarded: _,

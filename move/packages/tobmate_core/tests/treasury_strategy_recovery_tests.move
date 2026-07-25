@@ -2962,3 +2962,48 @@ fun test_22_recovery_mode_cannot_clear_before_threshold() {
 
     abort 999
 }
+
+
+/* ============================================================
+   Stage 9 Part 4-B
+   Recovery Governance Replay Protection
+   ============================================================ */
+
+
+/* Test 23 — Duplicate Recovery Threshold Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 4,
+    location = tobmate_core::treasury_strategy_recovery_mode,
+)]
+fun test_23_duplicate_recovery_threshold_rejected() {
+    use tobmate_core::treasury_strategy_recovery_mode::{
+        Self as recovery_mode,
+    };
+
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let mut registry =
+        recovery_mode::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        recovery_mode::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    /*
+     * Default threshold is already 8,000 bps.
+     */
+    recovery_mode::set_recovery_threshold_bps(
+        &mut registry,
+        &cap,
+        8_000,
+    );
+
+    abort 999
+}

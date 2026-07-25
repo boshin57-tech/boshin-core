@@ -2618,3 +2618,960 @@ fun test_32_principal_return_preserves_loss_guard_and_accounting() {
 
     abort 0
 }
+
+
+/* ============================================================
+   Stage 9 Part 4-B
+   Governance Replay / Unchanged-State Tests
+   ============================================================ */
+
+
+/* Test 33 — Duplicate Allocation Limit Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 3,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_33_duplicate_allocation_limit_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"GOV_ALLOC_REPLAY",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_allocation_limit(
+        &cap,
+        &mut engine,
+        strategy_id,
+        1_000_000_000,
+    );
+
+    abort 999
+}
+
+
+/* Test 34 — Duplicate Global Exposure Limit Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 3,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_34_duplicate_global_exposure_limit_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_global_exposure_limit_bps(
+        &cap,
+        &mut engine,
+        10_000,
+    );
+
+    abort 999
+}
+
+
+/* Test 35 — Duplicate Concentration Limit Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 3,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_35_duplicate_concentration_limit_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"GOV_CONCENTRATION_REPLAY",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_concentration_limit_bps(
+        &cap,
+        &mut engine,
+        strategy_id,
+        10_000,
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Stage 9 Part 4-C
+   Emergency vs Normal Governance Separation
+   ============================================================ */
+
+
+/* Test 36 — Recovery Mode Blocks Strategy Activation */
+
+#[test]
+#[expected_failure(
+    abort_code = 20,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_36_recovery_mode_blocks_strategy_activation() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RECOVERY_ACTIVATE_BLOCK",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_strategy_active(
+        &cap,
+        &mut engine,
+        strategy_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 37 — Recovery Mode Allows Strategy Deactivation */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_37_recovery_mode_allows_strategy_deactivation() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RECOVERY_DEACTIVATE_ALLOW",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_active(
+        &cap,
+        &mut engine,
+        strategy_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_strategy_active(
+        &cap,
+        &mut engine,
+        strategy_id,
+        false,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        !yield_engine::strategy_is_active(
+            &engine,
+            strategy_id,
+        ),
+        3700,
+    );
+
+    abort 0
+}
+
+
+/* Test 38 — Recovery Mode Blocks Allocation Limit Increase */
+
+#[test]
+#[expected_failure(
+    abort_code = 20,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_38_recovery_mode_blocks_allocation_limit_increase() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RECOVERY_LIMIT_INCREASE",
+            500_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_strategy_allocation_limit(
+        &cap,
+        &mut engine,
+        strategy_id,
+        600_000_000,
+    );
+
+    abort 999
+}
+
+
+/* Test 39 — Recovery Mode Blocks Global Exposure Increase */
+
+#[test]
+#[expected_failure(
+    abort_code = 20,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_39_recovery_mode_blocks_global_exposure_increase() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_global_exposure_limit_bps(
+        &cap,
+        &mut engine,
+        7_000,
+    );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_global_exposure_limit_bps(
+        &cap,
+        &mut engine,
+        8_000,
+    );
+
+    abort 999
+}
+
+
+/* Test 40 — Recovery Mode Blocks Concentration Increase */
+
+#[test]
+#[expected_failure(
+    abort_code = 20,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_40_recovery_mode_blocks_concentration_increase() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RECOVERY_CONCENTRATION_INCREASE",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_concentration_limit_bps(
+        &cap,
+        &mut engine,
+        strategy_id,
+        5_000,
+    );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_strategy_concentration_limit_bps(
+        &cap,
+        &mut engine,
+        strategy_id,
+        6_000,
+    );
+
+    abort 999
+}
+
+
+/* Test 41 — Recovery Mode Blocks Loss Guard Clear */
+
+#[test]
+#[expected_failure(
+    abort_code = 20,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_41_recovery_mode_blocks_loss_guard_clear() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RECOVERY_LOSS_GUARD_CLEAR",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_active(
+        &cap,
+        &mut engine,
+        strategy_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let funding =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::fund(
+        &access,
+        &mut engine,
+        funding,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::allocate_capital(
+        &cap,
+        &access,
+        &mut engine,
+        strategy_id,
+        400_000_000,
+        STRATEGY_OPERATOR,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::record_loss(
+        &cap,
+        &access,
+        &mut engine,
+        strategy_id,
+        50_000_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::clear_strategy_loss_guard(
+        &cap,
+        &mut engine,
+        strategy_id,
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Stage 9 Part 4-D
+   Strategy Retirement Lifecycle Tests
+   ============================================================ */
+
+
+/* Test 42 — Zero Outstanding Strategy Retirement Succeeds */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_42_zero_outstanding_strategy_retirement_succeeds() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RETIRE_ZERO_OUTSTANDING",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        yield_engine::strategy_is_retired(
+            &engine,
+            strategy_id,
+        ),
+        4200,
+    );
+
+    abort 0
+}
+
+
+/* Test 43 — Outstanding Principal Blocks Retirement */
+
+#[test]
+#[expected_failure(
+    abort_code = 22,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_43_outstanding_principal_blocks_retirement() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RETIRE_HAS_OUTSTANDING",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_active(
+        &cap,
+        &mut engine,
+        strategy_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let funding =
+        coin::mint_for_testing<SUI>(
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::fund(
+        &access,
+        &mut engine,
+        funding,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::allocate_capital(
+        &cap,
+        &access,
+        &mut engine,
+        strategy_id,
+        100_000_000,
+        STRATEGY_OPERATOR,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 44 — Retired Strategy Cannot Be Reactivated */
+
+#[test]
+#[expected_failure(
+    abort_code = 21,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_44_retired_strategy_cannot_be_reactivated() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RETIRE_REACTIVATE_BLOCK",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::set_strategy_active(
+        &cap,
+        &mut engine,
+        strategy_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 45 — Duplicate Retirement Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 3,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_45_duplicate_retirement_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RETIRE_DUPLICATE",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Stage 9 Part 4-E
+   Governance Security Edge Cases
+   ============================================================ */
+
+
+/* Test 46 — Recovery Mode Allows Allocation Limit Reduction */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_46_recovery_mode_allows_allocation_limit_reduction() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RISK_REDUCE_ALLOC",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_strategy_allocation_limit(
+        &cap,
+        &mut engine,
+        strategy_id,
+        700_000_000,
+    );
+
+    assert!(
+        yield_engine::strategy_allocation_limit(
+            &engine,
+            strategy_id,
+        ) == 700_000_000,
+        4600,
+    );
+
+    abort 0
+}
+
+
+/* Test 47 — Recovery Mode Allows Global Exposure Reduction */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_47_recovery_mode_allows_global_exposure_reduction() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_global_exposure_limit_bps(
+        &cap,
+        &mut engine,
+        7_000,
+    );
+
+    assert!(
+        yield_engine::global_exposure_limit_bps(
+            &engine,
+        ) == 7_000,
+        4700,
+    );
+
+    abort 0
+}
+
+
+/* Test 48 — Recovery Mode Allows Concentration Reduction */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_48_recovery_mode_allows_concentration_reduction() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RISK_REDUCE_CONCENTRATION",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::set_strategy_concentration_limit_bps(
+        &cap,
+        &mut engine,
+        strategy_id,
+        6_000,
+    );
+
+    assert!(
+        yield_engine::strategy_concentration_limit_bps(
+            &engine,
+            strategy_id,
+        ) == 6_000,
+        4800,
+    );
+
+    abort 0
+}
+
+
+/* Test 49 — Retired Strategy Cannot Allocate */
+
+#[test]
+#[expected_failure(
+    abort_code = 7,
+    location = tobmate_core::treasury_yield_engine,
+)]
+fun test_49_retired_strategy_cannot_allocate() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RETIRED_ALLOC_BLOCK",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let funding =
+        coin::mint_for_testing<SUI>(
+            100_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::fund(
+        &access,
+        &mut engine,
+        funding,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    yield_engine::allocate_capital(
+        &cap,
+        &access,
+        &mut engine,
+        strategy_id,
+        1,
+        STRATEGY_OPERATOR,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 50 — Recovery Mode Allows Zero Outstanding Retirement */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_50_recovery_mode_allows_zero_outstanding_retirement() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let cap =
+        yield_engine::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut engine =
+        yield_engine::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let strategy_id =
+        yield_engine::register_strategy(
+            &cap,
+            &mut engine,
+            b"RECOVERY_RETIRE_ALLOW",
+            1_000_000_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    yield_engine::set_strategy_recovery_mode(
+        &mut engine,
+        true,
+    );
+
+    yield_engine::retire_strategy(
+        &cap,
+        &mut engine,
+        strategy_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        yield_engine::strategy_is_retired(
+            &engine,
+            strategy_id,
+        ),
+        5000,
+    );
+
+    abort 0
+}

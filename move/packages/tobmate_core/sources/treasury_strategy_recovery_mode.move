@@ -60,6 +60,18 @@ public struct StrategyRecoveryModeCleared has copy, drop {
     coverage_bps: u64,
 }
 
+public struct StrategyRecoveryThresholdChanged has copy, drop {
+    registry_id: ID,
+    previous_threshold_bps: u64,
+    new_threshold_bps: u64,
+}
+
+public struct StrategyRecoveryModeVersionChanged has copy, drop {
+    registry_id: ID,
+    previous_version: u64,
+    new_version: u64,
+}
+
 public fun create(
     ctx: &mut TxContext,
 ) {
@@ -238,8 +250,26 @@ public fun set_recovery_threshold_bps(
         E_INVALID_THRESHOLD,
     );
 
+    let previous_threshold_bps =
+        registry.recovery_threshold_bps;
+
+    assert!(
+        previous_threshold_bps != threshold_bps,
+        E_STATE_UNCHANGED,
+    );
+
     registry.recovery_threshold_bps =
         threshold_bps;
+
+    event::emit(
+        StrategyRecoveryThresholdChanged {
+            registry_id:
+                object::id(registry),
+            previous_threshold_bps,
+            new_threshold_bps:
+                threshold_bps,
+        },
+    );
 }
 
 public fun set_version(
@@ -257,8 +287,20 @@ public fun set_version(
         E_INVALID_VERSION,
     );
 
+    let previous_version =
+        registry.version;
+
     registry.version =
         new_version;
+
+    event::emit(
+        StrategyRecoveryModeVersionChanged {
+            registry_id:
+                object::id(registry),
+            previous_version,
+            new_version,
+        },
+    );
 }
 
 fun assert_admin(
