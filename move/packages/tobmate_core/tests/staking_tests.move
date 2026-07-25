@@ -8,6 +8,8 @@ use tobmate_core::access_control::{
 };
 
 use tobmate_core::staking;
+use tobmate_core::lp_reward_distributor;
+use tobmate_core::staking_reward_bridge;
 
 const ADMIN: address = @0xAD;
 const OTHER: address = @0xCAFE;
@@ -2592,4 +2594,971 @@ fun test_30_reward_accounting_survives_full_unstake() {
     staking::assert_reward_accounting_invariant(&registry);
 
     abort 0
+}
+
+
+/* ============================================================
+   Stage 8C Part 3 — Staking Reward Bridge Integration
+   ============================================================ */
+
+
+/* Test 31 — Bridge Registration Links Positions */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_31_bridge_registration_links_positions() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_position_id =
+        staking_reward_bridge::register_staking_position(
+            &access,
+            &mut registry,
+            &mut distributor,
+            &reward_cap,
+            staking_position_id,
+            object::id_from_address(@0x831),
+            b"staking-reward-31",
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    assert!(
+        staking::position_reward_position_linked(
+            &registry,
+            staking_position_id,
+        ),
+        310,
+    );
+
+    assert!(
+        staking::position_reward_position_id(
+            &registry,
+            staking_position_id,
+        ) == reward_position_id,
+        311,
+    );
+
+    assert!(
+        lp_reward_distributor::position_owner(
+            &distributor,
+            reward_position_id,
+        ) == ADMIN,
+        312,
+    );
+
+    abort 0
+}
+
+
+/* Test 32 — Bridge Accrual Synchronizes Ledgers */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_32_bridge_accrual_synchronizes_ledgers() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_position_id =
+        staking_reward_bridge::register_staking_position(
+            &access,
+            &mut registry,
+            &mut distributor,
+            &reward_cap,
+            staking_position_id,
+            object::id_from_address(@0x832),
+            b"staking-reward-32",
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let funding =
+        coin::mint_for_testing<SUI>(
+            10_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    lp_reward_distributor::fund(
+        &access,
+        &mut distributor,
+        funding,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking_reward_bridge::accrue_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        750,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::position_pending_reward(
+            &registry,
+            staking_position_id,
+        ) == 750,
+        320,
+    );
+
+    assert!(
+        lp_reward_distributor::position_pending_reward(
+            &distributor,
+            reward_position_id,
+        ) == 750,
+        321,
+    );
+
+    assert!(
+        staking::total_reward_accrued(
+            &registry,
+        ) == 750,
+        322,
+    );
+
+    assert!(
+        lp_reward_distributor::total_accrued(
+            &distributor,
+        ) == 750,
+        323,
+    );
+
+    staking::assert_reward_accounting_invariant(
+        &registry,
+    );
+
+    lp_reward_distributor::assert_accounting_invariant(
+        &distributor,
+    );
+
+    abort 0
+}
+
+
+/* Test 34 — Inactive Staking Position Blocks Bridge Registration */
+
+#[test]
+#[expected_failure(
+    abort_code = 1,
+    location = tobmate_core::staking_reward_bridge,
+)]
+fun test_34_inactive_staking_position_blocks_bridge_registration() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let withdrawn =
+        staking::unstake(
+            &access,
+            &mut registry,
+            staking_position_id,
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    coin::burn_for_testing(withdrawn);
+
+    staking_reward_bridge::register_staking_position(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        object::id_from_address(@0x834),
+        b"staking-reward-34",
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 33 — Bridge Claim Synchronizes Ledgers */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_33_bridge_claim_synchronizes_ledgers() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_position_id =
+        staking_reward_bridge::register_staking_position(
+            &access,
+            &mut registry,
+            &mut distributor,
+            &reward_cap,
+            staking_position_id,
+            object::id_from_address(@0x833),
+            b"staking-reward-33",
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let funding =
+        coin::mint_for_testing<SUI>(
+            10_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    lp_reward_distributor::fund(
+        &access,
+        &mut distributor,
+        funding,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking_reward_bridge::accrue_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        900,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking_reward_bridge::claim_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        staking_position_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::position_pending_reward(
+            &registry,
+            staking_position_id,
+        ) == 0,
+        330,
+    );
+
+    assert!(
+        staking::position_total_reward_claimed(
+            &registry,
+            staking_position_id,
+        ) == 900,
+        331,
+    );
+
+    assert!(
+        lp_reward_distributor::position_pending_reward(
+            &distributor,
+            reward_position_id,
+        ) == 0,
+        332,
+    );
+
+    assert!(
+        lp_reward_distributor::position_total_claimed(
+            &distributor,
+            reward_position_id,
+        ) == 900,
+        333,
+    );
+
+    assert!(
+        staking::total_reward_claimed(&registry) == 900,
+        334,
+    );
+
+    assert!(
+        lp_reward_distributor::total_claimed(
+            &distributor,
+        ) == 900,
+        335,
+    );
+
+    staking::assert_reward_accounting_invariant(
+        &registry,
+    );
+
+    lp_reward_distributor::assert_accounting_invariant(
+        &distributor,
+    );
+
+    abort 0
+}
+
+
+/* Test 35 — Duplicate Bridge Registration Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 11,
+    location = tobmate_core::staking,
+)]
+fun test_35_duplicate_bridge_registration_rejected() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking_reward_bridge::register_staking_position(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        object::id_from_address(@0x835),
+        b"staking-reward-35-a",
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking_reward_bridge::register_staking_position(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        object::id_from_address(@0x835),
+        b"staking-reward-35-b",
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 36 — Accrual Without Reward Link Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 2,
+    location = tobmate_core::staking_reward_bridge,
+)]
+fun test_36_accrual_without_reward_link_rejected() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking_reward_bridge::accrue_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        500,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 37 — Non Owner Cannot Claim Through Bridge */
+
+#[test]
+#[expected_failure(
+    abort_code = 8,
+    location = tobmate_core::lp_reward_distributor,
+)]
+fun test_37_non_owner_cannot_claim_through_bridge() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking_reward_bridge::register_staking_position(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        object::id_from_address(@0x837),
+        b"staking-reward-37",
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let funding =
+        coin::mint_for_testing<SUI>(
+            10_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    lp_reward_distributor::fund(
+        &access,
+        &mut distributor,
+        funding,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking_reward_bridge::accrue_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        500,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_tx(
+        &mut scenario,
+        OTHER,
+    );
+
+    staking_reward_bridge::claim_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        staking_position_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 38 — Claim Without Pending Reward Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 9,
+    location = tobmate_core::lp_reward_distributor,
+)]
+fun test_38_claim_without_pending_reward_rejected() {
+    use sui::coin;
+    use sui::object;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        staking::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_cap =
+        staking::new_admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let reward_cap =
+        lp_reward_distributor::new_admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut distributor =
+        lp_reward_distributor::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let pool_id =
+        staking::register_pool(
+            &access,
+            &mut registry,
+            &staking_cap,
+            b"SUI-STAKING",
+            800,
+            1_000,
+            0,
+            0,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking::set_pool_active(
+        &access,
+        &mut registry,
+        &staking_cap,
+        pool_id,
+        true,
+    );
+
+    let principal =
+        coin::mint_for_testing<SUI>(
+            5_000,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let staking_position_id =
+        staking::stake(
+            &access,
+            &mut registry,
+            pool_id,
+            principal,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    staking_reward_bridge::register_staking_position(
+        &access,
+        &mut registry,
+        &mut distributor,
+        &reward_cap,
+        staking_position_id,
+        object::id_from_address(@0x838),
+        b"staking-reward-38",
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking_reward_bridge::claim_staking_reward(
+        &access,
+        &mut registry,
+        &mut distributor,
+        staking_position_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
 }
