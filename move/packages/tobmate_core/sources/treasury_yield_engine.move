@@ -34,6 +34,7 @@ const E_INVALID_CONCENTRATION_LIMIT: u64 = 16;
 const E_STRATEGY_CONCENTRATION_LIMIT_EXCEEDED: u64 = 17;
 const E_STRATEGY_LOSS_GUARDED: u64 = 18;
 const E_STRATEGY_NOT_LOSS_GUARDED: u64 = 19;
+const E_STRATEGY_RECOVERY_MODE: u64 = 20;
 
 const BPS_DENOMINATOR: u64 = 10_000;
 
@@ -79,8 +80,10 @@ public struct TreasuryYieldEngine has key {
     recognized_loss: u64,
 
     total_swept_to_treasury: u64,
+    total_recovery_inflow: u64,
 
     global_exposure_limit_bps: u64,
+    strategy_recovery_mode: bool,
 
     funding_count: u64,
     allocation_count: u64,
@@ -184,7 +187,9 @@ fun init(ctx: &mut TxContext) {
             gross_yield: 0,
             recognized_loss: 0,
             total_swept_to_treasury: 0,
+            total_recovery_inflow: 0,
             global_exposure_limit_bps: BPS_DENOMINATOR,
+            strategy_recovery_mode: false,
             funding_count: 0,
             allocation_count: 0,
             return_count: 0,
@@ -596,6 +601,26 @@ public fun clear_strategy_loss_guard(
 }
 
 
+
+/* ============================================================
+   Stage 9 Part 3-D
+   Strategy Recovery Mode Guard
+   ============================================================ */
+
+public(package) fun set_strategy_recovery_mode(
+    engine: &mut TreasuryYieldEngine,
+    enabled: bool,
+) {
+    engine.strategy_recovery_mode = enabled;
+}
+
+public fun is_strategy_recovery_mode(
+    engine: &TreasuryYieldEngine,
+): bool {
+    engine.strategy_recovery_mode
+}
+
+
 public fun allocate_capital(
     _admin_cap: &YieldEngineAdminCap,
     access: &AccessControl,
@@ -608,6 +633,11 @@ public fun allocate_capital(
     assert_operational(
         access,
         engine,
+    );
+
+    assert!(
+        !engine.strategy_recovery_mode,
+        E_STRATEGY_RECOVERY_MODE,
     );
 
     assert!(
@@ -1075,6 +1105,7 @@ public fun assert_accounting_invariant(
     assert!(
         engine.total_funded
             + engine.gross_yield
+            + engine.total_recovery_inflow
             ==
             balance::value(&engine.funds)
                 + outstanding_principal(engine)
@@ -1217,6 +1248,12 @@ public fun total_swept_to_treasury(
     engine: &TreasuryYieldEngine,
 ): u64 {
     engine.total_swept_to_treasury
+}
+
+public fun total_recovery_inflow(
+    engine: &TreasuryYieldEngine,
+): u64 {
+    engine.total_recovery_inflow
 }
 
 public fun strategy_id_at(
@@ -1487,8 +1524,10 @@ public fun new_for_testing(
         recognized_loss: 0,
 
         total_swept_to_treasury: 0,
+        total_recovery_inflow: 0,
 
         global_exposure_limit_bps: BPS_DENOMINATOR,
+        strategy_recovery_mode: false,
 
         funding_count: 0,
         allocation_count: 0,
@@ -1545,7 +1584,9 @@ public fun destroy_empty_for_testing(
         gross_yield: _,
         recognized_loss: _,
         total_swept_to_treasury: _,
+        total_recovery_inflow: _,
         global_exposure_limit_bps: _,
+        strategy_recovery_mode: _,
         funding_count: _,
         allocation_count: _,
         return_count: _,
@@ -1626,4 +1667,41 @@ public(package) fun withdraw_for_treasury(
         withdrawn_balance,
         ctx,
     )
+}
+
+
+/* ============================================================
+   Stage 9 Part 3-C
+   Strategy Recovery Inflow
+   ============================================================ */
+
+public(package) fun deposit_recovery(
+    access: &AccessControl,
+    engine: &mut TreasuryYieldEngine,
+    payment: Coin<SUI>,
+) {
+    assert_operational(
+        access,
+        engine,
+    );
+
+    let amount =
+        coin::value(&payment);
+
+    assert!(
+        amount > 0,
+        E_ZERO_AMOUNT,
+    );
+
+    balance::join(
+        &mut engine.funds,
+        coin::into_balance(payment),
+    );
+
+    engine.total_recovery_inflow =
+        engine.total_recovery_inflow + amount;
+
+    assert_accounting_invariant(
+        engine,
+    );
 }
