@@ -228,3 +228,95 @@ public fun is_suspended(tmid: &TMID): bool {
 public fun is_revoked(tmid: &TMID): bool {
     tmid.status == STATUS_REVOKED
 }
+
+
+/* ============================================================
+   Stage 11 Part 1
+   TMID Integration Read / Test Support
+   ============================================================ */
+
+public fun tmid_id(
+    tmid: &TMID,
+): ID {
+    object::uid_to_inner(
+        &tmid.id,
+    )
+}
+
+
+#[test_only]
+public fun new_for_testing(
+    controller: address,
+    sequence: u64,
+    ctx: &mut TxContext,
+): TMID {
+    TMID {
+        id: object::new(ctx),
+        controller,
+        status: STATUS_ACTIVE,
+        sequence,
+        created_at_epoch:
+            tx_context::epoch(ctx),
+    }
+}
+
+
+#[test_only]
+public fun admin_cap_for_testing(
+    ctx: &mut TxContext,
+): TMIDAdminCap {
+    TMIDAdminCap {
+        id: object::new(ctx),
+    }
+}
+
+
+#[test_only]
+public fun registry_for_testing(
+    ctx: &mut TxContext,
+): TMIDRegistry {
+    TMIDRegistry {
+        id: object::new(ctx),
+        version: 1,
+        total_issued: 0,
+    }
+}
+
+
+#[test_only]
+public fun destroy_for_testing(
+    tmid: TMID,
+) {
+    let TMID {
+        id,
+        controller: _,
+        status: _,
+        sequence: _,
+        created_at_epoch: _,
+    } = tmid;
+
+    object::delete(id);
+}
+
+
+#[test_only]
+public fun destroy_admin_cap_for_testing(
+    cap: TMIDAdminCap,
+) {
+    let TMIDAdminCap { id } = cap;
+    object::delete(id);
+}
+
+
+#[test_only]
+public fun destroy_registry_for_testing(
+    registry: TMIDRegistry,
+) {
+    let TMIDRegistry {
+        id,
+        version: _,
+        total_issued: _,
+    } = registry;
+
+    object::delete(id);
+}
