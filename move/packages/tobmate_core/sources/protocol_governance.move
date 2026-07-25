@@ -1922,3 +1922,25 @@ public fun mark_executed(
         },
     );
 }
+
+
+/* ============================================================
+   Execution Authorization Test Cleanup
+   ============================================================ */
+
+#[test_only]
+public fun destroy_execution_authorization_for_testing(
+    authorization: ExecutionAuthorization,
+) {
+    let ExecutionAuthorization {
+        id,
+        proposal_id: _,
+        action_type: _,
+        target_object_id: _,
+        payload_hash: _,
+        executable_epoch: _,
+        consumed: _,
+    } = authorization;
+
+    object::delete(id);
+}
