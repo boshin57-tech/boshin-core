@@ -1917,3 +1917,679 @@ fun test_22_closed_position_cannot_unstake_again() {
 
     abort 999
 }
+
+
+/* ============================================================
+   Stage 8C Part 2 — Reward Accounting Integration
+   ============================================================ */
+
+/* Test 23 — Reward Position Link Succeeds */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_23_reward_position_link_succeeds() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::position_reward_position_linked(
+            &registry, position_id,
+        ),
+        230,
+    );
+
+    assert!(
+        staking::position_reward_position_id(
+            &registry, position_id,
+        ) == 7001,
+        231,
+    );
+
+    staking::assert_reward_accounting_invariant(&registry);
+
+    abort 0
+}
+
+
+/* Test 24 — Duplicate Reward Link Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 11,
+    location = tobmate_core::staking,
+)]
+fun test_24_duplicate_reward_link_rejected() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7002,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 25 — Reward Accrual Updates Position */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_25_reward_accrual_updates_position() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry,
+        position_id,
+        400,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::position_pending_reward(
+            &registry, position_id,
+        ) == 400,
+        250,
+    );
+
+    assert!(
+        staking::position_total_reward_accrued(
+            &registry, position_id,
+        ) == 400,
+        251,
+    );
+
+    assert!(
+        staking::position_total_reward_claimed(
+            &registry, position_id,
+        ) == 0,
+        252,
+    );
+
+    abort 0
+}
+
+
+/* Test 26 — Reward Accrual Updates Global Accounting */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_26_reward_accrual_updates_global_accounting() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry,
+        position_id,
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::total_reward_accrued(&registry) == 600,
+        260,
+    );
+    assert!(
+        staking::total_reward_pending(&registry) == 600,
+        261,
+    );
+    assert!(
+        staking::total_reward_claimed(&registry) == 0,
+        262,
+    );
+
+    staking::assert_reward_accounting_invariant(&registry);
+
+    abort 0
+}
+
+
+/* Test 27 — Reward Claim Reduces Pending */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_27_reward_claim_reduces_pending() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry,
+        position_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_claim(
+        &mut registry,
+        position_id,
+        400,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::position_pending_reward(
+            &registry, position_id,
+        ) == 600,
+        270,
+    );
+
+    assert!(
+        staking::position_total_reward_claimed(
+            &registry, position_id,
+        ) == 400,
+        271,
+    );
+
+    assert!(
+        staking::total_reward_accrued(&registry) == 1_000,
+        272,
+    );
+
+    assert!(
+        staking::total_reward_pending(&registry) == 600,
+        273,
+    );
+
+    assert!(
+        staking::total_reward_claimed(&registry) == 400,
+        274,
+    );
+
+    staking::assert_reward_accounting_invariant(&registry);
+
+    abort 0
+}
+
+
+/* Test 28 — Claim Above Pending Reward Rejected */
+
+#[test]
+#[expected_failure(
+    abort_code = 4,
+    location = tobmate_core::staking,
+)]
+fun test_28_claim_above_pending_reward_rejected() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry,
+        position_id,
+        500,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_claim(
+        &mut registry,
+        position_id,
+        501,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 29 — Multiple Accruals And Claims Preserve Invariant */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_29_multiple_accruals_and_claims_preserve_invariant() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry, position_id, 300,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry, position_id, 700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_claim(
+        &mut registry, position_id, 250,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_claim(
+        &mut registry, position_id, 350,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        staking::position_total_reward_accrued(
+            &registry, position_id,
+        ) == 1_000,
+        290,
+    );
+
+    assert!(
+        staking::position_pending_reward(
+            &registry, position_id,
+        ) == 400,
+        291,
+    );
+
+    assert!(
+        staking::position_total_reward_claimed(
+            &registry, position_id,
+        ) == 600,
+        292,
+    );
+
+    assert!(staking::total_reward_accrued(&registry) == 1_000, 293);
+    assert!(staking::total_reward_pending(&registry) == 400, 294);
+    assert!(staking::total_reward_claimed(&registry) == 600, 295);
+
+    staking::assert_reward_accounting_invariant(&registry);
+
+    abort 0
+}
+
+
+/* Test 30 — Reward Accounting Survives Full Unstake */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_30_reward_accounting_survives_full_unstake() {
+    use sui::coin;
+    use sui::sui::SUI;
+
+    let mut scenario = test_scenario::begin(ADMIN);
+    let access = access_control::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let mut registry = staking::new_for_testing(
+        test_scenario::ctx(&mut scenario),
+    );
+    let cap = staking::new_admin_cap_for_testing(
+        &registry,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let pool_id = staking::register_pool(
+        &access, &mut registry, &cap,
+        b"SUI-STAKING",
+        800, 1_000, 0, 0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::set_pool_active(
+        &access, &mut registry, &cap,
+        pool_id, true,
+    );
+
+    let principal = coin::mint_for_testing<SUI>(
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let position_id = staking::stake(
+        &access, &mut registry,
+        pool_id, principal,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::link_reward_position(
+        &mut registry,
+        position_id,
+        7001,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_accrual(
+        &mut registry, position_id, 900,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    staking::record_reward_claim(
+        &mut registry, position_id, 300,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let withdrawn = staking::unstake(
+        &access,
+        &mut registry,
+        position_id,
+        5_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    coin::burn_for_testing(withdrawn);
+
+    assert!(
+        !staking::position_is_active(
+            &registry, position_id,
+        ),
+        300,
+    );
+
+    assert!(
+        staking::position_pending_reward(
+            &registry, position_id,
+        ) == 600,
+        301,
+    );
+
+    assert!(
+        staking::position_total_reward_accrued(
+            &registry, position_id,
+        ) == 900,
+        302,
+    );
+
+    assert!(
+        staking::position_total_reward_claimed(
+            &registry, position_id,
+        ) == 300,
+        303,
+    );
+
+    assert!(staking::total_reward_accrued(&registry) == 900, 304);
+    assert!(staking::total_reward_pending(&registry) == 600, 305);
+    assert!(staking::total_reward_claimed(&registry) == 300, 306);
+
+    staking::assert_principal_accounting_invariant(&registry);
+    staking::assert_reward_accounting_invariant(&registry);
+
+    abort 0
+}

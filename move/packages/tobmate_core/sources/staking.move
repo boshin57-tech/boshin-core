@@ -1260,6 +1260,78 @@ public fun position_unstake_request_epoch(
 
 
 /* ============================================================
+   Stage 8C Part 2
+   Reward Accounting Views
+   ============================================================ */
+
+public fun total_reward_accrued(
+    registry: &StakingRegistry,
+): u64 {
+    registry.total_reward_accrued
+}
+
+public fun total_reward_pending(
+    registry: &StakingRegistry,
+): u64 {
+    registry.total_reward_pending
+}
+
+public fun total_reward_claimed(
+    registry: &StakingRegistry,
+): u64 {
+    registry.total_reward_claimed
+}
+
+public fun position_pending_reward(
+    registry: &StakingRegistry,
+    position_id: u64,
+): u64 {
+    let index = find_position_index(registry, position_id);
+    vector::borrow(&registry.positions, index).pending_reward
+}
+
+public fun position_total_reward_accrued(
+    registry: &StakingRegistry,
+    position_id: u64,
+): u64 {
+    let index = find_position_index(registry, position_id);
+    vector::borrow(&registry.positions, index).total_reward_accrued
+}
+
+public fun position_total_reward_claimed(
+    registry: &StakingRegistry,
+    position_id: u64,
+): u64 {
+    let index = find_position_index(registry, position_id);
+    vector::borrow(&registry.positions, index).total_reward_claimed
+}
+
+public fun position_reward_position_linked(
+    registry: &StakingRegistry,
+    position_id: u64,
+): bool {
+    let index = find_position_index(registry, position_id);
+    vector::borrow(&registry.positions, index).reward_position_linked
+}
+
+public fun position_reward_position_id(
+    registry: &StakingRegistry,
+    position_id: u64,
+): u64 {
+    let index = find_position_index(registry, position_id);
+    vector::borrow(&registry.positions, index).reward_position_id
+}
+
+public fun position_last_reward_accrual_epoch(
+    registry: &StakingRegistry,
+    position_id: u64,
+): u64 {
+    let index = find_position_index(registry, position_id);
+    vector::borrow(&registry.positions, index).last_reward_accrual_epoch
+}
+
+
+/* ============================================================
    Stage 8C
    Reward Integration — Package Internal API
    ============================================================ */
