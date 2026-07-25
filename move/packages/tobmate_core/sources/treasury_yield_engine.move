@@ -28,6 +28,14 @@ const E_LOSS_EXCEEDS_OUTSTANDING: u64 = 10;
 const E_RETURN_EXCEEDS_OUTSTANDING: u64 = 11;
 const E_ACCOUNTING_INVARIANT: u64 = 12;
 const E_ZERO_ALLOCATION_LIMIT: u64 = 13;
+const E_INVALID_EXPOSURE_LIMIT: u64 = 14;
+const E_GLOBAL_EXPOSURE_LIMIT_EXCEEDED: u64 = 15;
+const E_INVALID_CONCENTRATION_LIMIT: u64 = 16;
+const E_STRATEGY_CONCENTRATION_LIMIT_EXCEEDED: u64 = 17;
+const E_STRATEGY_LOSS_GUARDED: u64 = 18;
+const E_STRATEGY_NOT_LOSS_GUARDED: u64 = 19;
+
+const BPS_DENOMINATOR: u64 = 10_000;
 
 public struct YieldEngineAdminCap has key, store {
     id: UID,
@@ -38,6 +46,8 @@ public struct YieldStrategy has store {
     external_key: vector<u8>,
     active: bool,
     allocation_limit: u64,
+    concentration_limit_bps: u64,
+    loss_guarded: bool,
 
     total_allocated: u64,
     total_returned: u64,
@@ -69,6 +79,8 @@ public struct TreasuryYieldEngine has key {
     recognized_loss: u64,
 
     total_swept_to_treasury: u64,
+
+    global_exposure_limit_bps: u64,
 
     funding_count: u64,
     allocation_count: u64,
@@ -172,6 +184,7 @@ fun init(ctx: &mut TxContext) {
             gross_yield: 0,
             recognized_loss: 0,
             total_swept_to_treasury: 0,
+            global_exposure_limit_bps: BPS_DENOMINATOR,
             funding_count: 0,
             allocation_count: 0,
             return_count: 0,
@@ -259,6 +272,8 @@ public fun register_strategy(
             external_key,
             active: false,
             allocation_limit,
+            concentration_limit_bps: BPS_DENOMINATOR,
+            loss_guarded: false,
             total_allocated: 0,
             total_returned: 0,
             gross_yield: 0,
@@ -351,6 +366,236 @@ public fun set_strategy_allocation_limit(
         allocation_limit;
 }
 
+
+/* ============================================================
+   Stage 9 Part 2-A
+   Global Exposure Risk Control
+   ============================================================ */
+
+public fun set_global_exposure_limit_bps(
+    _admin_cap: &YieldEngineAdminCap,
+    engine: &mut TreasuryYieldEngine,
+    exposure_limit_bps: u64,
+) {
+    assert!(
+        exposure_limit_bps > 0
+            && exposure_limit_bps <= BPS_DENOMINATOR,
+        E_INVALID_EXPOSURE_LIMIT,
+    );
+
+    let managed =
+        managed_capital(engine);
+
+    let allowed =
+        managed
+            * exposure_limit_bps
+            / BPS_DENOMINATOR;
+
+    assert!(
+        outstanding_principal(engine) <= allowed,
+        E_GLOBAL_EXPOSURE_LIMIT_EXCEEDED,
+    );
+
+    engine.global_exposure_limit_bps =
+        exposure_limit_bps;
+}
+
+public fun global_exposure_limit_bps(
+    engine: &TreasuryYieldEngine,
+): u64 {
+    engine.global_exposure_limit_bps
+}
+
+public fun managed_capital(
+    engine: &TreasuryYieldEngine,
+): u64 {
+    balance::value(&engine.funds)
+        + outstanding_principal(engine)
+}
+
+public fun maximum_global_exposure(
+    engine: &TreasuryYieldEngine,
+): u64 {
+    managed_capital(engine)
+        * engine.global_exposure_limit_bps
+        / BPS_DENOMINATOR
+}
+
+public fun current_global_exposure_bps(
+    engine: &TreasuryYieldEngine,
+): u64 {
+    let managed =
+        managed_capital(engine);
+
+    if (managed == 0) {
+        return 0
+    };
+
+    outstanding_principal(engine)
+        * BPS_DENOMINATOR
+        / managed
+}
+
+
+
+/* ============================================================
+   Stage 9 Part 2-B
+   Per-Strategy Concentration Risk Control
+   ============================================================ */
+
+public fun set_strategy_concentration_limit_bps(
+    _admin_cap: &YieldEngineAdminCap,
+    engine: &mut TreasuryYieldEngine,
+    strategy_id: u64,
+    concentration_limit_bps: u64,
+) {
+    assert!(
+        concentration_limit_bps > 0
+            && concentration_limit_bps <= BPS_DENOMINATOR,
+        E_INVALID_CONCENTRATION_LIMIT,
+    );
+
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    let current_outstanding = {
+        let strategy =
+            vector::borrow(
+                &engine.strategies,
+                index,
+            );
+
+        strategy_outstanding(strategy)
+    };
+
+    let allowed =
+        managed_capital(engine)
+            * concentration_limit_bps
+            / BPS_DENOMINATOR;
+
+    assert!(
+        current_outstanding <= allowed,
+        E_STRATEGY_CONCENTRATION_LIMIT_EXCEEDED,
+    );
+
+    let strategy =
+        vector::borrow_mut(
+            &mut engine.strategies,
+            index,
+        );
+
+    strategy.concentration_limit_bps =
+        concentration_limit_bps;
+}
+
+public fun strategy_concentration_limit_bps(
+    engine: &TreasuryYieldEngine,
+    strategy_id: u64,
+): u64 {
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    vector::borrow(
+        &engine.strategies,
+        index,
+    ).concentration_limit_bps
+}
+
+public fun strategy_maximum_concentration_exposure(
+    engine: &TreasuryYieldEngine,
+    strategy_id: u64,
+): u64 {
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    let strategy =
+        vector::borrow(
+            &engine.strategies,
+            index,
+        );
+
+    managed_capital(engine)
+        * strategy.concentration_limit_bps
+        / BPS_DENOMINATOR
+}
+
+public fun strategy_current_concentration_bps(
+    engine: &TreasuryYieldEngine,
+    strategy_id: u64,
+): u64 {
+    let managed =
+        managed_capital(engine);
+
+    if (managed == 0) {
+        return 0
+    };
+
+    strategy_outstanding_principal(
+        engine,
+        strategy_id,
+    )
+        * BPS_DENOMINATOR
+        / managed
+}
+
+
+
+/* ============================================================
+   Stage 9 Part 2-D
+   Loss-Triggered Allocation Guard
+   ============================================================ */
+
+public fun strategy_is_loss_guarded(
+    engine: &TreasuryYieldEngine,
+    strategy_id: u64,
+): bool {
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    vector::borrow(
+        &engine.strategies,
+        index,
+    ).loss_guarded
+}
+
+public fun clear_strategy_loss_guard(
+    _admin_cap: &YieldEngineAdminCap,
+    engine: &mut TreasuryYieldEngine,
+    strategy_id: u64,
+) {
+    let index =
+        find_strategy_index(
+            engine,
+            strategy_id,
+        );
+
+    let strategy =
+        vector::borrow_mut(
+            &mut engine.strategies,
+            index,
+        );
+
+    assert!(
+        strategy.loss_guarded,
+        E_STRATEGY_NOT_LOSS_GUARDED,
+    );
+
+    strategy.loss_guarded = false;
+}
+
+
 public fun allocate_capital(
     _admin_cap: &YieldEngineAdminCap,
     access: &AccessControl,
@@ -376,6 +621,15 @@ public fun allocate_capital(
         E_INSUFFICIENT_IDLE_FUNDS,
     );
 
+    let projected_outstanding =
+        outstanding_principal(engine) + amount;
+
+    assert!(
+        projected_outstanding
+            <= maximum_global_exposure(engine),
+        E_GLOBAL_EXPOSURE_LIMIT_EXCEEDED,
+    );
+
     let index =
         find_strategy_index(
             engine,
@@ -395,10 +649,29 @@ public fun allocate_capital(
         );
 
         assert!(
+            !strategy.loss_guarded,
+            E_STRATEGY_LOSS_GUARDED,
+        );
+
+        assert!(
             strategy_outstanding(strategy)
                 + amount
                 <= strategy.allocation_limit,
             E_ALLOCATION_LIMIT_EXCEEDED,
+        );
+
+        let projected_strategy_outstanding =
+            strategy_outstanding(strategy) + amount;
+
+        let strategy_concentration_limit =
+            managed_capital(engine)
+                * strategy.concentration_limit_bps
+                / BPS_DENOMINATOR;
+
+        assert!(
+            projected_strategy_outstanding
+                <= strategy_concentration_limit,
+            E_STRATEGY_CONCENTRATION_LIMIT_EXCEEDED,
         );
     };
 
@@ -689,6 +962,8 @@ public fun record_loss(
 
         strategy.recognized_loss =
             strategy.recognized_loss + amount;
+
+        strategy.loss_guarded = true;
 
         strategy.loss_record_count =
             strategy.loss_record_count + 1;
@@ -1213,6 +1488,8 @@ public fun new_for_testing(
 
         total_swept_to_treasury: 0,
 
+        global_exposure_limit_bps: BPS_DENOMINATOR,
+
         funding_count: 0,
         allocation_count: 0,
         return_count: 0,
@@ -1268,6 +1545,7 @@ public fun destroy_empty_for_testing(
         gross_yield: _,
         recognized_loss: _,
         total_swept_to_treasury: _,
+        global_exposure_limit_bps: _,
         funding_count: _,
         allocation_count: _,
         return_count: _,
@@ -1283,6 +1561,8 @@ public fun destroy_empty_for_testing(
             external_key: _,
             active: _,
             allocation_limit: _,
+            concentration_limit_bps: _,
+            loss_guarded: _,
             total_allocated: _,
             total_returned: _,
             gross_yield: _,
