@@ -139,3 +139,26 @@ public fun destroy_for_testing(
 
     object::delete(id);
 }
+
+
+// ============================================================
+// Stage 10 Part 6-D
+// AccessControl Test Administration Fixture
+// ============================================================
+
+#[test_only]
+public fun admin_cap_for_testing(
+    ctx: &mut TxContext,
+): AdminCap {
+    AdminCap {
+        id: object::new(ctx),
+    }
+}
+
+#[test_only]
+public fun destroy_admin_cap_for_testing(
+    cap: AdminCap,
+) {
+    let AdminCap { id } = cap;
+    object::delete(id);
+}

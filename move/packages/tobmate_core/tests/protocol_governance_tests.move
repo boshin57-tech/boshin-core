@@ -2870,3 +2870,547 @@ fun test_28_consumed_authorization_cannot_be_reused() {
 
     abort 999
 }
+
+
+/* ============================================================
+   Stage 10 Part 6-B
+   Multiple Proposal / Authorization Isolation
+   ============================================================ */
+
+
+/* Test 13 — Multiple Proposals Remain Isolated */
+
+#[test]
+fun test_13_multiple_proposals_remain_isolated() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_a_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_b_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_a =
+        object::uid_to_inner(
+            &target_a_uid,
+        );
+
+    let target_b =
+        object::uid_to_inner(
+            &target_b_uid,
+        );
+
+    let proposal_a =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"isolation_a",
+            target_a,
+            b"proposal-a",
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let proposal_b =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            2,
+            b"isolation_b",
+            target_b,
+            b"proposal-b",
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_a,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_b,
+        2_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_a,
+        governance::vote_for(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_b,
+        governance::vote_against(),
+        500,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        governance::proposal_for_votes(
+            &registry,
+            proposal_a,
+        ) == 600,
+        1300,
+    );
+
+    assert!(
+        governance::proposal_against_votes(
+            &registry,
+            proposal_a,
+        ) == 0,
+        1301,
+    );
+
+    assert!(
+        governance::proposal_for_votes(
+            &registry,
+            proposal_b,
+        ) == 0,
+        1302,
+    );
+
+    assert!(
+        governance::proposal_against_votes(
+            &registry,
+            proposal_b,
+        ) == 500,
+        1303,
+    );
+
+    assert!(
+        governance::proposal_total_voting_power_snapshot(
+            &registry,
+            proposal_a,
+        ) == 1_000,
+        1304,
+    );
+
+    assert!(
+        governance::proposal_total_voting_power_snapshot(
+            &registry,
+            proposal_b,
+        ) == 2_000,
+        1305,
+    );
+
+    object::delete(target_a_uid);
+    object::delete(target_b_uid);
+
+    governance::destroy_admin_cap_for_testing(
+        cap,
+    );
+
+    governance::destroy_for_testing(
+        registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* Test 14 — Authorization Cannot Cross Proposal Boundary */
+
+#[test]
+#[expected_failure(
+    abort_code = 25,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_14_authorization_cannot_cross_proposal_boundary() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_a_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_b_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_a =
+        object::uid_to_inner(
+            &target_a_uid,
+        );
+
+    let target_b =
+        object::uid_to_inner(
+            &target_b_uid,
+        );
+
+    let payload_a =
+        b"auth-isolation-a";
+
+    let payload_b =
+        b"auth-isolation-b";
+
+    let proposal_a =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"isolation_a",
+            target_a,
+            payload_a,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let proposal_b =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"isolation_b",
+            target_b,
+            payload_b,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_a,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_b,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_a,
+        governance::vote_for(),
+        700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_tx(
+        &mut scenario,
+        OTHER,
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_b,
+        governance::vote_for(),
+        700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_a,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_b,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_a,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_b,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_a,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    let mut authorization_a =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    /*
+     * Authorization belongs to proposal A.
+     * Attempt to execute proposal B must fail.
+     */
+    governance::assert_execution_authorized(
+        &authorization_a,
+        proposal_b,
+        1,
+        target_b,
+        &payload_b,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 15 — Authorization Cannot Cross Registry Boundary
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 33,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_15_authorization_cannot_cross_registry_boundary() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry_a =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry_b =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap_a =
+        governance::admin_cap_for_testing(
+            &registry_a,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap_b =
+        governance::admin_cap_for_testing(
+            &registry_b,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let payload =
+        b"cross-registry-15";
+
+    /*
+     * Both registries deliberately create equivalent proposal #1.
+     */
+    let proposal_a =
+        governance::submit_proposal(
+            &access,
+            &mut registry_a,
+            1,
+            b"registry_a",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let proposal_b =
+        governance::submit_proposal(
+            &access,
+            &mut registry_b,
+            1,
+            b"registry_b",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry_a,
+        &cap_a,
+        proposal_a,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::open_voting(
+        &mut registry_b,
+        &cap_b,
+        proposal_b,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry_a,
+        proposal_a,
+        governance::vote_for(),
+        700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_tx(
+        &mut scenario,
+        OTHER,
+    );
+
+    governance::cast_vote(
+        &mut registry_b,
+        proposal_b,
+        governance::vote_for(),
+        700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry_a,
+        proposal_a,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::finalize_vote(
+        &mut registry_b,
+        proposal_b,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry_a,
+        &cap_a,
+        proposal_a,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry_b,
+        &cap_b,
+        proposal_b,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry_a,
+        &cap_a,
+        proposal_a,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    let authorization_a =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    /*
+     * Same proposal_id/action/target/payload,
+     * but authorization belongs to registry A.
+     */
+    governance::assert_authorization_registry(
+        &registry_b,
+        &authorization_a,
+    );
+
+    abort 999
+}

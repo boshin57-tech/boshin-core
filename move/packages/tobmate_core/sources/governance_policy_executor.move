@@ -3,6 +3,11 @@ module tobmate_core::governance_policy_executor;
 use sui::object::{Self, ID};
 use sui::tx_context::TxContext;
 
+use tobmate_core::access_control::{
+    Self as access_control,
+    AccessControl,
+};
+
 use tobmate_core::protocol_governance::{
     Self as governance,
     ExecutionAuthorization,
@@ -197,6 +202,7 @@ public fun action_set_recovery_threshold(): u64 {
    ------------------------------------------------------------ */
 
 public fun execute_set_global_exposure(
+    access: &AccessControl,
     governance_registry: &mut GovernanceRegistry,
     authorization: &mut ExecutionAuthorization,
 
@@ -218,9 +224,18 @@ public fun execute_set_global_exposure(
             exposure_limit_bps,
         );
 
+    access_control::assert_not_paused(
+        access,
+    );
+
     governance::assert_proposal_execution_allowed(
         governance_registry,
         proposal_id,
+    );
+
+    governance::assert_authorization_registry(
+        governance_registry,
+        authorization,
     );
 
     governance::assert_execution_authorized(
@@ -256,6 +271,7 @@ public fun execute_set_global_exposure(
    ------------------------------------------------------------ */
 
 public fun execute_set_strategy_allocation(
+    access: &AccessControl,
     governance_registry: &mut GovernanceRegistry,
     authorization: &mut ExecutionAuthorization,
 
@@ -279,9 +295,18 @@ public fun execute_set_strategy_allocation(
             allocation_limit,
         );
 
+    access_control::assert_not_paused(
+        access,
+    );
+
     governance::assert_proposal_execution_allowed(
         governance_registry,
         proposal_id,
+    );
+
+    governance::assert_authorization_registry(
+        governance_registry,
+        authorization,
     );
 
     governance::assert_execution_authorized(
@@ -318,6 +343,7 @@ public fun execute_set_strategy_allocation(
    ------------------------------------------------------------ */
 
 public fun execute_set_strategy_concentration(
+    access: &AccessControl,
     governance_registry: &mut GovernanceRegistry,
     authorization: &mut ExecutionAuthorization,
 
@@ -341,9 +367,18 @@ public fun execute_set_strategy_concentration(
             concentration_limit_bps,
         );
 
+    access_control::assert_not_paused(
+        access,
+    );
+
     governance::assert_proposal_execution_allowed(
         governance_registry,
         proposal_id,
+    );
+
+    governance::assert_authorization_registry(
+        governance_registry,
+        authorization,
     );
 
     governance::assert_execution_authorized(
@@ -380,6 +415,7 @@ public fun execute_set_strategy_concentration(
    ------------------------------------------------------------ */
 
 public fun execute_set_strategy_active(
+    access: &AccessControl,
     governance_registry: &mut GovernanceRegistry,
     authorization: &mut ExecutionAuthorization,
 
@@ -403,9 +439,18 @@ public fun execute_set_strategy_active(
             active,
         );
 
+    access_control::assert_not_paused(
+        access,
+    );
+
     governance::assert_proposal_execution_allowed(
         governance_registry,
         proposal_id,
+    );
+
+    governance::assert_authorization_registry(
+        governance_registry,
+        authorization,
     );
 
     governance::assert_execution_authorized(
@@ -443,6 +488,7 @@ public fun execute_set_strategy_active(
    ------------------------------------------------------------ */
 
 public fun execute_retire_strategy(
+    access: &AccessControl,
     governance_registry: &mut GovernanceRegistry,
     authorization: &mut ExecutionAuthorization,
 
@@ -464,9 +510,18 @@ public fun execute_retire_strategy(
             strategy_id,
         );
 
+    access_control::assert_not_paused(
+        access,
+    );
+
     governance::assert_proposal_execution_allowed(
         governance_registry,
         proposal_id,
+    );
+
+    governance::assert_authorization_registry(
+        governance_registry,
+        authorization,
     );
 
     governance::assert_execution_authorized(
@@ -503,6 +558,7 @@ public fun execute_retire_strategy(
    ------------------------------------------------------------ */
 
 public fun execute_set_recovery_threshold(
+    access: &AccessControl,
     governance_registry: &mut GovernanceRegistry,
     authorization: &mut ExecutionAuthorization,
 
@@ -527,9 +583,18 @@ public fun execute_set_recovery_threshold(
             threshold_bps,
         );
 
+    access_control::assert_not_paused(
+        access,
+    );
+
     governance::assert_proposal_execution_allowed(
         governance_registry,
         proposal_id,
+    );
+
+    governance::assert_authorization_registry(
+        governance_registry,
+        authorization,
     );
 
     governance::assert_execution_authorized(

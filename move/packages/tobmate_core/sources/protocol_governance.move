@@ -68,6 +68,7 @@ const E_EMERGENCY_MODE_INACTIVE: u64 = 29;
 const E_EMERGENCY_CAP_MISMATCH: u64 = 30;
 const E_PROPOSAL_NOT_VETOABLE: u64 = 31;
 const E_PROPOSAL_CANCELLED: u64 = 32;
+const E_AUTHORIZATION_REGISTRY_MISMATCH: u64 = 33;
 
 
 /* ============================================================
@@ -169,6 +170,7 @@ public struct VoteReceipt has store {
 public struct ExecutionAuthorization has key, store {
     id: UID,
 
+    registry_id: ID,
     proposal_id: u64,
     action_type: u64,
     target_object_id: ID,
@@ -1743,6 +1745,9 @@ public fun authorize_execution(
         ExecutionAuthorization {
             id: object::new(ctx),
 
+            registry_id:
+                object::id(registry),
+
             proposal_id:
                 proposal.proposal_id,
 
@@ -1915,6 +1920,11 @@ public fun mark_executed(
 
     ctx: &TxContext,
 ) {
+    assert_authorization_registry(
+        registry,
+        authorization,
+    );
+
     let index =
         find_proposal_index(
             registry,
@@ -1995,6 +2005,7 @@ public fun destroy_execution_authorization_for_testing(
 ) {
     let ExecutionAuthorization {
         id,
+        registry_id: _,
         proposal_id: _,
         action_type: _,
         target_object_id: _,
@@ -2284,4 +2295,28 @@ public fun assert_proposal_execution_allowed(
         !proposal.executed,
         E_AUTHORIZATION_CONSUMED,
     );
+}
+
+
+/* ============================================================
+   Stage 10 Part 6-C
+   Cross-Registry Authorization Isolation
+   ============================================================ */
+
+public fun assert_authorization_registry(
+    registry: &GovernanceRegistry,
+    authorization: &ExecutionAuthorization,
+) {
+    assert!(
+        authorization.registry_id
+            == object::id(registry),
+        E_AUTHORIZATION_REGISTRY_MISMATCH,
+    );
+}
+
+
+public fun authorization_registry_id(
+    authorization: &ExecutionAuthorization,
+): ID {
+    authorization.registry_id
 }
