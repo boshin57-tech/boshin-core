@@ -55,6 +55,7 @@ const E_BINDING_NOT_FOUND: u64 = 8;
 const E_BINDING_ALREADY_REVOKED: u64 = 9;
 const E_STATE_UNCHANGED: u64 = 10;
 const E_VERSION_UNCHANGED: u64 = 11;
+const E_PHONE_NOT_VERIFIED: u64 = 12;
 
 
 /* ============================================================
@@ -345,6 +346,14 @@ public fun create_binding(
             tmid_obj,
         ),
         E_TMID_NOT_ACTIVE,
+    );
+
+
+    assert!(
+        tmid::is_phone_verified(
+            tmid_obj,
+        ),
+        E_PHONE_NOT_VERIFIED,
     );
 
     let controller =

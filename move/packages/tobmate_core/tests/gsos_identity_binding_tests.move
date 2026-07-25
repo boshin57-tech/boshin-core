@@ -1449,3 +1449,202 @@ fun test_20_multi_binding_accounting_invariant() {
 
     test_scenario::end(scenario);
 }
+
+
+/* ============================================================
+   Stage 11 Phone Verification Security
+   ============================================================ */
+
+
+/* Test 21 — Unverified TMID Cannot Create GSOS Identity */
+
+#[test]
+#[expected_failure(
+    abort_code = 12,
+    location = tobmate_core::gsos_identity_binding,
+)]
+fun test_21_unverified_tmid_binding_rejected() {
+    let mut scenario =
+        test_scenario::begin(USER);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let tmid_obj =
+        tmid::new_unverified_for_testing(
+            USER,
+            1,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        binding::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    binding::create_binding(
+        &access,
+        &mut registry,
+        &tmid_obj,
+        binding::identity_user(),
+        b"user:unverified-phone",
+        b"gsap://earth/au/qld/bundaberg/phone-test-21",
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* Test 22 — Phone Verification Enables GSOS Identity */
+
+#[test]
+fun test_22_phone_verification_enables_binding() {
+    let mut scenario =
+        test_scenario::begin(USER);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let tmid_admin =
+        tmid::admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut tmid_obj =
+        tmid::new_unverified_for_testing(
+            USER,
+            1,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    assert!(
+        !tmid::is_phone_verified(
+            &tmid_obj,
+        ),
+        2200,
+    );
+
+    tmid::set_phone_verified(
+        &tmid_admin,
+        &access,
+        &mut tmid_obj,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        tmid::is_phone_verified(
+            &tmid_obj,
+        ),
+        2201,
+    );
+
+    let mut registry =
+        binding::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let binding_id =
+        binding::create_binding(
+            &access,
+            &mut registry,
+            &tmid_obj,
+            binding::identity_user(),
+            b"user:phone-verified",
+            b"gsap://earth/au/qld/bundaberg/phone-test-22",
+            test_scenario::ctx(&mut scenario),
+        );
+
+    assert!(
+        binding::binding_status(
+            &registry,
+            binding_id,
+        ) == binding::status_active(),
+        2202,
+    );
+
+    tmid::destroy_admin_cap_for_testing(
+        tmid_admin,
+    );
+
+    tmid::destroy_for_testing(
+        tmid_obj,
+    );
+
+    binding::destroy_for_testing(
+        registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* Test 23 — Verification Removal Blocks New Identity */
+
+#[test]
+#[expected_failure(
+    abort_code = 12,
+    location = tobmate_core::gsos_identity_binding,
+)]
+fun test_23_verification_removal_blocks_new_binding() {
+    let mut scenario =
+        test_scenario::begin(USER);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let tmid_admin =
+        tmid::admin_cap_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut tmid_obj =
+        tmid::new_for_testing(
+            USER,
+            1,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    assert!(
+        tmid::is_phone_verified(
+            &tmid_obj,
+        ),
+        2300,
+    );
+
+    tmid::set_phone_verified(
+        &tmid_admin,
+        &access,
+        &mut tmid_obj,
+        false,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    let mut registry =
+        binding::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    binding::create_binding(
+        &access,
+        &mut registry,
+        &tmid_obj,
+        binding::identity_user(),
+        b"user:verification-removed",
+        b"gsap://earth/au/qld/bundaberg/phone-test-23",
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}

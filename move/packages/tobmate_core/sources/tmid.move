@@ -10,6 +10,7 @@ use tobmate_core::access_control::{Self, AccessControl};
 const E_INVALID_STATUS: u64 = 1;
 const E_ALREADY_REVOKED: u64 = 2;
 const E_CONTROLLER_UNCHANGED: u64 = 3;
+const E_PHONE_VERIFICATION_UNCHANGED: u64 = 4;
 
 /// TMID status values.
 const STATUS_ACTIVE: u8 = 1;
@@ -33,6 +34,7 @@ public struct TMID has key, store {
     id: UID,
     controller: address,
     status: u8,
+    phone_verified: bool,
     sequence: u64,
     created_at_epoch: u64,
 }
@@ -96,6 +98,7 @@ public fun issue(
         id: object::new(ctx),
         controller,
         status: STATUS_ACTIVE,
+        phone_verified: false,
         sequence,
         created_at_epoch: tx_context::epoch(ctx),
     };
@@ -254,6 +257,7 @@ public fun new_for_testing(
         id: object::new(ctx),
         controller,
         status: STATUS_ACTIVE,
+        phone_verified: true,
         sequence,
         created_at_epoch:
             tx_context::epoch(ctx),
@@ -291,6 +295,7 @@ public fun destroy_for_testing(
         id,
         controller: _,
         status: _,
+        phone_verified: _,
         sequence: _,
         created_at_epoch: _,
     } = tmid;
@@ -319,4 +324,71 @@ public fun destroy_registry_for_testing(
     } = registry;
 
     object::delete(id);
+}
+
+
+/* ============================================================
+   Stage 11
+   Phone Verification Attestation
+   ============================================================ */
+
+public struct TMIDPhoneVerificationChanged has copy, drop {
+    tmid_id: ID,
+    verified: bool,
+    changed_by: address,
+}
+
+public fun set_phone_verified(
+    _admin_cap: &TMIDAdminCap,
+    access_control: &AccessControl,
+    tmid: &mut TMID,
+    verified: bool,
+    ctx: &mut TxContext,
+) {
+    access_control::assert_not_paused(
+        access_control,
+    );
+
+    assert!(
+        tmid.phone_verified != verified,
+        E_PHONE_VERIFICATION_UNCHANGED,
+    );
+
+    tmid.phone_verified =
+        verified;
+
+    event::emit(
+        TMIDPhoneVerificationChanged {
+            tmid_id:
+                object::uid_to_inner(
+                    &tmid.id,
+                ),
+            verified,
+            changed_by:
+                tx_context::sender(ctx),
+        },
+    );
+}
+
+public fun is_phone_verified(
+    tmid: &TMID,
+): bool {
+    tmid.phone_verified
+}
+
+#[test_only]
+public fun new_unverified_for_testing(
+    controller: address,
+    sequence: u64,
+    ctx: &mut TxContext,
+): TMID {
+    TMID {
+        id: object::new(ctx),
+        controller,
+        status: STATUS_ACTIVE,
+        phone_verified: false,
+        sequence,
+        created_at_epoch:
+            tx_context::epoch(ctx),
+    }
 }
