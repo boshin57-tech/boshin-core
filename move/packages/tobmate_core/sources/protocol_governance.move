@@ -28,6 +28,12 @@ const STATUS_QUEUED: u8 = 5;
 const STATUS_EXECUTED: u8 = 6;
 const STATUS_CANCELLED: u8 = 7;
 
+/* Vote choices */
+
+const VOTE_FOR: u8 = 1;
+const VOTE_AGAINST: u8 = 2;
+const VOTE_ABSTAIN: u8 = 3;
+
 /* Governance errors */
 
 const E_GOVERNANCE_PAUSED: u64 = 1;
@@ -41,6 +47,16 @@ const E_INVALID_QUORUM_BPS: u64 = 8;
 const E_INVALID_APPROVAL_BPS: u64 = 9;
 const E_INVALID_VOTING_PERIOD: u64 = 10;
 const E_INVALID_EXECUTION_DELAY: u64 = 11;
+const E_INVALID_PROPOSAL_STATUS: u64 = 12;
+const E_ZERO_VOTING_POWER: u64 = 13;
+const E_VOTING_NOT_STARTED: u64 = 14;
+const E_VOTING_ALREADY_STARTED: u64 = 15;
+const E_INVALID_VOTE_CHOICE: u64 = 16;
+const E_DUPLICATE_VOTE: u64 = 17;
+const E_VOTING_ENDED: u64 = 18;
+const E_VOTING_POWER_EXCEEDS_SNAPSHOT: u64 = 19;
+const E_VOTING_NOT_ENDED: u64 = 20;
+const E_PROPOSAL_ALREADY_FINALIZED: u64 = 21;
 
 
 /* ============================================================
@@ -55,6 +71,7 @@ public struct GovernanceRegistry has key {
 
     next_proposal_id: u64,
     proposals: vector<GovernanceProposal>,
+    vote_receipts: vector<VoteReceipt>,
 
     voting_delay_epochs: u64,
     voting_period_epochs: u64,
@@ -94,12 +111,33 @@ public struct GovernanceProposal has store {
 
     status: u8,
 
+    for_votes: u64,
+    against_votes: u64,
+    abstain_votes: u64,
+
+    total_voting_power_snapshot: u64,
+    vote_count: u64,
+    finalized: bool,
+
     created_epoch: u64,
     voting_start_epoch: u64,
     voting_end_epoch: u64,
     executable_epoch: u64,
 
     executed: bool,
+}
+
+
+/* ============================================================
+   Vote Receipt
+   ============================================================ */
+
+public struct VoteReceipt has store {
+    proposal_id: u64,
+    voter: address,
+    choice: u8,
+    voting_power: u64,
+    cast_epoch: u64,
 }
 
 
@@ -135,6 +173,42 @@ public struct GovernanceVersionChanged has copy, drop {
 }
 
 
+public struct GovernanceVotingOpened has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+    total_voting_power_snapshot: u64,
+    voting_start_epoch: u64,
+    voting_end_epoch: u64,
+    opened_by: address,
+}
+
+
+public struct GovernanceVoteCast has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+    voter: address,
+    choice: u8,
+    voting_power: u64,
+    vote_count_after: u64,
+}
+
+
+public struct GovernanceVoteFinalized has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+
+    for_votes: u64,
+    against_votes: u64,
+    abstain_votes: u64,
+
+    participation_bps: u64,
+    approval_bps: u64,
+
+    approved: bool,
+    finalized_by: address,
+}
+
+
 /* ============================================================
    Initialization
    ============================================================ */
@@ -154,6 +228,7 @@ public fun create(
 
             next_proposal_id: 1,
             proposals: vector[],
+            vote_receipts: vector[],
 
             voting_delay_epochs: 1,
             voting_period_epochs: 5,
@@ -267,6 +342,14 @@ public fun submit_proposal(
 
             status:
                 STATUS_SUBMITTED,
+
+            for_votes: 0,
+            against_votes: 0,
+            abstain_votes: 0,
+
+            total_voting_power_snapshot: 0,
+            vote_count: 0,
+            finalized: false,
 
             created_epoch,
             voting_start_epoch,
@@ -744,6 +827,7 @@ public fun new_for_testing(
 
         next_proposal_id: 1,
         proposals: vector[],
+        vote_receipts: vector[],
 
         voting_delay_epochs: 1,
         voting_period_epochs: 5,
@@ -793,6 +877,7 @@ public fun destroy_for_testing(
 
         next_proposal_id: _,
         mut proposals,
+        mut vote_receipts,
 
         voting_delay_epochs: _,
         voting_period_epochs: _,
@@ -816,6 +901,15 @@ public fun destroy_for_testing(
             target_object_id: _,
             payload_hash: _,
             status: _,
+
+            for_votes: _,
+            against_votes: _,
+            abstain_votes: _,
+
+            total_voting_power_snapshot: _,
+            vote_count: _,
+            finalized: _,
+
             created_epoch: _,
             voting_start_epoch: _,
             voting_end_epoch: _,
@@ -830,5 +924,601 @@ public fun destroy_for_testing(
         proposals,
     );
 
+    while (!vector::is_empty(
+        &vote_receipts,
+    )) {
+        let VoteReceipt {
+            proposal_id: _,
+            voter: _,
+            choice: _,
+            voting_power: _,
+            cast_epoch: _,
+        } = vector::pop_back(
+            &mut vote_receipts,
+        );
+    };
+
+    vector::destroy_empty(
+        vote_receipts,
+    );
+
     object::delete(id);
+}
+
+
+/* ============================================================
+   Stage 10 Part 2-B
+   Voting Lifecycle
+   ============================================================ */
+
+public fun open_voting(
+    registry: &mut GovernanceRegistry,
+    admin_cap: &GovernanceAdminCap,
+    proposal_id: u64,
+    total_voting_power_snapshot: u64,
+    ctx: &mut TxContext,
+) {
+    assert_admin(
+        registry,
+        admin_cap,
+    );
+
+    assert!(
+        total_voting_power_snapshot > 0,
+        E_ZERO_VOTING_POWER,
+    );
+
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    {
+        let proposal =
+            vector::borrow(
+                &registry.proposals,
+                index,
+            );
+
+        assert!(
+            proposal.status == STATUS_SUBMITTED,
+            E_INVALID_PROPOSAL_STATUS,
+        );
+
+        assert!(
+            tx_context::epoch(ctx)
+                >= proposal.voting_start_epoch,
+            E_VOTING_NOT_STARTED,
+        );
+    };
+
+    {
+        let proposal =
+            vector::borrow_mut(
+                &mut registry.proposals,
+                index,
+            );
+
+        proposal.status =
+            STATUS_VOTING;
+
+        proposal.total_voting_power_snapshot =
+            total_voting_power_snapshot;
+    };
+
+    let proposal =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        );
+
+    event::emit(
+        GovernanceVotingOpened {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+
+            total_voting_power_snapshot,
+
+            voting_start_epoch:
+                proposal.voting_start_epoch,
+
+            voting_end_epoch:
+                proposal.voting_end_epoch,
+
+            opened_by:
+                tx_context::sender(ctx),
+        },
+    );
+}
+
+
+/* ============================================================
+   Voting Read API
+   ============================================================ */
+
+public fun proposal_for_votes(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    vector::borrow(
+        &registry.proposals,
+        index,
+    ).for_votes
+}
+
+public fun proposal_against_votes(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    vector::borrow(
+        &registry.proposals,
+        index,
+    ).against_votes
+}
+
+public fun proposal_abstain_votes(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    vector::borrow(
+        &registry.proposals,
+        index,
+    ).abstain_votes
+}
+
+public fun proposal_total_voting_power_snapshot(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    vector::borrow(
+        &registry.proposals,
+        index,
+    ).total_voting_power_snapshot
+}
+
+public fun proposal_vote_count(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    vector::borrow(
+        &registry.proposals,
+        index,
+    ).vote_count
+}
+
+public fun proposal_finalized(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): bool {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    vector::borrow(
+        &registry.proposals,
+        index,
+    ).finalized
+}
+
+
+/* ============================================================
+   Stage 10 Part 2-C
+   Vote Casting
+   ============================================================ */
+
+public fun cast_vote(
+    registry: &mut GovernanceRegistry,
+    proposal_id: u64,
+    choice: u8,
+    voting_power: u64,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        choice == VOTE_FOR
+            || choice == VOTE_AGAINST
+            || choice == VOTE_ABSTAIN,
+        E_INVALID_VOTE_CHOICE,
+    );
+
+    assert!(
+        voting_power > 0,
+        E_ZERO_VOTING_POWER,
+    );
+
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let voter =
+        tx_context::sender(ctx);
+
+    assert!(
+        !has_voted(
+            registry,
+            proposal_id,
+            voter,
+        ),
+        E_DUPLICATE_VOTE,
+    );
+
+    {
+        let proposal =
+            vector::borrow(
+                &registry.proposals,
+                index,
+            );
+
+        assert!(
+            proposal.status == STATUS_VOTING,
+            E_INVALID_PROPOSAL_STATUS,
+        );
+
+        assert!(
+            tx_context::epoch(ctx)
+                <= proposal.voting_end_epoch,
+            E_VOTING_ENDED,
+        );
+
+        let votes_after =
+            proposal.for_votes
+                + proposal.against_votes
+                + proposal.abstain_votes
+                + voting_power;
+
+        assert!(
+            votes_after
+                <= proposal.total_voting_power_snapshot,
+            E_VOTING_POWER_EXCEEDS_SNAPSHOT,
+        );
+    };
+
+    {
+        let proposal =
+            vector::borrow_mut(
+                &mut registry.proposals,
+                index,
+            );
+
+        if (choice == VOTE_FOR) {
+            proposal.for_votes =
+                proposal.for_votes + voting_power;
+        } else if (choice == VOTE_AGAINST) {
+            proposal.against_votes =
+                proposal.against_votes + voting_power;
+        } else {
+            proposal.abstain_votes =
+                proposal.abstain_votes + voting_power;
+        };
+
+        proposal.vote_count =
+            proposal.vote_count + 1;
+    };
+
+    vector::push_back(
+        &mut registry.vote_receipts,
+        VoteReceipt {
+            proposal_id,
+            voter,
+            choice,
+            voting_power,
+            cast_epoch:
+                tx_context::epoch(ctx),
+        },
+    );
+
+    let vote_count_after =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        ).vote_count;
+
+    event::emit(
+        GovernanceVoteCast {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+            voter,
+            choice,
+            voting_power,
+            vote_count_after,
+        },
+    );
+}
+
+
+/* ============================================================
+   Vote Receipt Helpers
+   ============================================================ */
+
+fun has_voted(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+    voter: address,
+): bool {
+    let mut i = 0;
+
+    let length =
+        vector::length(
+            &registry.vote_receipts,
+        );
+
+    while (i < length) {
+        let receipt =
+            vector::borrow(
+                &registry.vote_receipts,
+                i,
+            );
+
+        if (
+            receipt.proposal_id
+                == proposal_id
+            && receipt.voter
+                == voter
+        ) {
+            return true
+        };
+
+        i = i + 1;
+    };
+
+    false
+}
+
+
+public fun vote_receipt_count(
+    registry: &GovernanceRegistry,
+): u64 {
+    vector::length(
+        &registry.vote_receipts,
+    )
+}
+
+
+public fun vote_for(): u8 {
+    VOTE_FOR
+}
+
+public fun vote_against(): u8 {
+    VOTE_AGAINST
+}
+
+public fun vote_abstain(): u8 {
+    VOTE_ABSTAIN
+}
+
+
+/* ============================================================
+   Stage 10 Part 2-D
+   Vote Finalization
+   ============================================================ */
+
+public fun finalize_vote(
+    registry: &mut GovernanceRegistry,
+    proposal_id: u64,
+    ctx: &mut TxContext,
+) {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let (
+        for_votes,
+        against_votes,
+        abstain_votes,
+        total_voting_power_snapshot,
+        voting_end_epoch,
+        finalized,
+        status,
+    ) = {
+        let proposal =
+            vector::borrow(
+                &registry.proposals,
+                index,
+            );
+
+        (
+            proposal.for_votes,
+            proposal.against_votes,
+            proposal.abstain_votes,
+            proposal.total_voting_power_snapshot,
+            proposal.voting_end_epoch,
+            proposal.finalized,
+            proposal.status,
+        )
+    };
+
+    assert!(
+        status == STATUS_VOTING,
+        E_INVALID_PROPOSAL_STATUS,
+    );
+
+    assert!(
+        !finalized,
+        E_PROPOSAL_ALREADY_FINALIZED,
+    );
+
+    assert!(
+        tx_context::epoch(ctx)
+            > voting_end_epoch,
+        E_VOTING_NOT_ENDED,
+    );
+
+    let participation =
+        for_votes
+            + against_votes
+            + abstain_votes;
+
+    let participation_bps =
+        participation
+            * BPS_DENOMINATOR
+            / total_voting_power_snapshot;
+
+    let decisive_votes =
+        for_votes + against_votes;
+
+    let approval_ratio_bps =
+        if (decisive_votes == 0) {
+            0
+        } else {
+            for_votes
+                * BPS_DENOMINATOR
+                / decisive_votes
+        };
+
+    let quorum_met =
+        participation_bps
+            >= registry.quorum_bps;
+
+    let approval_met =
+        approval_ratio_bps
+            >= registry.approval_bps;
+
+    let approved =
+        quorum_met && approval_met;
+
+    {
+        let proposal =
+            vector::borrow_mut(
+                &mut registry.proposals,
+                index,
+            );
+
+        proposal.status =
+            if (approved) {
+                STATUS_APPROVED
+            } else {
+                STATUS_REJECTED
+            };
+
+        proposal.finalized =
+            true;
+    };
+
+    event::emit(
+        GovernanceVoteFinalized {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+
+            for_votes,
+            against_votes,
+            abstain_votes,
+
+            participation_bps,
+            approval_bps:
+                approval_ratio_bps,
+
+            approved,
+
+            finalized_by:
+                tx_context::sender(ctx),
+        },
+    );
+}
+
+
+/* ============================================================
+   Vote Calculation Read API
+   ============================================================ */
+
+public fun proposal_participation_bps(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let proposal =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        );
+
+    if (
+        proposal.total_voting_power_snapshot == 0
+    ) {
+        return 0
+    };
+
+    (
+        proposal.for_votes
+            + proposal.against_votes
+            + proposal.abstain_votes
+    )
+        * BPS_DENOMINATOR
+        / proposal.total_voting_power_snapshot
+}
+
+
+public fun proposal_approval_bps(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+): u64 {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let proposal =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        );
+
+    let decisive_votes =
+        proposal.for_votes
+            + proposal.against_votes;
+
+    if (decisive_votes == 0) {
+        return 0
+    };
+
+    proposal.for_votes
+        * BPS_DENOMINATOR
+        / decisive_votes
 }
