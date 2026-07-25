@@ -62,6 +62,12 @@ const E_PROPOSAL_ALREADY_QUEUED: u64 = 23;
 const E_TIMELOCK_ACTIVE: u64 = 24;
 const E_AUTHORIZATION_MISMATCH: u64 = 25;
 const E_AUTHORIZATION_CONSUMED: u64 = 26;
+const E_EMERGENCY_STATE_UNCHANGED: u64 = 27;
+const E_EMERGENCY_MODE_ACTIVE: u64 = 28;
+const E_EMERGENCY_MODE_INACTIVE: u64 = 29;
+const E_EMERGENCY_CAP_MISMATCH: u64 = 30;
+const E_PROPOSAL_NOT_VETOABLE: u64 = 31;
+const E_PROPOSAL_CANCELLED: u64 = 32;
 
 
 /* ============================================================
@@ -73,6 +79,10 @@ public struct GovernanceRegistry has key {
 
     version: u64,
     paused: bool,
+
+    emergency_mode: bool,
+    emergency_activation_count: u64,
+    emergency_clear_count: u64,
 
     next_proposal_id: u64,
     proposals: vector<GovernanceProposal>,
@@ -95,6 +105,12 @@ public struct GovernanceRegistry has key {
    ============================================================ */
 
 public struct GovernanceAdminCap has key, store {
+    id: UID,
+    registry_id: ID,
+}
+
+
+public struct EmergencyGovernanceCap has key, store {
     id: UID,
     registry_id: ID,
 }
@@ -257,6 +273,28 @@ public struct GovernanceProposalExecuted has copy, drop {
 }
 
 
+public struct GovernanceEmergencyActivated has copy, drop {
+    registry_id: ID,
+    activated_by: address,
+    activation_count: u64,
+}
+
+public struct GovernanceEmergencyCleared has copy, drop {
+    registry_id: ID,
+    cleared_by: address,
+    clear_count: u64,
+}
+
+
+public struct GovernanceProposalVetoed has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+    previous_status: u8,
+    vetoed_by: address,
+    vetoed_epoch: u64,
+}
+
+
 /* ============================================================
    Initialization
    ============================================================ */
@@ -273,6 +311,10 @@ public fun create(
 
             version: PROTOCOL_VERSION,
             paused: false,
+
+            emergency_mode: false,
+            emergency_activation_count: 0,
+            emergency_clear_count: 0,
 
             next_proposal_id: 1,
             proposals: vector[],
@@ -298,6 +340,12 @@ public fun create(
             registry_id,
         };
 
+    let emergency_cap =
+        EmergencyGovernanceCap {
+            id: object::new(ctx),
+            registry_id,
+        };
+
     event::emit(
         GovernanceRegistryCreated {
             registry_id,
@@ -309,6 +357,11 @@ public fun create(
 
     transfer::public_transfer(
         admin_cap,
+        administrator,
+    );
+
+    transfer::public_transfer(
+        emergency_cap,
         administrator,
     );
 }
@@ -873,6 +926,10 @@ public fun new_for_testing(
 
         paused: false,
 
+        emergency_mode: false,
+        emergency_activation_count: 0,
+        emergency_clear_count: 0,
+
         next_proposal_id: 1,
         proposals: vector[],
         vote_receipts: vector[],
@@ -922,6 +979,10 @@ public fun destroy_for_testing(
 
         version: _,
         paused: _,
+
+        emergency_mode: _,
+        emergency_activation_count: _,
+        emergency_clear_count: _,
 
         next_proposal_id: _,
         mut proposals,
@@ -1943,4 +2004,284 @@ public fun destroy_execution_authorization_for_testing(
     } = authorization;
 
     object::delete(id);
+}
+
+
+/* ============================================================
+   Stage 10 Part 5-A
+   Emergency Governance Lifecycle
+   ============================================================ */
+
+fun assert_emergency_cap(
+    registry: &GovernanceRegistry,
+    emergency_cap: &EmergencyGovernanceCap,
+) {
+    assert!(
+        emergency_cap.registry_id
+            == object::id(registry),
+        E_EMERGENCY_CAP_MISMATCH,
+    );
+}
+
+
+public fun activate_emergency(
+    registry: &mut GovernanceRegistry,
+    emergency_cap: &EmergencyGovernanceCap,
+    ctx: &mut TxContext,
+) {
+    assert_emergency_cap(
+        registry,
+        emergency_cap,
+    );
+
+    assert!(
+        !registry.emergency_mode,
+        E_EMERGENCY_STATE_UNCHANGED,
+    );
+
+    registry.emergency_mode =
+        true;
+
+    registry.emergency_activation_count =
+        registry.emergency_activation_count + 1;
+
+    event::emit(
+        GovernanceEmergencyActivated {
+            registry_id:
+                object::id(registry),
+
+            activated_by:
+                tx_context::sender(ctx),
+
+            activation_count:
+                registry.emergency_activation_count,
+        },
+    );
+}
+
+
+public fun clear_emergency(
+    registry: &mut GovernanceRegistry,
+    emergency_cap: &EmergencyGovernanceCap,
+    ctx: &mut TxContext,
+) {
+    assert_emergency_cap(
+        registry,
+        emergency_cap,
+    );
+
+    assert!(
+        registry.emergency_mode,
+        E_EMERGENCY_STATE_UNCHANGED,
+    );
+
+    registry.emergency_mode =
+        false;
+
+    registry.emergency_clear_count =
+        registry.emergency_clear_count + 1;
+
+    event::emit(
+        GovernanceEmergencyCleared {
+            registry_id:
+                object::id(registry),
+
+            cleared_by:
+                tx_context::sender(ctx),
+
+            clear_count:
+                registry.emergency_clear_count,
+        },
+    );
+}
+
+
+public fun assert_not_emergency(
+    registry: &GovernanceRegistry,
+) {
+    assert!(
+        !registry.emergency_mode,
+        E_EMERGENCY_MODE_ACTIVE,
+    );
+}
+
+
+public fun assert_emergency_active(
+    registry: &GovernanceRegistry,
+) {
+    assert!(
+        registry.emergency_mode,
+        E_EMERGENCY_MODE_INACTIVE,
+    );
+}
+
+
+/* ============================================================
+   Emergency Governance Read API
+   ============================================================ */
+
+public fun is_emergency_mode(
+    registry: &GovernanceRegistry,
+): bool {
+    registry.emergency_mode
+}
+
+public fun emergency_activation_count(
+    registry: &GovernanceRegistry,
+): u64 {
+    registry.emergency_activation_count
+}
+
+public fun emergency_clear_count(
+    registry: &GovernanceRegistry,
+): u64 {
+    registry.emergency_clear_count
+}
+
+
+#[test_only]
+public fun emergency_cap_for_testing(
+    registry: &GovernanceRegistry,
+    ctx: &mut TxContext,
+): EmergencyGovernanceCap {
+    EmergencyGovernanceCap {
+        id: object::new(ctx),
+        registry_id:
+            object::id(registry),
+    }
+}
+
+
+#[test_only]
+public fun destroy_emergency_cap_for_testing(
+    cap: EmergencyGovernanceCap,
+) {
+    let EmergencyGovernanceCap {
+        id,
+        registry_id: _,
+    } = cap;
+
+    object::delete(id);
+}
+
+
+/* ============================================================
+   Stage 10 Part 5-B
+   Emergency Proposal Veto
+   ============================================================ */
+
+public fun emergency_veto_proposal(
+    registry: &mut GovernanceRegistry,
+    emergency_cap: &EmergencyGovernanceCap,
+    proposal_id: u64,
+    ctx: &mut TxContext,
+) {
+    assert_emergency_cap(
+        registry,
+        emergency_cap,
+    );
+
+    assert_emergency_active(
+        registry,
+    );
+
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let previous_status = {
+        let proposal =
+            vector::borrow(
+                &registry.proposals,
+                index,
+            );
+
+        assert!(
+            proposal.status == STATUS_SUBMITTED
+                || proposal.status == STATUS_VOTING
+                || proposal.status == STATUS_APPROVED
+                || proposal.status == STATUS_QUEUED,
+            E_PROPOSAL_NOT_VETOABLE,
+        );
+
+        assert!(
+            !proposal.executed,
+            E_PROPOSAL_NOT_VETOABLE,
+        );
+
+        proposal.status
+    };
+
+    {
+        let proposal =
+            vector::borrow_mut(
+                &mut registry.proposals,
+                index,
+            );
+
+        proposal.status =
+            STATUS_CANCELLED;
+
+        proposal.finalized =
+            true;
+    };
+
+    event::emit(
+        GovernanceProposalVetoed {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+            previous_status,
+
+            vetoed_by:
+                tx_context::sender(ctx),
+
+            vetoed_epoch:
+                tx_context::epoch(ctx),
+        },
+    );
+}
+
+
+/* ============================================================
+   Proposal Execution State Guard
+   ============================================================ */
+
+public fun assert_proposal_execution_allowed(
+    registry: &GovernanceRegistry,
+    proposal_id: u64,
+) {
+    assert_not_emergency(
+        registry,
+    );
+
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let proposal =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        );
+
+    assert!(
+        proposal.status != STATUS_CANCELLED,
+        E_PROPOSAL_CANCELLED,
+    );
+
+    assert!(
+        proposal.status == STATUS_QUEUED,
+        E_INVALID_PROPOSAL_STATUS,
+    );
+
+    assert!(
+        !proposal.executed,
+        E_AUTHORIZATION_CONSUMED,
+    );
 }

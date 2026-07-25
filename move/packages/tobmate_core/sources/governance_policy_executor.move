@@ -218,6 +218,11 @@ public fun execute_set_global_exposure(
             exposure_limit_bps,
         );
 
+    governance::assert_proposal_execution_allowed(
+        governance_registry,
+        proposal_id,
+    );
+
     governance::assert_execution_authorized(
         authorization,
         proposal_id,
@@ -273,6 +278,11 @@ public fun execute_set_strategy_allocation(
             strategy_id,
             allocation_limit,
         );
+
+    governance::assert_proposal_execution_allowed(
+        governance_registry,
+        proposal_id,
+    );
 
     governance::assert_execution_authorized(
         authorization,
@@ -331,6 +341,11 @@ public fun execute_set_strategy_concentration(
             concentration_limit_bps,
         );
 
+    governance::assert_proposal_execution_allowed(
+        governance_registry,
+        proposal_id,
+    );
+
     governance::assert_execution_authorized(
         authorization,
         proposal_id,
@@ -388,6 +403,11 @@ public fun execute_set_strategy_active(
             active,
         );
 
+    governance::assert_proposal_execution_allowed(
+        governance_registry,
+        proposal_id,
+    );
+
     governance::assert_execution_authorized(
         authorization,
         proposal_id,
@@ -443,6 +463,11 @@ public fun execute_retire_strategy(
         payload_u64(
             strategy_id,
         );
+
+    governance::assert_proposal_execution_allowed(
+        governance_registry,
+        proposal_id,
+    );
 
     governance::assert_execution_authorized(
         authorization,
@@ -501,6 +526,11 @@ public fun execute_set_recovery_threshold(
         payload_u64(
             threshold_bps,
         );
+
+    governance::assert_proposal_execution_allowed(
+        governance_registry,
+        proposal_id,
+    );
 
     governance::assert_execution_authorized(
         authorization,
