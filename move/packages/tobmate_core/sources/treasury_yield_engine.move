@@ -68,6 +68,8 @@ public struct TreasuryYieldEngine has key {
     gross_yield: u64,
     recognized_loss: u64,
 
+    total_swept_to_treasury: u64,
+
     funding_count: u64,
     allocation_count: u64,
     return_count: u64,
@@ -169,6 +171,7 @@ fun init(ctx: &mut TxContext) {
             total_returned: 0,
             gross_yield: 0,
             recognized_loss: 0,
+            total_swept_to_treasury: 0,
             funding_count: 0,
             allocation_count: 0,
             return_count: 0,
@@ -800,7 +803,8 @@ public fun assert_accounting_invariant(
             ==
             balance::value(&engine.funds)
                 + outstanding_principal(engine)
-                + engine.recognized_loss,
+                + engine.recognized_loss
+                + engine.total_swept_to_treasury,
         E_ACCOUNTING_INVARIANT,
     );
 }
@@ -932,6 +936,12 @@ public fun outstanding_principal(
     engine.total_allocated
         - engine.total_returned
         - engine.recognized_loss
+}
+
+public fun total_swept_to_treasury(
+    engine: &TreasuryYieldEngine,
+): u64 {
+    engine.total_swept_to_treasury
 }
 
 public fun strategy_id_at(
@@ -1201,6 +1211,8 @@ public fun new_for_testing(
         gross_yield: 0,
         recognized_loss: 0,
 
+        total_swept_to_treasury: 0,
+
         funding_count: 0,
         allocation_count: 0,
         return_count: 0,
@@ -1255,6 +1267,7 @@ public fun destroy_empty_for_testing(
         total_returned: _,
         gross_yield: _,
         recognized_loss: _,
+        total_swept_to_treasury: _,
         funding_count: _,
         allocation_count: _,
         return_count: _,
@@ -1286,4 +1299,51 @@ public fun destroy_empty_for_testing(
     vector::destroy_empty(strategies);
 
     object::delete(id);
+}
+
+
+/* ============================================================
+   Stage 9 Part 1-C
+   Yield Engine → Treasury Sweep
+   ============================================================ */
+
+public(package) fun withdraw_for_treasury(
+    _admin_cap: &YieldEngineAdminCap,
+    access: &AccessControl,
+    engine: &mut TreasuryYieldEngine,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<SUI> {
+    assert_operational(
+        access,
+        engine,
+    );
+
+    assert!(
+        amount > 0,
+        E_ZERO_AMOUNT,
+    );
+
+    assert!(
+        balance::value(&engine.funds) >= amount,
+        E_INSUFFICIENT_IDLE_FUNDS,
+    );
+
+    let withdrawn_balance =
+        balance::split(
+            &mut engine.funds,
+            amount,
+        );
+
+    engine.total_swept_to_treasury =
+        engine.total_swept_to_treasury + amount;
+
+    assert_accounting_invariant(
+        engine,
+    );
+
+    coin::from_balance(
+        withdrawn_balance,
+        ctx,
+    )
 }
