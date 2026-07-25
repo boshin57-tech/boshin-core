@@ -820,7 +820,7 @@ fun contains_collateral_borrow_position(
     false
 }
 
-public fun borrow(
+public(package) fun borrow(
     lending_admin_cap: &LendingAdminCap,
     collateral_admin_cap: &CollateralManagerAdminCap,
     access: &AccessControl,

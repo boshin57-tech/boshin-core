@@ -678,7 +678,7 @@ public fun deposit_collateral(
     });
 }
 
-public fun withdraw_collateral(
+public(package) fun withdraw_collateral(
     access: &AccessControl,
     manager: &mut CollateralManager,
     position_id: u64,
@@ -1534,7 +1534,7 @@ public fun assert_withdrawal_safe(
     );
 }
 
-public fun withdraw_collateral_with_quote(
+public(package) fun withdraw_collateral_with_quote(
     access: &AccessControl,
     manager: &mut CollateralManager,
     position_id: u64,
