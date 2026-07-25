@@ -3,6 +3,7 @@ module tobmate_core::protocol_governance_tests;
 
 use sui::object;
 use sui::test_scenario;
+use sui::transfer;
 
 use tobmate_core::access_control::{
     Self as access_control,
@@ -1860,6 +1861,1010 @@ fun test_20_zero_voting_power_snapshot_rejected() {
         &cap,
         proposal_id,
         0,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Stage 10 Part 3-E
+   Timelock / Execution Authorization Tests
+   ============================================================ */
+
+
+/* Test 21 — Approved Proposal Can Be Queued */
+
+#[test]
+fun test_21_approved_proposal_can_be_queued() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            b"queue-success-21",
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        governance::proposal_status(
+            &registry,
+            proposal_id,
+        ) == governance::status_queued(),
+        2100,
+    );
+
+    object::delete(target_uid);
+
+    governance::destroy_admin_cap_for_testing(
+        cap,
+    );
+
+    governance::destroy_for_testing(
+        registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 22 — Rejected Proposal Cannot Be Queued
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 22,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_22_rejected_proposal_cannot_be_queued() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            b"queue-rejected-22",
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_against(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 23 — Queued Proposal Can Authorize Execution
+   ============================================================ */
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_23_queued_proposal_can_authorize_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            b"authorize-success-23",
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_id,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 0
+}
+
+
+/* ============================================================
+   Test 24 — Timelock Blocks Early Execution
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 24,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_24_timelock_blocks_early_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let payload =
+        b"timelock-early-24";
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_id,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_tx(
+        &mut scenario,
+        ADMIN,
+    );
+
+    let mut authorization =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    governance::consume_execution_authorization(
+        &mut authorization,
+        proposal_id,
+        1,
+        target_id,
+        &payload,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 25 — Payload Mismatch Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 25,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_25_payload_mismatch_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let payload =
+        b"payload-original-25";
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_id,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    let mut authorization =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    governance::consume_execution_authorization(
+        &mut authorization,
+        proposal_id,
+        1,
+        target_id,
+        &b"payload-tampered-25",
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 26 — Target Mismatch Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 25,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_26_target_mismatch_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let wrong_target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let wrong_target_id =
+        object::uid_to_inner(
+            &wrong_target_uid,
+        );
+
+    let payload =
+        b"target-mismatch-26";
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        600,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_id,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+    test_scenario::next_epoch(
+        &mut scenario,
+        ADMIN,
+    );
+
+    let mut authorization =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    governance::consume_execution_authorization(
+        &mut authorization,
+        proposal_id,
+        1,
+        wrong_target_id,
+        &payload,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 27 — Timelocked Proposal Executes Successfully
+   ============================================================ */
+
+#[test]
+fun test_27_timelocked_proposal_executes_successfully() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let payload =
+        b"execute-success-27";
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_id,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    let mut authorization =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    governance::mark_executed(
+        &mut registry,
+        &mut authorization,
+        proposal_id,
+        1,
+        target_id,
+        &payload,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        governance::proposal_status(
+            &registry,
+            proposal_id,
+        ) == governance::status_executed(),
+        2700,
+    );
+
+    assert!(
+        governance::proposal_executed(
+            &registry,
+            proposal_id,
+        ),
+        2701,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        2702,
+    );
+
+    assert!(
+        governance::total_proposals_executed(
+            &registry,
+        ) == 1,
+        2703,
+    );
+
+    transfer::public_transfer(
+        authorization,
+        ADMIN,
+    );
+
+    object::delete(target_uid);
+
+    governance::destroy_admin_cap_for_testing(
+        cap,
+    );
+
+    governance::destroy_for_testing(
+        registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 28 — Consumed Authorization Cannot Be Reused
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 26,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_28_consumed_authorization_cannot_be_reused() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry =
+        governance::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let cap =
+        governance::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_uid =
+        object::new(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_id =
+        object::uid_to_inner(
+            &target_uid,
+        );
+
+    let payload =
+        b"consume-reuse-28";
+
+    let proposal_id =
+        governance::submit_proposal(
+            &access,
+            &mut registry,
+            1,
+            b"protocol_governance",
+            target_id,
+            payload,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::open_voting(
+        &mut registry,
+        &cap,
+        proposal_id,
+        1_000,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::cast_vote(
+        &mut registry,
+        proposal_id,
+        governance::vote_for(),
+        700,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    governance::finalize_vote(
+        &mut registry,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::queue_proposal(
+        &mut registry,
+        &cap,
+        proposal_id,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::authorize_execution(
+        &registry,
+        &cap,
+        proposal_id,
+        ADMIN,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+    test_scenario::next_epoch(&mut scenario, ADMIN);
+
+    let mut authorization =
+        test_scenario::take_from_sender<
+            governance::ExecutionAuthorization
+        >(
+            &scenario,
+        );
+
+    governance::consume_execution_authorization(
+        &mut authorization,
+        proposal_id,
+        1,
+        target_id,
+        &payload,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    governance::consume_execution_authorization(
+        &mut authorization,
+        proposal_id,
+        1,
+        target_id,
+        &payload,
         test_scenario::ctx(&mut scenario),
     );
 

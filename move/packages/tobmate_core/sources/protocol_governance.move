@@ -57,6 +57,11 @@ const E_VOTING_ENDED: u64 = 18;
 const E_VOTING_POWER_EXCEEDS_SNAPSHOT: u64 = 19;
 const E_VOTING_NOT_ENDED: u64 = 20;
 const E_PROPOSAL_ALREADY_FINALIZED: u64 = 21;
+const E_PROPOSAL_NOT_APPROVED: u64 = 22;
+const E_PROPOSAL_ALREADY_QUEUED: u64 = 23;
+const E_TIMELOCK_ACTIVE: u64 = 24;
+const E_AUTHORIZATION_MISMATCH: u64 = 25;
+const E_AUTHORIZATION_CONSUMED: u64 = 26;
 
 
 /* ============================================================
@@ -142,6 +147,23 @@ public struct VoteReceipt has store {
 
 
 /* ============================================================
+   Execution Authorization
+   ============================================================ */
+
+public struct ExecutionAuthorization has key, store {
+    id: UID,
+
+    proposal_id: u64,
+    action_type: u64,
+    target_object_id: ID,
+    payload_hash: vector<u8>,
+
+    executable_epoch: u64,
+    consumed: bool,
+}
+
+
+/* ============================================================
    Events
    ============================================================ */
 
@@ -206,6 +228,32 @@ public struct GovernanceVoteFinalized has copy, drop {
 
     approved: bool,
     finalized_by: address,
+}
+
+
+public struct GovernanceProposalQueued has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+    executable_epoch: u64,
+    queued_by: address,
+}
+
+
+public struct GovernanceExecutionAuthorized has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+    authorization_id: ID,
+    executable_epoch: u64,
+    authorized_by: address,
+}
+
+
+public struct GovernanceProposalExecuted has copy, drop {
+    registry_id: ID,
+    proposal_id: u64,
+    authorization_id: ID,
+    executed_by: address,
+    executed_epoch: u64,
 }
 
 
@@ -1521,4 +1569,356 @@ public fun proposal_approval_bps(
     proposal.for_votes
         * BPS_DENOMINATOR
         / decisive_votes
+}
+
+
+/* ============================================================
+   Stage 10 Part 3-A
+   Timelock Queue
+   ============================================================ */
+
+public fun queue_proposal(
+    registry: &mut GovernanceRegistry,
+    admin_cap: &GovernanceAdminCap,
+    proposal_id: u64,
+    ctx: &mut TxContext,
+) {
+    assert_admin(
+        registry,
+        admin_cap,
+    );
+
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    {
+        let proposal =
+            vector::borrow(
+                &registry.proposals,
+                index,
+            );
+
+        assert!(
+            proposal.status == STATUS_APPROVED,
+            E_PROPOSAL_NOT_APPROVED,
+        );
+
+        assert!(
+            !proposal.executed,
+            E_INVALID_PROPOSAL_STATUS,
+        );
+    };
+
+    {
+        let proposal =
+            vector::borrow_mut(
+                &mut registry.proposals,
+                index,
+            );
+
+        proposal.status =
+            STATUS_QUEUED;
+    };
+
+    let executable_epoch =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        ).executable_epoch;
+
+    event::emit(
+        GovernanceProposalQueued {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+            executable_epoch,
+
+            queued_by:
+                tx_context::sender(ctx),
+        },
+    );
+}
+
+
+/* ============================================================
+   Stage 10 Part 3-B
+   Execution Authorization
+   ============================================================ */
+
+public fun authorize_execution(
+    registry: &GovernanceRegistry,
+    admin_cap: &GovernanceAdminCap,
+    proposal_id: u64,
+    recipient: address,
+    ctx: &mut TxContext,
+) {
+    assert_admin(
+        registry,
+        admin_cap,
+    );
+
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    let proposal =
+        vector::borrow(
+            &registry.proposals,
+            index,
+        );
+
+    assert!(
+        proposal.status == STATUS_QUEUED,
+        E_INVALID_PROPOSAL_STATUS,
+    );
+
+    let authorization =
+        ExecutionAuthorization {
+            id: object::new(ctx),
+
+            proposal_id:
+                proposal.proposal_id,
+
+            action_type:
+                proposal.action_type,
+
+            target_object_id:
+                proposal.target_object_id,
+
+            payload_hash:
+                proposal.payload_hash,
+
+            executable_epoch:
+                proposal.executable_epoch,
+
+            consumed: false,
+        };
+
+    let authorization_id =
+        object::id(&authorization);
+
+    event::emit(
+        GovernanceExecutionAuthorized {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+
+            authorization_id,
+
+            executable_epoch:
+                proposal.executable_epoch,
+
+            authorized_by:
+                tx_context::sender(ctx),
+        },
+    );
+
+    transfer::public_transfer(
+        authorization,
+        recipient,
+    );
+}
+
+
+/* ============================================================
+   Stage 10 Part 3-C
+   Execution Authorization Validation
+   ============================================================ */
+
+public fun assert_execution_authorized(
+    authorization: &ExecutionAuthorization,
+
+    proposal_id: u64,
+    action_type: u64,
+    target_object_id: ID,
+    payload_hash: &vector<u8>,
+
+    ctx: &TxContext,
+) {
+    assert!(
+        !authorization.consumed,
+        E_AUTHORIZATION_CONSUMED,
+    );
+
+    assert!(
+        authorization.proposal_id
+            == proposal_id,
+        E_AUTHORIZATION_MISMATCH,
+    );
+
+    assert!(
+        authorization.action_type
+            == action_type,
+        E_AUTHORIZATION_MISMATCH,
+    );
+
+    assert!(
+        authorization.target_object_id
+            == target_object_id,
+        E_AUTHORIZATION_MISMATCH,
+    );
+
+    assert!(
+        authorization.payload_hash
+            == *payload_hash,
+        E_AUTHORIZATION_MISMATCH,
+    );
+
+    assert!(
+        tx_context::epoch(ctx)
+            >= authorization.executable_epoch,
+        E_TIMELOCK_ACTIVE,
+    );
+}
+
+
+public fun consume_execution_authorization(
+    authorization: &mut ExecutionAuthorization,
+
+    proposal_id: u64,
+    action_type: u64,
+    target_object_id: ID,
+    payload_hash: &vector<u8>,
+
+    ctx: &TxContext,
+) {
+    assert_execution_authorized(
+        authorization,
+        proposal_id,
+        action_type,
+        target_object_id,
+        payload_hash,
+        ctx,
+    );
+
+    authorization.consumed =
+        true;
+}
+
+
+/* ============================================================
+   Execution Authorization Read API
+   ============================================================ */
+
+public fun authorization_proposal_id(
+    authorization: &ExecutionAuthorization,
+): u64 {
+    authorization.proposal_id
+}
+
+public fun authorization_action_type(
+    authorization: &ExecutionAuthorization,
+): u64 {
+    authorization.action_type
+}
+
+public fun authorization_target_object_id(
+    authorization: &ExecutionAuthorization,
+): ID {
+    authorization.target_object_id
+}
+
+public fun authorization_executable_epoch(
+    authorization: &ExecutionAuthorization,
+): u64 {
+    authorization.executable_epoch
+}
+
+public fun authorization_consumed(
+    authorization: &ExecutionAuthorization,
+): bool {
+    authorization.consumed
+}
+
+
+/* ============================================================
+   Stage 10 Part 3-D
+   Proposal Execution Finalization
+   ============================================================ */
+
+public fun mark_executed(
+    registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    proposal_id: u64,
+    action_type: u64,
+    target_object_id: ID,
+    payload_hash: &vector<u8>,
+
+    ctx: &TxContext,
+) {
+    let index =
+        find_proposal_index(
+            registry,
+            proposal_id,
+        );
+
+    {
+        let proposal =
+            vector::borrow(
+                &registry.proposals,
+                index,
+            );
+
+        assert!(
+            proposal.status == STATUS_QUEUED,
+            E_INVALID_PROPOSAL_STATUS,
+        );
+
+        assert!(
+            !proposal.executed,
+            E_AUTHORIZATION_CONSUMED,
+        );
+    };
+
+    consume_execution_authorization(
+        authorization,
+        proposal_id,
+        action_type,
+        target_object_id,
+        payload_hash,
+        ctx,
+    );
+
+    {
+        let proposal =
+            vector::borrow_mut(
+                &mut registry.proposals,
+                index,
+            );
+
+        proposal.status =
+            STATUS_EXECUTED;
+
+        proposal.executed =
+            true;
+    };
+
+    registry.total_proposals_executed =
+        registry.total_proposals_executed + 1;
+
+    event::emit(
+        GovernanceProposalExecuted {
+            registry_id:
+                object::id(registry),
+
+            proposal_id,
+
+            authorization_id:
+                object::id(authorization),
+
+            executed_by:
+                tx_context::sender(ctx),
+
+            executed_epoch:
+                tx_context::epoch(ctx),
+        },
+    );
 }
