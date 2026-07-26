@@ -924,3 +924,35 @@ public fun destroy_for_testing(
 
     object::delete(id);
 }
+
+
+/* ============================================================
+   Binding Existence Query
+   Stage 11 Spatial Event Integration
+   ============================================================ */
+
+public fun binding_exists(
+    registry: &GSOSIdentityRegistry,
+    binding_id: u64,
+): bool {
+    let length =
+        vector::length(&registry.bindings);
+
+    let mut i = 0;
+
+    while (i < length) {
+        let binding =
+            vector::borrow(
+                &registry.bindings,
+                i,
+            );
+
+        if (binding.binding_id == binding_id) {
+            return true
+        };
+
+        i = i + 1;
+    };
+
+    false
+}
