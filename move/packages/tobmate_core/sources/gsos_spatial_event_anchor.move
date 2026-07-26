@@ -1260,3 +1260,15 @@ public fun destroy_admin_cap_for_testing(
 
     object::delete(id);
 }
+
+
+/* ============================================================
+   Registry Object ID
+   Stage 11 Part 10 Governance Integration
+   ============================================================ */
+
+public fun registry_id(
+    registry: &GSOSSpatialEventAnchorRegistry,
+): ID {
+    object::id(registry)
+}

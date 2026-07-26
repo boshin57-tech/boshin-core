@@ -1677,3 +1677,15 @@ public fun delegation_valid_until_epoch(
         delegation_id,
     ).valid_until_epoch
 }
+
+
+/* ============================================================
+   Registry Object ID
+   Stage 11 Part 10 Governance Integration
+   ============================================================ */
+
+public fun registry_id(
+    registry: &GSOSAgentAuthorityRegistry,
+): ID {
+    object::id(registry)
+}
