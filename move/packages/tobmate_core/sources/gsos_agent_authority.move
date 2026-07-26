@@ -1611,3 +1611,69 @@ public fun destroy_admin_cap_for_testing(
 
     object::delete(id);
 }
+
+
+/* ============================================================
+   Additional Scope / Validity Read API
+   Stage 11 Part 8 Integration Hardening
+   ============================================================ */
+
+public fun authority_valid_from_epoch(
+    registry: &GSOSAgentAuthorityRegistry,
+    authority_id: u64,
+): u64 {
+    borrow_authority_internal(
+        registry,
+        authority_id,
+    ).valid_from_epoch
+}
+
+public fun authority_valid_until_epoch(
+    registry: &GSOSAgentAuthorityRegistry,
+    authority_id: u64,
+): u64 {
+    borrow_authority_internal(
+        registry,
+        authority_id,
+    ).valid_until_epoch
+}
+
+public fun delegation_world_id(
+    registry: &GSOSAgentAuthorityRegistry,
+    delegation_id: u64,
+): u64 {
+    borrow_delegation_internal(
+        registry,
+        delegation_id,
+    ).world_id
+}
+
+public fun delegation_space_binding_id(
+    registry: &GSOSAgentAuthorityRegistry,
+    delegation_id: u64,
+): u64 {
+    borrow_delegation_internal(
+        registry,
+        delegation_id,
+    ).space_binding_id
+}
+
+public fun delegation_valid_from_epoch(
+    registry: &GSOSAgentAuthorityRegistry,
+    delegation_id: u64,
+): u64 {
+    borrow_delegation_internal(
+        registry,
+        delegation_id,
+    ).valid_from_epoch
+}
+
+public fun delegation_valid_until_epoch(
+    registry: &GSOSAgentAuthorityRegistry,
+    delegation_id: u64,
+): u64 {
+    borrow_delegation_internal(
+        registry,
+        delegation_id,
+    ).valid_until_epoch
+}
