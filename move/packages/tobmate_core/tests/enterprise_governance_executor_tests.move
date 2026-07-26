@@ -25,6 +25,15 @@ use tobmate_core::reserve_attestation::{
     Self as reserve_attestation,
 };
 
+
+use tobmate_core::institution_registry::{
+    Self as institution_registry,
+};
+
+use tobmate_core::institutional_settlement::{
+    Self as institutional_settlement,
+};
+
 use tobmate_core::enterprise_governance_executor::{
     Self as enterprise_executor,
 };
@@ -1958,6 +1967,877 @@ fun test_21_emergency_blocks_reserve_attestation() {
             true,
             test_scenario::ctx(&mut scenario),
         );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 22
+   Stage 12 Part 3 Action Namespace
+   ============================================================ */
+
+#[test]
+fun test_22_part3_action_constants() {
+    assert!(
+        enterprise_executor::action_institution_set_paused()
+            == 2301,
+        220,
+    );
+
+    assert!(
+        enterprise_executor::action_institution_set_version()
+            == 2302,
+        221,
+    );
+
+    assert!(
+        enterprise_executor::action_settlement_set_paused()
+            == 2303,
+        222,
+    );
+
+    assert!(
+        enterprise_executor::action_settlement_set_version()
+            == 2304,
+        223,
+    );
+}
+
+
+/* ============================================================
+   Test 23
+   Governed Institution Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_23_governed_institution_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut institution_registry_obj =
+        institution_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let institution_admin =
+        institution_registry::admin_cap_for_testing(
+            &institution_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institution_registry::registry_id(
+            &institution_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_institution_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_institution_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut institution_registry_obj,
+        &institution_admin,
+
+        proposal_id,
+        true,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        institution_registry::is_paused(
+            &institution_registry_obj,
+        ),
+        230,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        231,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    institution_registry::destroy_admin_cap_for_testing(
+        institution_admin,
+    );
+
+    institution_registry::destroy_for_testing(
+        institution_registry_obj,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 24
+   Governed Institution Version Execution
+   ============================================================ */
+
+#[test]
+fun test_24_governed_institution_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut institution_registry_obj =
+        institution_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let institution_admin =
+        institution_registry::admin_cap_for_testing(
+            &institution_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institution_registry::registry_id(
+            &institution_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_institution_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_institution_set_version(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut institution_registry_obj,
+        &institution_admin,
+
+        proposal_id,
+        2,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        institution_registry::version(
+            &institution_registry_obj,
+        ) == 2,
+        240,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        241,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    institution_registry::destroy_admin_cap_for_testing(
+        institution_admin,
+    );
+
+    institution_registry::destroy_for_testing(
+        institution_registry_obj,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 25
+   Governed Settlement Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_25_governed_settlement_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut settlement_registry =
+        institutional_settlement::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let settlement_admin =
+        institutional_settlement::admin_cap_for_testing(
+            &settlement_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institutional_settlement::registry_id(
+            &settlement_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_settlement_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_settlement_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut settlement_registry,
+        &settlement_admin,
+
+        proposal_id,
+        true,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        institutional_settlement::is_paused(
+            &settlement_registry,
+        ),
+        250,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        251,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    institutional_settlement::destroy_admin_cap_for_testing(
+        settlement_admin,
+    );
+
+    institutional_settlement::destroy_for_testing(
+        settlement_registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 26
+   Governed Settlement Version Execution
+   ============================================================ */
+
+#[test]
+fun test_26_governed_settlement_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut settlement_registry =
+        institutional_settlement::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let settlement_admin =
+        institutional_settlement::admin_cap_for_testing(
+            &settlement_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institutional_settlement::registry_id(
+            &settlement_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_settlement_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_settlement_set_version(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut settlement_registry,
+        &settlement_admin,
+
+        proposal_id,
+        2,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        institutional_settlement::version(
+            &settlement_registry,
+        ) == 2,
+        260,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        261,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    institutional_settlement::destroy_admin_cap_for_testing(
+        settlement_admin,
+    );
+
+    institutional_settlement::destroy_for_testing(
+        settlement_registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 27
+   Institution Wrong Payload Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_27_institution_wrong_payload_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut institution_registry_obj =
+        institution_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let institution_admin =
+        institution_registry::admin_cap_for_testing(
+            &institution_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institution_registry::registry_id(
+            &institution_registry_obj,
+        );
+
+    /*
+       Authorization commits to "paused = false".
+       Execution attempts "paused = true".
+    */
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            false,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_institution_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_institution_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut institution_registry_obj,
+        &institution_admin,
+
+        proposal_id,
+        true,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 28
+   Settlement Wrong Target Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_28_settlement_wrong_target_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let settlement_registry_a =
+        institutional_settlement::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut settlement_registry_b =
+        institutional_settlement::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let settlement_admin_b =
+        institutional_settlement::admin_cap_for_testing(
+            &settlement_registry_b,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    /*
+       Authorization is bound to registry A.
+       Execution attempts to mutate registry B.
+    */
+    let target_a =
+        institutional_settlement::registry_id(
+            &settlement_registry_a,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_settlement_set_paused(),
+            target_a,
+            payload,
+        );
+
+    enterprise_executor::execute_settlement_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut settlement_registry_b,
+        &settlement_admin_b,
+
+        proposal_id,
+        true,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 29
+   Institution Authorization Replay Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_29_institution_authorization_replay_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut institution_registry_obj =
+        institution_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let institution_admin =
+        institution_registry::admin_cap_for_testing(
+            &institution_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institution_registry::registry_id(
+            &institution_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_institution_set_version(),
+            target,
+            payload,
+        );
+
+    /*
+       First execution consumes authorization.
+    */
+    enterprise_executor::execute_institution_set_version(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut institution_registry_obj,
+        &institution_admin,
+
+        proposal_id,
+        2,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    /*
+       Same authorization cannot execute again.
+    */
+    enterprise_executor::execute_institution_set_version(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut institution_registry_obj,
+        &institution_admin,
+
+        proposal_id,
+        2,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 30
+   Emergency Mode Blocks Settlement Governance
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_30_emergency_blocks_settlement_governance() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut settlement_registry =
+        institutional_settlement::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let settlement_admin =
+        institutional_settlement::admin_cap_for_testing(
+            &settlement_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        institutional_settlement::registry_id(
+            &settlement_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_settlement_set_paused(),
+            target,
+            payload,
+        );
+
+    /*
+       Activate emergency governance after authorization
+       but before execution.
+    */
+    governance::activate_emergency(
+        &mut governance_registry,
+        &emergency_cap,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    enterprise_executor::execute_settlement_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut settlement_registry,
+        &settlement_admin,
+
+        proposal_id,
+        true,
+
+        test_scenario::ctx(&mut scenario),
+    );
 
     abort 999
 }

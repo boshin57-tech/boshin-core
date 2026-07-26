@@ -29,6 +29,19 @@ use tobmate_core::reserve_attestation::{
 };
 
 
+use tobmate_core::institution_registry::{
+    Self as institution_registry,
+    InstitutionRegistry,
+    InstitutionAdminCap,
+};
+
+use tobmate_core::institutional_settlement::{
+    Self as institutional_settlement,
+    InstitutionalSettlementRegistry,
+    InstitutionalSettlementAdminCap,
+};
+
+
 /* ============================================================
    Stage 12 Part 1-D
    Enterprise Governance Executor
@@ -60,6 +73,13 @@ const ACTION_CUSTODIAN_SET_VERSION: u64 = 2202;
 
 const ACTION_RESERVE_ATTESTATION_SET_PAUSED: u64 = 2203;
 const ACTION_RESERVE_ATTESTATION_SET_VERSION: u64 = 2204;
+
+
+const ACTION_INSTITUTION_SET_PAUSED: u64 = 2301;
+const ACTION_INSTITUTION_SET_VERSION: u64 = 2302;
+
+const ACTION_SETTLEMENT_SET_PAUSED: u64 = 2303;
+const ACTION_SETTLEMENT_SET_VERSION: u64 = 2304;
 
 
 /* ============================================================
@@ -504,6 +524,243 @@ public fun execute_reserve_attestation_set_version(
 }
 
 
+
+/* ============================================================
+   Institution Registry — Pause / Unpause
+   ============================================================ */
+
+public fun execute_institution_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    institution_registry_obj: &mut InstitutionRegistry,
+    institution_admin_cap: &InstitutionAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        institution_registry::registry_id(
+            institution_registry_obj,
+        );
+
+    let payload =
+        payload_bool(
+            paused,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_INSTITUTION_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    institution_registry::set_paused(
+        institution_admin_cap,
+        institution_registry_obj,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_INSTITUTION_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Institution Registry — Version
+   ============================================================ */
+
+public fun execute_institution_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    institution_registry_obj: &mut InstitutionRegistry,
+    institution_admin_cap: &InstitutionAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        institution_registry::registry_id(
+            institution_registry_obj,
+        );
+
+    let payload =
+        payload_u64(
+            new_version,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_INSTITUTION_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    institution_registry::set_version(
+        institution_admin_cap,
+        institution_registry_obj,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_INSTITUTION_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Institutional Settlement — Pause / Unpause
+   ============================================================ */
+
+public fun execute_settlement_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    settlement_registry: &mut InstitutionalSettlementRegistry,
+    settlement_admin_cap: &InstitutionalSettlementAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        institutional_settlement::registry_id(
+            settlement_registry,
+        );
+
+    let payload =
+        payload_bool(
+            paused,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_SETTLEMENT_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    institutional_settlement::set_paused(
+        settlement_admin_cap,
+        settlement_registry,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_SETTLEMENT_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Institutional Settlement — Version
+   ============================================================ */
+
+public fun execute_settlement_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    settlement_registry: &mut InstitutionalSettlementRegistry,
+    settlement_admin_cap: &InstitutionalSettlementAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        institutional_settlement::registry_id(
+            settlement_registry,
+        );
+
+    let payload =
+        payload_u64(
+            new_version,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_SETTLEMENT_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    institutional_settlement::set_version(
+        settlement_admin_cap,
+        settlement_registry,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_SETTLEMENT_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
 /* ============================================================
    Public Action API
    ============================================================ */
@@ -531,6 +788,23 @@ public fun action_reserve_attestation_set_paused(): u64 {
 
 public fun action_reserve_attestation_set_version(): u64 {
     ACTION_RESERVE_ATTESTATION_SET_VERSION
+}
+
+
+public fun action_institution_set_paused(): u64 {
+    ACTION_INSTITUTION_SET_PAUSED
+}
+
+public fun action_institution_set_version(): u64 {
+    ACTION_INSTITUTION_SET_VERSION
+}
+
+public fun action_settlement_set_paused(): u64 {
+    ACTION_SETTLEMENT_SET_PAUSED
+}
+
+public fun action_settlement_set_version(): u64 {
+    ACTION_SETTLEMENT_SET_VERSION
 }
 
 
