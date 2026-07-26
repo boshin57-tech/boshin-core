@@ -34,6 +34,23 @@ use tobmate_core::institutional_settlement::{
     Self as institutional_settlement,
 };
 
+
+use tobmate_core::regulated_asset_registry::{
+    Self as regulated_asset_registry,
+};
+
+use tobmate_core::etf_instrument::{
+    Self as etf_instrument,
+};
+
+use tobmate_core::cbdc_instrument::{
+    Self as cbdc_instrument,
+};
+
+use tobmate_core::regulated_asset_settlement_bridge::{
+    Self as regulated_asset_settlement_bridge,
+};
+
 use tobmate_core::enterprise_governance_executor::{
     Self as enterprise_executor,
 };
@@ -2836,6 +2853,1281 @@ fun test_30_emergency_blocks_settlement_governance() {
         proposal_id,
         true,
 
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 31
+   Stage 12 Part 4 Action Namespace
+   ============================================================ */
+
+#[test]
+fun test_31_part4_action_constants() {
+    assert!(
+        enterprise_executor::action_regulated_asset_set_paused()
+            == 2401,
+        310,
+    );
+
+    assert!(
+        enterprise_executor::action_regulated_asset_set_version()
+            == 2402,
+        311,
+    );
+
+    assert!(
+        enterprise_executor::action_etf_instrument_set_paused()
+            == 2403,
+        312,
+    );
+
+    assert!(
+        enterprise_executor::action_etf_instrument_set_version()
+            == 2404,
+        313,
+    );
+
+    assert!(
+        enterprise_executor::action_cbdc_instrument_set_paused()
+            == 2405,
+        314,
+    );
+
+    assert!(
+        enterprise_executor::action_cbdc_instrument_set_version()
+            == 2406,
+        315,
+    );
+
+    assert!(
+        enterprise_executor::action_regulated_bridge_set_paused()
+            == 2407,
+        316,
+    );
+
+    assert!(
+        enterprise_executor::action_regulated_bridge_set_version()
+            == 2408,
+        317,
+    );
+}
+
+
+/* ============================================================
+   Test 32
+   Governed Regulated Asset Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_32_governed_regulated_asset_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut asset_registry =
+        regulated_asset_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let asset_admin =
+        regulated_asset_registry::admin_cap_for_testing(
+            &asset_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        regulated_asset_registry::registry_id(
+            &asset_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_regulated_asset_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_regulated_asset_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut asset_registry,
+        &asset_admin,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        regulated_asset_registry::is_paused(
+            &asset_registry,
+        ),
+        320,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        321,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    regulated_asset_registry::destroy_admin_cap_for_testing(
+        asset_admin,
+    );
+
+    regulated_asset_registry::destroy_for_testing(
+        asset_registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 33
+   Governed Regulated Asset Version Execution
+   ============================================================ */
+
+#[test]
+fun test_33_governed_regulated_asset_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut asset_registry =
+        regulated_asset_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let asset_admin =
+        regulated_asset_registry::admin_cap_for_testing(
+            &asset_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        regulated_asset_registry::registry_id(
+            &asset_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_regulated_asset_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_regulated_asset_set_version(
+        &mut governance_registry,
+        &mut authorization,
+        &mut asset_registry,
+        &asset_admin,
+        proposal_id,
+        2,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        regulated_asset_registry::version(
+            &asset_registry,
+        ) == 2,
+        330,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    regulated_asset_registry::destroy_admin_cap_for_testing(
+        asset_admin,
+    );
+
+    regulated_asset_registry::destroy_for_testing(
+        asset_registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 34
+   Governed ETF Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_34_governed_etf_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut registry =
+        etf_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        etf_instrument::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        etf_instrument::registry_id(
+            &registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_etf_instrument_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_etf_instrument_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry,
+        &admin,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        etf_instrument::is_paused(
+            &registry,
+        ),
+        340,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    etf_instrument::destroy_admin_cap_for_testing(
+        admin,
+    );
+
+    etf_instrument::destroy_for_testing(
+        registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 35
+   Governed ETF Version Execution
+   ============================================================ */
+
+#[test]
+fun test_35_governed_etf_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut registry =
+        etf_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        etf_instrument::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        etf_instrument::registry_id(
+            &registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_etf_instrument_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_etf_instrument_set_version(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry,
+        &admin,
+        proposal_id,
+        2,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        etf_instrument::version(
+            &registry,
+        ) == 2,
+        350,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    etf_instrument::destroy_admin_cap_for_testing(
+        admin,
+    );
+
+    etf_instrument::destroy_for_testing(
+        registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 36
+   Governed CBDC Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_36_governed_cbdc_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut registry =
+        cbdc_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        cbdc_instrument::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        cbdc_instrument::registry_id(
+            &registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_cbdc_instrument_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_cbdc_instrument_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry,
+        &admin,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        cbdc_instrument::is_paused(
+            &registry,
+        ),
+        360,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        361,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    cbdc_instrument::destroy_admin_cap_for_testing(
+        admin,
+    );
+
+    cbdc_instrument::destroy_for_testing(
+        registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 37
+   Governed CBDC Version Execution
+   ============================================================ */
+
+#[test]
+fun test_37_governed_cbdc_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut registry =
+        cbdc_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        cbdc_instrument::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        cbdc_instrument::registry_id(
+            &registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_cbdc_instrument_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_cbdc_instrument_set_version(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry,
+        &admin,
+        proposal_id,
+        2,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        cbdc_instrument::version(
+            &registry,
+        ) == 2,
+        370,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        371,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    cbdc_instrument::destroy_admin_cap_for_testing(
+        admin,
+    );
+
+    cbdc_instrument::destroy_for_testing(
+        registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 38
+   Governed Regulated Settlement Bridge Pause
+   ============================================================ */
+
+#[test]
+fun test_38_governed_regulated_bridge_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut bridge =
+        regulated_asset_settlement_bridge::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        regulated_asset_settlement_bridge::admin_cap_for_testing(
+            &bridge,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        regulated_asset_settlement_bridge::bridge_id(
+            &bridge,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_regulated_bridge_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_regulated_bridge_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut bridge,
+        &admin,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        regulated_asset_settlement_bridge::is_paused(
+            &bridge,
+        ),
+        380,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        381,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    regulated_asset_settlement_bridge::destroy_admin_cap_for_testing(
+        admin,
+    );
+
+    regulated_asset_settlement_bridge::destroy_for_testing(
+        bridge,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 39
+   Governed Regulated Settlement Bridge Version
+   ============================================================ */
+
+#[test]
+fun test_39_governed_regulated_bridge_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut bridge =
+        regulated_asset_settlement_bridge::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        regulated_asset_settlement_bridge::admin_cap_for_testing(
+            &bridge,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        regulated_asset_settlement_bridge::bridge_id(
+            &bridge,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_regulated_bridge_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_regulated_bridge_set_version(
+        &mut governance_registry,
+        &mut authorization,
+        &mut bridge,
+        &admin,
+        proposal_id,
+        2,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        regulated_asset_settlement_bridge::version(
+            &bridge,
+        ) == 2,
+        390,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        391,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    regulated_asset_settlement_bridge::destroy_admin_cap_for_testing(
+        admin,
+    );
+
+    regulated_asset_settlement_bridge::destroy_for_testing(
+        bridge,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(scenario);
+}
+
+
+/* ============================================================
+   Test 40
+   Regulated Asset Wrong Payload Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_40_regulated_asset_wrong_payload_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut asset_registry =
+        regulated_asset_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let asset_admin =
+        regulated_asset_registry::admin_cap_for_testing(
+            &asset_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        regulated_asset_registry::registry_id(
+            &asset_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            false,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_regulated_asset_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_regulated_asset_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut asset_registry,
+        &asset_admin,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 41
+   ETF Wrong Target Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_41_etf_wrong_target_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let registry_a =
+        etf_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut registry_b =
+        etf_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin_b =
+        etf_instrument::admin_cap_for_testing(
+            &registry_b,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_a =
+        etf_instrument::registry_id(
+            &registry_a,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_etf_instrument_set_paused(),
+            target_a,
+            payload,
+        );
+
+    enterprise_executor::execute_etf_instrument_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry_b,
+        &admin_b,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 42
+   CBDC Authorization Replay Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_42_cbdc_authorization_replay_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut registry =
+        cbdc_instrument::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        cbdc_instrument::admin_cap_for_testing(
+            &registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        cbdc_instrument::registry_id(
+            &registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_cbdc_instrument_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_cbdc_instrument_set_version(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry,
+        &admin,
+        proposal_id,
+        2,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    enterprise_executor::execute_cbdc_instrument_set_version(
+        &mut governance_registry,
+        &mut authorization,
+        &mut registry,
+        &admin,
+        proposal_id,
+        2,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 43
+   Emergency Blocks Regulated Settlement Bridge Governance
+   ============================================================ */
+
+#[test]
+#[expected_failure]
+fun test_43_emergency_blocks_regulated_bridge_governance() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut bridge =
+        regulated_asset_settlement_bridge::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin =
+        regulated_asset_settlement_bridge::admin_cap_for_testing(
+            &bridge,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        regulated_asset_settlement_bridge::bridge_id(
+            &bridge,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_regulated_bridge_set_paused(),
+            target,
+            payload,
+        );
+
+    governance::activate_emergency(
+        &mut governance_registry,
+        &emergency_cap,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    enterprise_executor::execute_regulated_bridge_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut bridge,
+        &admin,
+        proposal_id,
+        true,
         test_scenario::ctx(&mut scenario),
     );
 

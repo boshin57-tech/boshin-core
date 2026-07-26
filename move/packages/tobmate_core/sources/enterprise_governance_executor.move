@@ -42,6 +42,31 @@ use tobmate_core::institutional_settlement::{
 };
 
 
+use tobmate_core::regulated_asset_registry::{
+    Self as regulated_asset_registry,
+    RegulatedAssetRegistry,
+    RegulatedAssetAdminCap,
+};
+
+use tobmate_core::etf_instrument::{
+    Self as etf_instrument,
+    ETFInstrumentRegistry,
+    ETFInstrumentAdminCap,
+};
+
+use tobmate_core::cbdc_instrument::{
+    Self as cbdc_instrument,
+    CBDCInstrumentRegistry,
+    CBDCInstrumentAdminCap,
+};
+
+use tobmate_core::regulated_asset_settlement_bridge::{
+    Self as regulated_asset_settlement_bridge,
+    RegulatedAssetSettlementBridge,
+    RegulatedAssetSettlementBridgeAdminCap,
+};
+
+
 /* ============================================================
    Stage 12 Part 1-D
    Enterprise Governance Executor
@@ -80,6 +105,19 @@ const ACTION_INSTITUTION_SET_VERSION: u64 = 2302;
 
 const ACTION_SETTLEMENT_SET_PAUSED: u64 = 2303;
 const ACTION_SETTLEMENT_SET_VERSION: u64 = 2304;
+
+
+const ACTION_REGULATED_ASSET_SET_PAUSED: u64 = 2401;
+const ACTION_REGULATED_ASSET_SET_VERSION: u64 = 2402;
+
+const ACTION_ETF_INSTRUMENT_SET_PAUSED: u64 = 2403;
+const ACTION_ETF_INSTRUMENT_SET_VERSION: u64 = 2404;
+
+const ACTION_CBDC_INSTRUMENT_SET_PAUSED: u64 = 2405;
+const ACTION_CBDC_INSTRUMENT_SET_VERSION: u64 = 2406;
+
+const ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_PAUSED: u64 = 2407;
+const ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_VERSION: u64 = 2408;
 
 
 /* ============================================================
@@ -761,6 +799,431 @@ public fun execute_settlement_set_version(
 }
 
 
+
+/* ============================================================
+   Regulated Asset Registry — Pause
+   ============================================================ */
+
+public fun execute_regulated_asset_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    asset_registry: &mut RegulatedAssetRegistry,
+    asset_admin_cap: &RegulatedAssetAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        regulated_asset_registry::registry_id(
+            asset_registry,
+        );
+
+    let payload =
+        payload_bool(paused);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_ASSET_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+
+    regulated_asset_registry::set_paused(
+        asset_admin_cap,
+        asset_registry,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_ASSET_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Regulated Asset Registry — Version
+   ============================================================ */
+
+public fun execute_regulated_asset_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    asset_registry: &mut RegulatedAssetRegistry,
+    asset_admin_cap: &RegulatedAssetAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        regulated_asset_registry::registry_id(
+            asset_registry,
+        );
+
+    let payload =
+        payload_u64(new_version);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_ASSET_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+
+    regulated_asset_registry::set_version(
+        asset_admin_cap,
+        asset_registry,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_ASSET_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   ETF Instrument Registry — Pause
+   ============================================================ */
+
+public fun execute_etf_instrument_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    etf_registry: &mut ETFInstrumentRegistry,
+    etf_admin_cap: &ETFInstrumentAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        etf_instrument::registry_id(
+            etf_registry,
+        );
+
+    let payload =
+        payload_bool(paused);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_ETF_INSTRUMENT_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+
+    etf_instrument::set_paused(
+        etf_admin_cap,
+        etf_registry,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_ETF_INSTRUMENT_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   ETF Instrument Registry — Version
+   ============================================================ */
+
+public fun execute_etf_instrument_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    etf_registry: &mut ETFInstrumentRegistry,
+    etf_admin_cap: &ETFInstrumentAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        etf_instrument::registry_id(
+            etf_registry,
+        );
+
+    let payload =
+        payload_u64(new_version);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_ETF_INSTRUMENT_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+
+    etf_instrument::set_version(
+        etf_admin_cap,
+        etf_registry,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_ETF_INSTRUMENT_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   CBDC Instrument Registry — Pause
+   ============================================================ */
+
+public fun execute_cbdc_instrument_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    cbdc_registry: &mut CBDCInstrumentRegistry,
+    cbdc_admin_cap: &CBDCInstrumentAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        cbdc_instrument::registry_id(
+            cbdc_registry,
+        );
+
+    let payload =
+        payload_bool(paused);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_CBDC_INSTRUMENT_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+
+    cbdc_instrument::set_paused(
+        cbdc_admin_cap,
+        cbdc_registry,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_CBDC_INSTRUMENT_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   CBDC Instrument Registry — Version
+   ============================================================ */
+
+public fun execute_cbdc_instrument_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    cbdc_registry: &mut CBDCInstrumentRegistry,
+    cbdc_admin_cap: &CBDCInstrumentAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        cbdc_instrument::registry_id(
+            cbdc_registry,
+        );
+
+    let payload =
+        payload_u64(new_version);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_CBDC_INSTRUMENT_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+
+    cbdc_instrument::set_version(
+        cbdc_admin_cap,
+        cbdc_registry,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_CBDC_INSTRUMENT_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Regulated Settlement Bridge — Pause
+   ============================================================ */
+
+public fun execute_regulated_bridge_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    bridge: &mut RegulatedAssetSettlementBridge,
+    bridge_admin_cap: &RegulatedAssetSettlementBridgeAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        regulated_asset_settlement_bridge::bridge_id(
+            bridge,
+        );
+
+    let payload =
+        payload_bool(paused);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+
+    regulated_asset_settlement_bridge::set_paused(
+        bridge_admin_cap,
+        bridge,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_PAUSED,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Regulated Settlement Bridge — Version
+   ============================================================ */
+
+public fun execute_regulated_bridge_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    bridge: &mut RegulatedAssetSettlementBridge,
+    bridge_admin_cap: &RegulatedAssetSettlementBridgeAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target =
+        regulated_asset_settlement_bridge::bridge_id(
+            bridge,
+        );
+
+    let payload =
+        payload_u64(new_version);
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+
+    regulated_asset_settlement_bridge::set_version(
+        bridge_admin_cap,
+        bridge,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+        proposal_id,
+        ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_VERSION,
+        target,
+        &payload,
+        ctx,
+    );
+}
+
+
 /* ============================================================
    Public Action API
    ============================================================ */
@@ -805,6 +1268,39 @@ public fun action_settlement_set_paused(): u64 {
 
 public fun action_settlement_set_version(): u64 {
     ACTION_SETTLEMENT_SET_VERSION
+}
+
+
+public fun action_regulated_asset_set_paused(): u64 {
+    ACTION_REGULATED_ASSET_SET_PAUSED
+}
+
+public fun action_regulated_asset_set_version(): u64 {
+    ACTION_REGULATED_ASSET_SET_VERSION
+}
+
+public fun action_etf_instrument_set_paused(): u64 {
+    ACTION_ETF_INSTRUMENT_SET_PAUSED
+}
+
+public fun action_etf_instrument_set_version(): u64 {
+    ACTION_ETF_INSTRUMENT_SET_VERSION
+}
+
+public fun action_cbdc_instrument_set_paused(): u64 {
+    ACTION_CBDC_INSTRUMENT_SET_PAUSED
+}
+
+public fun action_cbdc_instrument_set_version(): u64 {
+    ACTION_CBDC_INSTRUMENT_SET_VERSION
+}
+
+public fun action_regulated_bridge_set_paused(): u64 {
+    ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_PAUSED
+}
+
+public fun action_regulated_bridge_set_version(): u64 {
+    ACTION_REGULATED_SETTLEMENT_BRIDGE_SET_VERSION
 }
 
 
