@@ -16,6 +16,19 @@ use tobmate_core::enterprise_identity::{
 };
 
 
+use tobmate_core::custodian_registry::{
+    Self as custodian_registry,
+    CustodianRegistry,
+    CustodianAdminCap,
+};
+
+use tobmate_core::reserve_attestation::{
+    Self as reserve_attestation,
+    ReserveAttestationRegistry,
+    ReserveAttestationAdminCap,
+};
+
+
 /* ============================================================
    Stage 12 Part 1-D
    Enterprise Governance Executor
@@ -41,6 +54,12 @@ use tobmate_core::enterprise_identity::{
 
 const ACTION_IDENTITY_SET_PAUSED: u64 = 2101;
 const ACTION_IDENTITY_SET_VERSION: u64 = 2102;
+
+const ACTION_CUSTODIAN_SET_PAUSED: u64 = 2201;
+const ACTION_CUSTODIAN_SET_VERSION: u64 = 2202;
+
+const ACTION_RESERVE_ATTESTATION_SET_PAUSED: u64 = 2203;
+const ACTION_RESERVE_ATTESTATION_SET_VERSION: u64 = 2204;
 
 
 /* ============================================================
@@ -248,6 +267,243 @@ public fun execute_identity_set_version(
 }
 
 
+
+/* ============================================================
+   Custodian Registry — Pause / Unpause
+   ============================================================ */
+
+public fun execute_custodian_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    custodian_registry_obj: &mut CustodianRegistry,
+    custodian_admin_cap: &CustodianAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        custodian_registry::registry_id(
+            custodian_registry_obj,
+        );
+
+    let payload =
+        payload_bool(
+            paused,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_CUSTODIAN_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    custodian_registry::set_paused(
+        custodian_admin_cap,
+        custodian_registry_obj,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_CUSTODIAN_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Custodian Registry — Version
+   ============================================================ */
+
+public fun execute_custodian_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    custodian_registry_obj: &mut CustodianRegistry,
+    custodian_admin_cap: &CustodianAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        custodian_registry::registry_id(
+            custodian_registry_obj,
+        );
+
+    let payload =
+        payload_u64(
+            new_version,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_CUSTODIAN_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    custodian_registry::set_version(
+        custodian_admin_cap,
+        custodian_registry_obj,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_CUSTODIAN_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Reserve Attestation — Pause / Unpause
+   ============================================================ */
+
+public fun execute_reserve_attestation_set_paused(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    attestation_registry: &mut ReserveAttestationRegistry,
+    attestation_admin_cap: &ReserveAttestationAdminCap,
+
+    proposal_id: u64,
+    paused: bool,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        reserve_attestation::registry_id(
+            attestation_registry,
+        );
+
+    let payload =
+        payload_bool(
+            paused,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_RESERVE_ATTESTATION_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    reserve_attestation::set_paused(
+        attestation_admin_cap,
+        attestation_registry,
+        paused,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_RESERVE_ATTESTATION_SET_PAUSED,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
+/* ============================================================
+   Reserve Attestation — Version
+   ============================================================ */
+
+public fun execute_reserve_attestation_set_version(
+    governance_registry: &mut GovernanceRegistry,
+    authorization: &mut ExecutionAuthorization,
+
+    attestation_registry: &mut ReserveAttestationRegistry,
+    attestation_admin_cap: &ReserveAttestationAdminCap,
+
+    proposal_id: u64,
+    new_version: u64,
+
+    ctx: &mut TxContext,
+) {
+    let target_object_id =
+        reserve_attestation::registry_id(
+            attestation_registry,
+        );
+
+    let payload =
+        payload_u64(
+            new_version,
+        );
+
+    assert_governance_execution(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_RESERVE_ATTESTATION_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+
+    reserve_attestation::set_version(
+        attestation_admin_cap,
+        attestation_registry,
+        new_version,
+        ctx,
+    );
+
+    governance::mark_executed(
+        governance_registry,
+        authorization,
+
+        proposal_id,
+        ACTION_RESERVE_ATTESTATION_SET_VERSION,
+        target_object_id,
+        &payload,
+
+        ctx,
+    );
+}
+
+
 /* ============================================================
    Public Action API
    ============================================================ */
@@ -258,6 +514,23 @@ public fun action_identity_set_paused(): u64 {
 
 public fun action_identity_set_version(): u64 {
     ACTION_IDENTITY_SET_VERSION
+}
+
+
+public fun action_custodian_set_paused(): u64 {
+    ACTION_CUSTODIAN_SET_PAUSED
+}
+
+public fun action_custodian_set_version(): u64 {
+    ACTION_CUSTODIAN_SET_VERSION
+}
+
+public fun action_reserve_attestation_set_paused(): u64 {
+    ACTION_RESERVE_ATTESTATION_SET_PAUSED
+}
+
+public fun action_reserve_attestation_set_version(): u64 {
+    ACTION_RESERVE_ATTESTATION_SET_VERSION
 }
 
 

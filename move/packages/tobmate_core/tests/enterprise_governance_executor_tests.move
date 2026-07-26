@@ -16,6 +16,15 @@ use tobmate_core::enterprise_identity::{
     Self as enterprise_identity,
 };
 
+
+use tobmate_core::custodian_registry::{
+    Self as custodian_registry,
+};
+
+use tobmate_core::reserve_attestation::{
+    Self as reserve_attestation,
+};
+
 use tobmate_core::enterprise_governance_executor::{
     Self as enterprise_executor,
 };
@@ -1126,6 +1135,829 @@ fun test_13_emergency_mode_blocks_execution() {
         true,
         test_scenario::ctx(&mut scenario),
     );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 14
+   Governed Custodian Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_14_governed_custodian_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut custodian_registry_obj =
+        custodian_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let custodian_admin =
+        custodian_registry::admin_cap_for_testing(
+            &custodian_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        custodian_registry::registry_id(
+            &custodian_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_custodian_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_custodian_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut custodian_registry_obj,
+        &custodian_admin,
+
+        proposal_id,
+        true,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        custodian_registry::is_paused(
+            &custodian_registry_obj,
+        ),
+        140,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        141,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    custodian_registry::destroy_admin_cap_for_testing(
+        custodian_admin,
+    );
+
+    custodian_registry::destroy_for_testing(
+        custodian_registry_obj,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 15
+   Governed Custodian Version Execution
+   ============================================================ */
+
+#[test]
+fun test_15_governed_custodian_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut custodian_registry_obj =
+        custodian_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let custodian_admin =
+        custodian_registry::admin_cap_for_testing(
+            &custodian_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        custodian_registry::registry_id(
+            &custodian_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::action_custodian_set_version(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_custodian_set_version(
+        &mut governance_registry,
+        &mut authorization,
+
+        &mut custodian_registry_obj,
+        &custodian_admin,
+
+        proposal_id,
+        2,
+
+        test_scenario::ctx(&mut scenario),
+    );
+
+    assert!(
+        custodian_registry::version(
+            &custodian_registry_obj,
+        ) == 2,
+        150,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        151,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    custodian_registry::destroy_admin_cap_for_testing(
+        custodian_admin,
+    );
+
+    custodian_registry::destroy_for_testing(
+        custodian_registry_obj,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 16
+   Governed Reserve Attestation Pause Execution
+   ============================================================ */
+
+#[test]
+fun test_16_governed_reserve_attestation_pause_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut attestation_registry =
+        reserve_attestation::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let attestation_admin =
+        reserve_attestation::admin_cap_for_testing(
+            &attestation_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        reserve_attestation::registry_id(
+            &attestation_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::
+                action_reserve_attestation_set_paused(),
+
+            target,
+            payload,
+        );
+
+    enterprise_executor::
+        execute_reserve_attestation_set_paused(
+            &mut governance_registry,
+            &mut authorization,
+
+            &mut attestation_registry,
+            &attestation_admin,
+
+            proposal_id,
+            true,
+
+            test_scenario::ctx(&mut scenario),
+        );
+
+    assert!(
+        reserve_attestation::is_paused(
+            &attestation_registry,
+        ),
+        160,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        161,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    reserve_attestation::destroy_admin_cap_for_testing(
+        attestation_admin,
+    );
+
+    reserve_attestation::destroy_for_testing(
+        attestation_registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 17
+   Governed Reserve Attestation Version Execution
+   ============================================================ */
+
+#[test]
+fun test_17_governed_reserve_attestation_version_execution() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut attestation_registry =
+        reserve_attestation::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let attestation_admin =
+        reserve_attestation::admin_cap_for_testing(
+            &attestation_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        reserve_attestation::registry_id(
+            &attestation_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_u64_for_testing(
+            2,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+
+            enterprise_executor::
+                action_reserve_attestation_set_version(),
+
+            target,
+            payload,
+        );
+
+    enterprise_executor::
+        execute_reserve_attestation_set_version(
+            &mut governance_registry,
+            &mut authorization,
+
+            &mut attestation_registry,
+            &attestation_admin,
+
+            proposal_id,
+            2,
+
+            test_scenario::ctx(&mut scenario),
+        );
+
+    assert!(
+        reserve_attestation::version(
+            &attestation_registry,
+        ) == 2,
+        170,
+    );
+
+    assert!(
+        governance::authorization_consumed(
+            &authorization,
+        ),
+        171,
+    );
+
+    governance::destroy_execution_authorization_for_testing(
+        authorization,
+    );
+
+    reserve_attestation::destroy_admin_cap_for_testing(
+        attestation_admin,
+    );
+
+    reserve_attestation::destroy_for_testing(
+        attestation_registry,
+    );
+
+    governance::destroy_emergency_cap_for_testing(
+        emergency_cap,
+    );
+
+    governance::destroy_admin_cap_for_testing(
+        governance_admin,
+    );
+
+    governance::destroy_for_testing(
+        governance_registry,
+    );
+
+    access_control::destroy_for_testing(
+        access,
+    );
+
+    test_scenario::end(
+        scenario,
+    );
+}
+
+
+/* ============================================================
+   Test 18
+   Custodian Wrong Payload Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 25,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_18_custodian_wrong_payload_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut custodian_registry_obj =
+        custodian_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let custodian_admin =
+        custodian_registry::admin_cap_for_testing(
+            &custodian_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        custodian_registry::registry_id(
+            &custodian_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_custodian_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_custodian_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut custodian_registry_obj,
+        &custodian_admin,
+        proposal_id,
+        false,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 19
+   Reserve Attestation Wrong Target Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 25,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_19_reserve_attestation_wrong_target_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let attestation_registry_a =
+        reserve_attestation::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let mut attestation_registry_b =
+        reserve_attestation::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let admin_b =
+        reserve_attestation::admin_cap_for_testing(
+            &attestation_registry_b,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target_a =
+        reserve_attestation::registry_id(
+            &attestation_registry_a,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::
+                action_reserve_attestation_set_paused(),
+            target_a,
+            payload,
+        );
+
+    enterprise_executor::
+        execute_reserve_attestation_set_paused(
+            &mut governance_registry,
+            &mut authorization,
+            &mut attestation_registry_b,
+            &admin_b,
+            proposal_id,
+            true,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 20
+   Custodian Authorization Replay Rejected
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 12,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_20_custodian_replay_rejected() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        _emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut custodian_registry_obj =
+        custodian_registry::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let custodian_admin =
+        custodian_registry::admin_cap_for_testing(
+            &custodian_registry_obj,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        custodian_registry::registry_id(
+            &custodian_registry_obj,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::action_custodian_set_paused(),
+            target,
+            payload,
+        );
+
+    enterprise_executor::execute_custodian_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut custodian_registry_obj,
+        &custodian_admin,
+        proposal_id,
+        true,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    enterprise_executor::execute_custodian_set_paused(
+        &mut governance_registry,
+        &mut authorization,
+        &mut custodian_registry_obj,
+        &custodian_admin,
+        proposal_id,
+        false,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    abort 999
+}
+
+
+/* ============================================================
+   Test 21
+   Emergency Blocks Reserve Attestation Governance
+   ============================================================ */
+
+#[test]
+#[expected_failure(
+    abort_code = 28,
+    location = tobmate_core::protocol_governance,
+)]
+fun test_21_emergency_blocks_reserve_attestation() {
+    let mut scenario =
+        test_scenario::begin(ADMIN);
+
+    let access =
+        access_control::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let (
+        mut governance_registry,
+        governance_admin,
+        emergency_cap,
+    ) =
+        setup_governance(
+            &mut scenario,
+        );
+
+    let mut attestation_registry =
+        reserve_attestation::new_for_testing(
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let attestation_admin =
+        reserve_attestation::admin_cap_for_testing(
+            &attestation_registry,
+            test_scenario::ctx(&mut scenario),
+        );
+
+    let target =
+        reserve_attestation::registry_id(
+            &attestation_registry,
+        );
+
+    let payload =
+        enterprise_executor::payload_bool_for_testing(
+            true,
+        );
+
+    let (
+        proposal_id,
+        mut authorization,
+    ) =
+        create_authorization(
+            &mut scenario,
+            &access,
+            &mut governance_registry,
+            &governance_admin,
+            enterprise_executor::
+                action_reserve_attestation_set_paused(),
+            target,
+            payload,
+        );
+
+    governance::activate_emergency(
+        &mut governance_registry,
+        &emergency_cap,
+        test_scenario::ctx(&mut scenario),
+    );
+
+    enterprise_executor::
+        execute_reserve_attestation_set_paused(
+            &mut governance_registry,
+            &mut authorization,
+            &mut attestation_registry,
+            &attestation_admin,
+            proposal_id,
+            true,
+            test_scenario::ctx(&mut scenario),
+        );
 
     abort 999
 }
