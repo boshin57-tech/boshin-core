@@ -285,6 +285,183 @@ app.post(
     }
   }
 );
+
+const passkeyChallenges = new Map();
+
+app.post(
+  '/passkey/register/options',
+  requireBlockchainAuth,
+  async (req, res) => {
+    try {
+      const userId = req.blockchainUser;
+
+      const { generateRegistrationOptions } =
+        await import('@simplewebauthn/server');
+
+      const helpers =
+        await import('@simplewebauthn/server/helpers');
+
+      const passkeys =
+        mongoose.connection.collection('passkeys');
+
+      const existing = await passkeys
+        .find({ user_id: userId })
+        .toArray();
+
+      const options =
+        await generateRegistrationOptions({
+          rpName: 'TOBMATE',
+          rpID: 'tobmate.com',
+          userName: userId,
+
+          userID:
+            helpers.isoUint8Array.fromUTF8String(
+              'tmid:' + userId
+            ),
+
+          attestationType: 'none',
+
+          excludeCredentials:
+            existing.map((p) => ({
+              id: p.credential_id,
+              transports: p.transports || []
+            })),
+
+          authenticatorSelection: {
+            residentKey: 'preferred',
+            userVerification: 'required'
+          }
+        });
+
+      passkeyChallenges.set(userId, {
+        challenge: options.challenge,
+        expiresAt: Date.now() + 5 * 60 * 1000
+      });
+
+      return res.json({
+        ok: true,
+        options
+      });
+
+    } catch (err) {
+      console.error(
+        '[PASSKEY_OPTIONS_ERROR]',
+        err.message
+      );
+
+      return res.status(500).json({
+        ok: false,
+        error: 'PASSKEY_OPTIONS_FAILED'
+      });
+    }
+  }
+);
+
+
+app.post(
+  '/passkey/register/verify',
+  requireBlockchainAuth,
+  async (req, res) => {
+    try {
+      const userId = req.blockchainUser;
+
+      const pending = passkeyChallenges.get(userId);
+
+      if (!pending) {
+        return res.status(400).json({
+          ok: false,
+          error: 'PASSKEY_CHALLENGE_NOT_FOUND'
+        });
+      }
+
+      if (Date.now() > pending.expiresAt) {
+        passkeyChallenges.delete(userId);
+
+        return res.status(400).json({
+          ok: false,
+          error: 'PASSKEY_CHALLENGE_EXPIRED'
+        });
+      }
+
+      const {
+        verifyRegistrationResponse
+      } = await import('@simplewebauthn/server');
+
+      const verification =
+        await verifyRegistrationResponse({
+          response: req.body,
+          expectedChallenge: pending.challenge,
+          expectedOrigin: 'https://tobmate.com',
+          expectedRPID: 'tobmate.com',
+          requireUserVerification: true
+        });
+
+      if (!verification.verified ||
+          !verification.registrationInfo) {
+        return res.status(400).json({
+          ok: false,
+          error: 'PASSKEY_REGISTRATION_NOT_VERIFIED'
+        });
+      }
+
+      const {
+        credential,
+        credentialDeviceType,
+        credentialBackedUp
+      } = verification.registrationInfo;
+
+      const passkeys =
+        mongoose.connection.collection('passkeys');
+
+      await passkeys.updateOne(
+        {
+          user_id: userId,
+          credential_id: credential.id
+        },
+        {
+          $set: {
+            user_id: userId,
+            credential_id: credential.id,
+            public_key:
+              Buffer.from(credential.publicKey),
+            counter: credential.counter,
+            transports:
+              credential.transports || [],
+            device_type:
+              credentialDeviceType,
+            backed_up:
+              credentialBackedUp,
+            status: 'active',
+            updated_at: new Date()
+          },
+          $setOnInsert: {
+            created_at: new Date()
+          }
+        },
+        { upsert: true }
+      );
+
+      passkeyChallenges.delete(userId);
+
+      return res.json({
+        ok: true,
+        status: 'PASSKEY_REGISTERED'
+      });
+
+    } catch (err) {
+      console.error(
+        '[PASSKEY_VERIFY_ERROR]',
+        err.message
+      );
+
+      return res.status(400).json({
+        ok: false,
+        error: 'PASSKEY_VERIFY_FAILED'
+      });
+    }
+  }
+);
+
 async function start() {
   await mongoose.connect(MONGO_URL);
 

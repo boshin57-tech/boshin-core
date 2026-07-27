@@ -5,6 +5,8 @@
     "@google/generative-ai": "^0.24.1",
     "@mysten/sui": "^1.45.2",
     "@protobufjs/utf8": "^1.1.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
