@@ -63,6 +63,8 @@ module tobmate_core::cross_network_security_orchestrator {
         remediation_complete: bool,
         recovery_started: bool,
         post_incident_verified: bool,
+        closure_evidence_confirmed: bool,
+        closure_id: vector<u8>,
 
         open_count: u64,
         authorization_count: u64,
@@ -98,6 +100,8 @@ module tobmate_core::cross_network_security_orchestrator {
             remediation_complete: false,
             recovery_started: false,
             post_incident_verified: false,
+            closure_evidence_confirmed: false,
+            closure_id: vector[],
 
             open_count: 0,
             authorization_count: 0,
@@ -189,6 +193,8 @@ module tobmate_core::cross_network_security_orchestrator {
         state.remediation_complete = false;
         state.recovery_started = false;
         state.post_incident_verified = false;
+        state.closure_evidence_confirmed = false;
+        state.closure_id = vector[];
 
         state.status = STATUS_OPEN;
 
@@ -356,11 +362,49 @@ module tobmate_core::cross_network_security_orchestrator {
             E_REMEDIATION_NOT_COMPLETE,
         );
 
+        assert!(
+            state.closure_evidence_confirmed,
+            E_REMEDIATION_NOT_COMPLETE,
+        );
+
+        assert!(
+            vector::length(&state.closure_id) > 0,
+            E_REMEDIATION_NOT_COMPLETE,
+        );
+
         state.status = STATUS_CLOSED;
 
         state.close_count =
             state.close_count + 1;
     }
+
+    // ============================================================
+    // Closure Evidence Confirmation
+    // ============================================================
+
+    public(package) fun confirm_closure_evidence(
+        state: &mut SecurityOrchestrationState,
+        closure_id: vector<u8>,
+    ) {
+        assert!(
+            state.status == STATUS_VERIFIED,
+            E_REMEDIATION_NOT_COMPLETE,
+        );
+
+        assert!(
+            state.post_incident_verified,
+            E_REMEDIATION_NOT_COMPLETE,
+        );
+
+        assert!(
+            !state.closure_evidence_confirmed,
+            E_ALREADY_CLOSED,
+        );
+
+        state.closure_evidence_confirmed = true;
+        state.closure_id = closure_id;
+    }
+
 
     // ============================================================
     // External Evidence Binding
@@ -528,6 +572,19 @@ module tobmate_core::cross_network_security_orchestrator {
         state.close_count
     }
 
+    public fun closure_evidence_confirmed(
+        state: &SecurityOrchestrationState,
+    ): bool {
+        state.closure_evidence_confirmed
+    }
+
+    public fun closure_id(
+        state: &SecurityOrchestrationState,
+    ): &vector<u8> {
+        &state.closure_id
+    }
+
+
     public fun status_none(): u8 { STATUS_NONE }
     public fun status_open(): u8 { STATUS_OPEN }
     public fun status_authorized(): u8 { STATUS_AUTHORIZED }
@@ -555,7 +612,30 @@ module tobmate_core::cross_network_security_orchestrator {
         state.remediation_complete = false;
         state.recovery_started = false;
         state.post_incident_verified = false;
+        state.closure_evidence_confirmed = false;
+        state.closure_id = vector[];
         state.open_count = state.open_count + 1;
+    }
+
+    #[test_only]
+    public fun set_verified_state_for_testing(
+        state: &mut SecurityOrchestrationState,
+        case_sequence: u64,
+        snapshot_sequence: u64,
+    ) {
+        state.status = STATUS_VERIFIED;
+
+        state.case_sequence = case_sequence;
+        state.source_snapshot_sequence = snapshot_sequence;
+        state.last_snapshot_sequence = snapshot_sequence;
+
+        state.containment_required = false;
+        state.authorization_complete = true;
+        state.remediation_complete = true;
+        state.recovery_started = true;
+        state.post_incident_verified = true;
+        state.closure_evidence_confirmed = false;
+        state.closure_id = vector[];
     }
 
     #[test_only]
@@ -591,6 +671,8 @@ module tobmate_core::cross_network_security_orchestrator {
             remediation_complete: _,
             recovery_started: _,
             post_incident_verified: _,
+            closure_evidence_confirmed: _,
+            closure_id: _,
 
             open_count: _,
             authorization_count: _,

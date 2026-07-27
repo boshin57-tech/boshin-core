@@ -11,6 +11,9 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_12 {
     use tobmate_core::cross_network_security_orchestration_binding;
     use tobmate_core::cross_network_remediation_execution_governance;
     use tobmate_core::cross_network_remediation_execution_binding;
+    use tobmate_core::cross_network_security_audit_export;
+    use tobmate_core::cross_network_incident_closure_governance;
+    use tobmate_core::cross_network_incident_closure_binding;
 
     use tobmate_core::cross_network_security_telemetry;
     use tobmate_core::cross_network_anomaly_scoring;
@@ -410,6 +413,50 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_12 {
             73114,
         );
 
+        let audit_export =
+            cross_network_security_audit_export::
+                create_export(
+                    &snapshot,
+                    1,
+                    sui::test_scenario::ctx(&mut scenario),
+                );
+
+        cross_network_security_audit_export::
+            verify_export(
+                &audit_export,
+                &snapshot,
+            );
+
+        let mut closure_governance =
+            cross_network_incident_closure_governance::
+                new_governance(
+                    sui::test_scenario::ctx(&mut scenario),
+                );
+
+        let closure_receipt =
+            cross_network_incident_closure_governance::
+                finalize_closure(
+                    &mut closure_governance,
+                    &orchestration,
+                    *cross_network_security_audit_export::
+                        audit_digest(&audit_export),
+                    sui::test_scenario::ctx(&mut scenario),
+                );
+
+        cross_network_incident_closure_binding::
+            confirm_closure(
+                &mut orchestration,
+                &snapshot,
+                &audit_export,
+                &closure_receipt,
+            );
+
+        assert!(
+            cross_network_security_orchestrator::
+                closure_evidence_confirmed(&orchestration),
+            73117,
+        );
+
         cross_network_security_orchestrator::
             close_case(
                 &mut orchestration,
@@ -437,6 +484,21 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_12 {
                 close_count(&orchestration) == 1,
             73116,
         );
+
+        cross_network_incident_closure_governance::
+            destroy_receipt_for_testing(
+                closure_receipt,
+            );
+
+        cross_network_incident_closure_governance::
+            destroy_governance_for_testing(
+                closure_governance,
+            );
+
+        cross_network_security_audit_export::
+            destroy_for_testing(
+                audit_export,
+            );
 
         cross_network_security_snapshot::
             destroy_for_testing(snapshot);
