@@ -3,19 +3,23 @@
     "@anthropic-ai/sdk": "^0.105.0",
     "@google-cloud/storage": "^7.21.0",
     "@google/generative-ai": "^0.24.1",
+    "@mysten/sui": "^1.45.2",
     "@protobufjs/utf8": "^1.1.0",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "esbuild": "^0.28.1",
     "express": "^4.22.2",
     "express-session": "^1.19.0",
+    "idb-keyval": "^6.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^5.13.23",
     "multer": "^2.1.1",
     "node-pty": "^1.1.0",
     "passport": "^0.4.1",
     "passport-local": "^1.0.0",
-    "socket.io": "^2.5.1"
+    "socket.io": "^2.5.1",
+    "socket.io-client": "^4.8.3"
   }
 }

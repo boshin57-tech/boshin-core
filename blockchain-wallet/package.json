@@ -1,0 +1,18 @@
+{
+  "name": "blockchain-wallet",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@mysten/sui": "^2.22.1",
+    "@mysten/webcrypto-signer": "^0.2.9",
+    "esbuild": "^0.28.1",
+    "idb-keyval": "^6.3.0"
+  }
+}

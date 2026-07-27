@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TOBMATE Blockchain</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#08111d;
+  color:#fff;
+}
+header{
+  padding:20px;
+  background:#0d1b2a;
+  border-bottom:1px solid #23364a;
+}
+main{
+  max-width:1000px;
+  margin:auto;
+  padding:30px 20px;
+}
+.card{
+  background:#102033;
+  border:1px solid #20364c;
+  border-radius:12px;
+  padding:20px;
+  margin-bottom:18px;
+}
+button{
+  padding:12px 18px;
+  margin:5px;
+  border:0;
+  border-radius:8px;
+  cursor:pointer;
+}
+.primary{
+  background:#27c7aa;
+}
+.secondary{
+  background:#22354b;
+  color:white;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:10px;
+}
+.item{
+  padding:15px;
+  background:#0b1726;
+  border-radius:8px;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <strong>TOBMATE Blockchain</strong>
+</header>
+
+<main>
+
+<div class="card">
+  <h2>Wallet</h2>
+  <p>Status: <b>Not Created</b></p>
+
+  <button class="primary" onclick="createTobmateWallet()">
+    Create Wallet
+  </button>
+
+  <button class="secondary"
+    onclick="alert('Existing Sui wallet connection will be enabled next.')">
+    Connect Existing Wallet
+  </button>
+</div>
+
+<div class="card">
+  <h2>Assets</h2>
+
+  <div class="grid">
+    <div class="item">SUI</div>
+    <div class="item">GOLDPEG</div>
+    <div class="item">Gold NFT</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Functions</h2>
+
+  <div class="grid">
+    <div class="item">Send</div>
+    <div class="item">Receive</div>
+    <div class="item">Swap</div>
+    <div class="item">Marketplace</div>
+    <div class="item">Lending</div>
+    <div class="item">Staking</div>
+    <div class="item">Transactions</div>
+  </div>
+</div>
+
+</main>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  document.querySelectorAll('.card').forEach(function(card) {
+
+    var title = card.querySelector('h2');
+
+    if (!title || title.textContent.trim() !== 'Functions') {
+      return;
+    }
+
+    card.querySelectorAll('.item').forEach(function(item) {
+
+      item.style.cursor = 'pointer';
+
+      item.addEventListener('click', function () {
+
+        var name = item.textContent.trim();
+
+        alert(
+          name +
+          ' 기능은 다음 Blockchain 연결 단계에서 활성화됩니다.'
+        );
+
+      });
+
+    });
+
+  });
+
+});
+document.querySelectorAll('.card').forEach(function(card){
+
+  var title = card.querySelector('h2');
+
+  if (!title || title.textContent.trim() !== 'Assets') return;
+
+  card.querySelectorAll('.item').forEach(function(item){
+
+    item.style.cursor = 'pointer';
+
+    item.addEventListener('click', function(){
+
+      alert(
+        item.textContent.trim() +
+        ' 자산 상세 기능은 Wallet 연결 후 활성화됩니다.'
+      );
+
+    });
+
+  });
+
+});
+</script>
+<script src="/blockchain/wallet-client.js?v=1"></script>
+<script>
+async function createTobmateWallet() {
+  try {
+    const wallet = await window.TobmateWallet.create();
+
+    document.querySelector('.card p').innerHTML =
+      'Status: <b>Wallet Ready</b><br><br>' +
+      'Sui Address:<br>' +
+      wallet.address;
+
+    alert(
+      'TOBMATE Wallet Created\n\nSui Address:\n' +
+      wallet.address
+    );
+
+  } catch (e) {
+    console.error(e);
+    alert('Wallet creation failed: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
+
