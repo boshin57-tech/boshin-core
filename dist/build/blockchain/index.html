@@ -68,7 +68,26 @@ button{
 <div class="card">
   <h2>Wallet</h2>
   <p>Status: <b>Not Created</b></p>
+<div style="margin:15px 0;">
+    <input id="tmidUser"
+      placeholder="TMID ID"
+      style="padding:10px;width:180px;margin:5px;">
 
+    <input id="tmidPassword"
+      type="password"
+      placeholder="Password"
+      style="padding:10px;width:180px;margin:5px;">
+
+    <button class="secondary"
+      onclick="bindTobmateWallet()">
+      Bind Wallet
+    </button>
+  </div>
+
+  <div id="bindingStatus"
+    style="margin:10px 5px;color:#8fb3d9;">
+    TMID ↔ Wallet: Not Bound
+  </div>
   <button class="primary" onclick="createTobmateWallet()">
     Create Wallet
   </button>
@@ -177,6 +196,124 @@ async function createTobmateWallet() {
   } catch (e) {
     console.error(e);
     alert('Wallet creation failed: ' + e.message);
+  }
+}async function bindTobmateWallet() {
+  const userId =
+    document.getElementById('tmidUser').value.trim();
+
+  const password =
+    document.getElementById('tmidPassword').value;
+
+  const status =
+    document.getElementById('bindingStatus');
+
+  try {
+    if (!userId || !password) {
+      throw new Error('TMID ID와 Password를 입력하세요.');
+    }
+
+    status.textContent = 'TMID 인증 중...';
+
+    // 1. Blockchain 전용 로그인
+    const loginRes = await fetch(
+      '/blockchain-api/auth/login',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          password: password
+        })
+      }
+    );
+
+    const login = await loginRes.json();
+
+    if (!login.ok || !login.token) {
+      throw new Error('TMID 인증 실패');
+    }
+
+    sessionStorage.setItem(
+      'tobmate_blockchain_token',
+      login.token
+    );
+
+    // Password는 즉시 화면에서 제거
+    document.getElementById('tmidPassword').value = '';
+
+    status.textContent = 'Wallet Challenge 생성 중...';
+
+    // 2. 일회용 Challenge 발급
+    const challengeRes = await fetch(
+      '/blockchain-api/wallet/challenge',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + login.token
+        }
+      }
+    );
+
+    const challenge = await challengeRes.json();
+
+    if (!challenge.ok || !challenge.message) {
+      throw new Error('Challenge 발급 실패');
+    }
+
+    // 3. 현재 Sui Wallet 확인
+    const address =
+      await window.TobmateWallet.getAddress();
+
+    if (!address) {
+      throw new Error(
+        '먼저 Create Wallet을 실행하세요.'
+      );
+    }
+
+    status.textContent = 'Sui Wallet 서명 중...';
+
+    // 4. Challenge에 Sui 지갑 서명
+    const signed =
+      await window.TobmateWallet.signMessage(
+        challenge.message
+      );
+
+    // 5. 서버에서 서명 검증 + Binding
+    const bindRes = await fetch(
+      '/blockchain-api/wallet/bind',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + login.token
+        },
+        body: JSON.stringify({
+          address: address,
+          signature: signed.signature
+        })
+      }
+    );
+
+    const bound = await bindRes.json();
+
+    if (!bound.ok) {
+      throw new Error(
+        bound.error || 'Wallet Binding 실패'
+      );
+    }
+
+    status.innerHTML =
+      'TMID ↔ Wallet: <b>BOUND</b><br>' +
+      'TMID: ' + bound.user_id + '<br>' +
+      'Sui: ' + bound.address;
+
+  } catch (e) {
+    console.error(e);
+
+    status.textContent =
+      'Binding Failed: ' + e.message;
   }
 }
 </script>
