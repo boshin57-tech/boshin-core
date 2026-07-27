@@ -494,6 +494,49 @@ module tobmate_core::cross_network_incident_containment {
     // ============================================================
 
     #[test_only]
+    public fun set_execution_paused_for_testing(
+        state: &mut ContainmentState,
+        paused: bool,
+    ) {
+        state.execution_paused = paused;
+    }
+
+    #[test_only]
+    public fun set_network_quarantined_for_testing(
+        state: &mut ContainmentState,
+        network_id: vector<u8>,
+    ) {
+        state.network_quarantined = true;
+        state.network_id = network_id;
+    }
+
+    #[test_only]
+    public fun set_domain_quarantined_for_testing(
+        state: &mut ContainmentState,
+        domain_id: vector<u8>,
+    ) {
+        state.domain_quarantined = true;
+        state.domain_id = domain_id;
+    }
+
+    #[test_only]
+    public fun set_operator_quarantined_for_testing(
+        state: &mut ContainmentState,
+        operator_id: vector<u8>,
+    ) {
+        state.operator_quarantined = true;
+        state.operator_id = operator_id;
+    }
+
+    #[test_only]
+    public fun set_last_snapshot_sequence_for_testing(
+        state: &mut ContainmentState,
+        sequence: u64,
+    ) {
+        state.last_snapshot_sequence = sequence;
+    }
+
+    #[test_only]
     public fun new_state_for_testing(
         ctx: &mut TxContext,
     ): ContainmentState {
@@ -553,5 +596,40 @@ module tobmate_core::cross_network_incident_containment {
         } = receipt;
 
         object::delete(id);
+    }
+
+
+    // ============================================================
+    // Package Recovery Hooks
+    //
+    // Only package modules may release containment.
+    // Public callers cannot directly clear containment state.
+    // ============================================================
+
+    public(package) fun release_execution_pause(
+        state: &mut ContainmentState,
+    ) {
+        state.execution_paused = false;
+    }
+
+    public(package) fun release_network_quarantine(
+        state: &mut ContainmentState,
+    ) {
+        state.network_quarantined = false;
+        state.network_id = vector[];
+    }
+
+    public(package) fun release_domain_quarantine(
+        state: &mut ContainmentState,
+    ) {
+        state.domain_quarantined = false;
+        state.domain_id = vector[];
+    }
+
+    public(package) fun release_operator_quarantine(
+        state: &mut ContainmentState,
+    ) {
+        state.operator_quarantined = false;
+        state.operator_id = vector[];
     }
 }
