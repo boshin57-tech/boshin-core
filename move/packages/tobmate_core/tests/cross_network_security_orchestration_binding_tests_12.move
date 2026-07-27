@@ -9,6 +9,8 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_12 {
 
     use tobmate_core::cross_network_security_orchestrator;
     use tobmate_core::cross_network_security_orchestration_binding;
+    use tobmate_core::cross_network_remediation_execution_governance;
+    use tobmate_core::cross_network_remediation_execution_binding;
 
     use tobmate_core::cross_network_security_telemetry;
     use tobmate_core::cross_network_anomaly_scoring;
@@ -230,6 +232,55 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_12 {
 
 
         // ========================================================
+        // Execute remediation and bind immutable execution evidence.
+        // ========================================================
+
+        let mut execution_governance =
+            cross_network_remediation_execution_governance::
+                new_governance(
+                    sui::test_scenario::ctx(&mut scenario),
+                );
+
+        cross_network_remediation_execution_governance::
+            begin_execution(
+                &mut execution_governance,
+                &remediation,
+                sui::test_scenario::ctx(&mut scenario),
+            );
+
+        let execution_receipt =
+            cross_network_remediation_execution_governance::
+                complete_execution(
+                    &mut execution_governance,
+                    &remediation,
+                    sui::test_scenario::ctx(&mut scenario),
+                );
+
+        cross_network_remediation_execution_binding::
+            confirm_execution(
+                &mut orchestration,
+                &execution_governance,
+                &remediation,
+                &execution_receipt,
+            );
+
+        assert!(
+            cross_network_security_orchestrator::
+                remediation_complete(&orchestration),
+            73100,
+        );
+
+        assert!(
+            cross_network_security_orchestrator::
+                status(&orchestration)
+                ==
+                cross_network_security_orchestrator::
+                    status_remediated(),
+            73101,
+        );
+
+
+        // ========================================================
         // Begin recovery only after remediation evidence.
         // ========================================================
 
@@ -426,11 +477,15 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_12 {
             73041,
         );
 
-        assert!(
-            cross_network_security_orchestrator::
-                remediation_complete(&orchestration),
-            73042,
-        );
+        cross_network_remediation_execution_governance::
+            destroy_receipt_for_testing(
+                execution_receipt,
+            );
+
+        cross_network_remediation_execution_governance::
+            destroy_governance_for_testing(
+                execution_governance,
+            );
 
         cross_network_remediation::
             destroy_remediation_record_for_testing(

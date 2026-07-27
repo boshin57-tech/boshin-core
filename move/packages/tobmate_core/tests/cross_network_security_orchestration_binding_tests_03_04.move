@@ -214,7 +214,7 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_03_04 {
             );
 
         assert!(
-            cross_network_security_orchestrator::
+            !cross_network_security_orchestrator::
                 remediation_complete(&orchestration),
             73030,
         );
@@ -224,7 +224,7 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_03_04 {
                 status(&orchestration)
                 ==
                 cross_network_security_orchestrator::
-                    status_remediated(),
+                    status_remediating(),
             73031,
         );
 
@@ -499,7 +499,7 @@ module tobmate_core::cross_network_security_orchestration_binding_tests_03_04 {
         );
 
         assert!(
-            cross_network_security_orchestrator::
+            !cross_network_security_orchestrator::
                 remediation_complete(&orchestration),
             73042,
         );

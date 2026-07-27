@@ -419,6 +419,20 @@ module tobmate_core::cross_network_security_orchestrator {
         state.remediation_id =
             remediation_id;
 
+        // Binding a RemediationRecord proves the remediation
+        // instruction exists, but does NOT prove execution.
+        state.remediation_complete = false;
+        state.status = STATUS_REMEDIATING;
+    }
+
+    public(package) fun confirm_remediation_execution(
+        state: &mut SecurityOrchestrationState,
+    ) {
+        assert!(
+            state.status == STATUS_REMEDIATING,
+            E_NOT_AUTHORIZED,
+        );
+
         state.remediation_complete = true;
         state.status = STATUS_REMEDIATED;
 
