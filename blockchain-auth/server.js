@@ -705,6 +705,85 @@ app.post(
   }
 );
 
+
+app.post(
+  '/transaction/consume',
+  requireBlockchainAuth,
+  async (req,res)=>{
+    try {
+      const userId=req.blockchainUser;
+      const txId=String(req.body.tx_id||'').trim();
+
+      if(!txId){
+        return res.status(400).json({
+          ok:false,
+          error:'TX_ID_REQUIRED'
+        });
+      }
+
+      const txs=mongoose.connection
+        .collection('transaction_authorizations');
+
+      const tx=await txs.findOne({
+        tx_id:txId,
+        user_id:userId
+      });
+
+      if(!tx){
+        return res.status(404).json({
+          ok:false,
+          error:'TX_NOT_FOUND'
+        });
+      }
+
+      if(tx.status!=='AUTHORIZED'){
+        return res.status(409).json({
+          ok:false,
+          error:'TX_NOT_AUTHORIZED'
+        });
+      }
+
+      const result=await txs.updateOne(
+        {
+          tx_id:txId,
+          user_id:userId,
+          status:'AUTHORIZED'
+        },
+        {
+          $set:{
+            status:'CONSUMED',
+            consumed_at:new Date()
+          }
+        }
+      );
+
+      if(result.modifiedCount!==1){
+        return res.status(409).json({
+          ok:false,
+          error:'TX_ALREADY_CONSUMED'
+        });
+      }
+
+      return res.json({
+        ok:true,
+        tx_id:txId,
+        status:'CONSUMED'
+      });
+
+    }catch(err){
+      console.error(
+        '[TX_CONSUME_ERROR]',
+        err.message
+      );
+
+      return res.status(500).json({
+        ok:false,
+        error:'TX_CONSUME_FAILED'
+      });
+    }
+  }
+);
+
 async function start() {
   await mongoose.connect(MONGO_URL);
 
