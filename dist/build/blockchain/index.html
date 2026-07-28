@@ -116,6 +116,22 @@ button{
 </div>
 
 <div class="card">
+  <h2>Transaction Security</h2>
+
+  <button
+    id="testTxAuthBtn"
+    class="primary"
+    onclick="testTransactionAuthorization()">
+    Test Passkey Transaction Approval
+  </button>
+
+  <div id="txAuthStatus"
+    style="margin-top:10px;color:#8fb3d9;">
+    Status: Not Authorized
+  </div>
+</div>
+
+<div class="card">
   <h2>Functions</h2>
 
   <div class="grid">
@@ -471,6 +487,147 @@ async function registerTobmatePasskey() {
     }
 
     alert('Passkey 등록 실패: ' + err.message);
+  }
+}
+</script>
+
+
+<script>
+async function testTransactionAuthorization() {
+  try {
+    const status =
+      document.getElementById('txAuthStatus');
+
+    const token =
+      sessionStorage.getItem('tobmate_blockchain_token');
+
+    if (!token) {
+      throw new Error(
+        'Blockchain 인증이 만료되었습니다. 먼저 Bind Wallet을 다시 실행하세요.'
+      );
+    }
+
+    status.textContent =
+      'Status: Transaction Challenge 생성 중...';
+
+    const r = await fetch(
+      '/blockchain-api/transaction/challenge',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'TEST_TRANSACTION',
+          payload: {
+            network: 'sui',
+            purpose: 'passkey-authorization-test'
+          }
+        })
+      }
+    );
+
+    const data = await r.json();
+
+    if (!r.ok || !data.ok) {
+      throw new Error(
+        data.error || 'TX_CHALLENGE_FAILED'
+      );
+    }
+
+    const publicKey = data.options;
+
+    publicKey.challenge =
+      b64urlToBytes(publicKey.challenge);
+
+    if (publicKey.allowCredentials) {
+      publicKey.allowCredentials =
+        publicKey.allowCredentials.map(function(c) {
+          return Object.assign({}, c, {
+            id: b64urlToBytes(c.id)
+          });
+        });
+    }
+
+    status.textContent =
+      'Status: Passkey 승인 대기 중...';
+
+    const assertion =
+      await navigator.credentials.get({
+        publicKey
+      });
+
+    if (!assertion) {
+      throw new Error(
+        'PASSKEY_AUTHENTICATION_CANCELLED'
+      );
+    }
+
+    const payload = {
+      id: assertion.id,
+      rawId: bytesToB64url(assertion.rawId),
+      type: assertion.type,
+      response: {
+        authenticatorData:
+          bytesToB64url(
+            assertion.response.authenticatorData
+          ),
+        clientDataJSON:
+          bytesToB64url(
+            assertion.response.clientDataJSON
+          ),
+        signature:
+          bytesToB64url(
+            assertion.response.signature
+          ),
+        userHandle:
+          assertion.response.userHandle
+            ? bytesToB64url(
+                assertion.response.userHandle
+              )
+            : null
+      },
+      clientExtensionResults:
+        assertion.getClientExtensionResults()
+    };
+
+    status.textContent =
+      'Status: Passkey 검증 중...';
+
+    const authRes = await fetch(
+      '/blockchain-api/transaction/authorize',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tx_id: data.tx_id,
+          response: payload
+        })
+      }
+    );
+
+    const auth = await authRes.json();
+
+    if (!authRes.ok || !auth.ok) {
+      throw new Error(
+        auth.error || 'TX_AUTHORIZE_FAILED'
+      );
+    }
+
+    status.textContent =
+      'Status: AUTHORIZED';
+
+  } catch (err) {
+    console.error('[TX_AUTH_TEST]', err);
+
+    document.getElementById(
+      'txAuthStatus'
+    ).textContent =
+      'Status: Failed - ' + err.message;
   }
 }
 </script>
