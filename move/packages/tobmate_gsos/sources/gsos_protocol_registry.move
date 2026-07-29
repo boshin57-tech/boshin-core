@@ -352,7 +352,7 @@ public fun active_protocol_count(
     registry.active_protocol_count
 }
 
-public fun protocol_count(
+public(package) fun protocol_count(
     registry: &GSOSProtocolRegistry,
 ): u64 {
     vector::length(&registry.protocols)

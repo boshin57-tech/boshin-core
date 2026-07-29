@@ -1536,7 +1536,7 @@ public fun strategy_allocation_limit(
     ).allocation_limit
 }
 
-public fun strategy_total_allocated(
+public(package) fun strategy_total_allocated(
     engine: &TreasuryYieldEngine,
     strategy_id: u64,
 ): u64 {
@@ -1552,7 +1552,7 @@ public fun strategy_total_allocated(
     ).total_allocated
 }
 
-public fun strategy_total_returned(
+public(package) fun strategy_total_returned(
     engine: &TreasuryYieldEngine,
     strategy_id: u64,
 ): u64 {
@@ -1618,37 +1618,37 @@ public fun strategy_outstanding_principal(
     )
 }
 
-public fun funding_count(
+public(package) fun funding_count(
     engine: &TreasuryYieldEngine,
 ): u64 {
     engine.funding_count
 }
 
-public fun allocation_count(
+public(package) fun allocation_count(
     engine: &TreasuryYieldEngine,
 ): u64 {
     engine.allocation_count
 }
 
-public fun return_count(
+public(package) fun return_count(
     engine: &TreasuryYieldEngine,
 ): u64 {
     engine.return_count
 }
 
-public fun yield_record_count(
+public(package) fun yield_record_count(
     engine: &TreasuryYieldEngine,
 ): u64 {
     engine.yield_record_count
 }
 
-public fun loss_record_count(
+public(package) fun loss_record_count(
     engine: &TreasuryYieldEngine,
 ): u64 {
     engine.loss_record_count
 }
 
-public fun strategy_allocation_count(
+public(package) fun strategy_allocation_count(
     engine: &TreasuryYieldEngine,
     strategy_id: u64,
 ): u64 {
@@ -1664,7 +1664,7 @@ public fun strategy_allocation_count(
     ).allocation_count
 }
 
-public fun strategy_return_count(
+public(package) fun strategy_return_count(
     engine: &TreasuryYieldEngine,
     strategy_id: u64,
 ): u64 {
@@ -1680,7 +1680,7 @@ public fun strategy_return_count(
     ).return_count
 }
 
-public fun strategy_yield_record_count(
+public(package) fun strategy_yield_record_count(
     engine: &TreasuryYieldEngine,
     strategy_id: u64,
 ): u64 {
@@ -1696,7 +1696,7 @@ public fun strategy_yield_record_count(
     ).yield_record_count
 }
 
-public fun strategy_loss_record_count(
+public(package) fun strategy_loss_record_count(
     engine: &TreasuryYieldEngine,
     strategy_id: u64,
 ): u64 {

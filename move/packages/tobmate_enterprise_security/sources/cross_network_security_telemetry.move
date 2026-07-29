@@ -668,7 +668,7 @@ module tobmate_enterprise_security::cross_network_security_telemetry {
         counters.attempts
     }
 
-    public fun counter_successes(
+    public(package) fun counter_successes(
         counters: &TelemetryCounters,
     ): u64 {
         counters.successes

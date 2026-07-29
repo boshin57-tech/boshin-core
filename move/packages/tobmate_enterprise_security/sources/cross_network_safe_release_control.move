@@ -306,13 +306,13 @@ module tobmate_enterprise_security::cross_network_safe_release_control {
         recovery.execution_resume_count
     }
 
-    public fun network_release_count(
+    public(package) fun network_release_count(
         recovery: &RecoveryState,
     ): u64 {
         recovery.network_release_count
     }
 
-    public fun domain_release_count(
+    public(package) fun domain_release_count(
         recovery: &RecoveryState,
     ): u64 {
         recovery.domain_release_count
