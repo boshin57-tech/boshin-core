@@ -1075,7 +1075,7 @@ public fun active_authority_count(
     registry.active_authority_count
 }
 
-public fun active_delegation_count(
+public(package) fun active_delegation_count(
     registry: &GSOSAgentAuthorityRegistry,
 ): u64 {
     registry.active_delegation_count

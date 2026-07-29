@@ -216,7 +216,7 @@ public fun created_at_epoch(tmid: &TMID): u64 {
     tmid.created_at_epoch
 }
 
-public fun total_issued(registry: &TMIDRegistry): u64 {
+public(package) fun total_issued(registry: &TMIDRegistry): u64 {
     registry.total_issued
 }
 
@@ -228,7 +228,7 @@ public fun is_suspended(tmid: &TMID): bool {
     tmid.status == STATUS_SUSPENDED
 }
 
-public fun is_revoked(tmid: &TMID): bool {
+public(package) fun is_revoked(tmid: &TMID): bool {
     tmid.status == STATUS_REVOKED
 }
 

@@ -1559,7 +1559,7 @@ public(package) fun request_provider_id(
     request.provider_id
 }
 
-public fun request_registry_id(
+public(package) fun request_registry_id(
     request: &CredentialRequest,
 ): ID {
     request.registry_id

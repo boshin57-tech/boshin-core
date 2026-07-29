@@ -989,7 +989,7 @@ public fun grant_identity_binding_id(
     ).identity_binding_id
 }
 
-public fun grant_valid_from_epoch(
+public(package) fun grant_valid_from_epoch(
     registry: &GSOSEntryAuthorizationRegistry,
     grant_id: u64,
 ): u64 {
@@ -999,7 +999,7 @@ public fun grant_valid_from_epoch(
     ).valid_from_epoch
 }
 
-public fun grant_valid_until_epoch(
+public(package) fun grant_valid_until_epoch(
     registry: &GSOSEntryAuthorizationRegistry,
     grant_id: u64,
 ): u64 {

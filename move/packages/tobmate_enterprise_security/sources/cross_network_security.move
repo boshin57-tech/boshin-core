@@ -1003,7 +1003,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun replay_registry_version(
+    public(package) fun replay_registry_version(
         registry: &ReplayProtectionRegistry,
     ): u64 {
         registry.version
@@ -1381,12 +1381,12 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun finality_confirmed_status(): u8 {
+    public(package) fun finality_confirmed_status(): u8 {
         FINALITY_CONFIRMED
     }
 
 
-    public fun finality_rejected_status(): u8 {
+    public(package) fun finality_rejected_status(): u8 {
         FINALITY_REJECTED
     }
 

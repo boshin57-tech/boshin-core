@@ -1140,7 +1140,7 @@ public fun active_capability_count(
     registry.active_capability_count
 }
 
-public fun active_assignment_count(
+public(package) fun active_assignment_count(
     registry: &GSOSCapabilityRegistry,
 ): u64 {
     registry.active_assignment_count
