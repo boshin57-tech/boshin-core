@@ -306,7 +306,7 @@ public fun is_paused(
     registry.paused
 }
 
-public fun total_backstop_paid(
+public(package) fun total_backstop_paid(
     registry: &TreasuryBackstopRegistry,
 ): u64 {
     registry.total_backstop_paid

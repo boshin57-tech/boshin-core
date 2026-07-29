@@ -334,7 +334,7 @@ public fun assert_accounting_invariant(
 }
 
 /// Returns the Treasury object ID.
-public fun treasury_id(
+public(package) fun treasury_id(
     treasury: &ProtocolTreasury,
 ): ID {
     object::uid_to_inner(&treasury.id)

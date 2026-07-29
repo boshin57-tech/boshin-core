@@ -517,7 +517,7 @@ public fun custodian_jurisdiction(
     ).jurisdiction
 }
 
-public fun custodian_is_active(
+public(package) fun custodian_is_active(
     registry: &CustodianRegistry,
     custodian_id: u64,
 ): bool {
@@ -628,7 +628,7 @@ public fun is_paused(
     registry.paused
 }
 
-public fun total_custodians(
+public(package) fun total_custodians(
     registry: &CustodianRegistry,
 ): u64 {
     registry.total_custodians

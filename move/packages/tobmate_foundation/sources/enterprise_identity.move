@@ -822,7 +822,7 @@ public fun is_paused(
     registry.paused
 }
 
-public fun total_providers(
+public(package) fun total_providers(
     registry: &EnterpriseIdentityRegistry,
 ): u64 {
     registry.total_providers
@@ -834,7 +834,7 @@ public fun active_provider_count(
     registry.active_provider_count
 }
 
-public fun total_credentials(
+public(package) fun total_credentials(
     registry: &EnterpriseIdentityRegistry,
 ): u64 {
     registry.total_credentials
@@ -852,7 +852,7 @@ public fun revoked_credential_count(
     registry.revoked_credential_count
 }
 
-public fun credential_status(
+public(package) fun credential_status(
     registry: &EnterpriseIdentityRegistry,
     credential_id: u64,
 ): u8 {

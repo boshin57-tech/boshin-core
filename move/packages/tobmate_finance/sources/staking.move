@@ -536,7 +536,7 @@ public fun is_paused(
     registry.paused
 }
 
-public fun pool_count(
+public(package) fun pool_count(
     registry: &StakingRegistry,
 ): u64 {
     vector::length(
@@ -544,7 +544,7 @@ public fun pool_count(
     )
 }
 
-public fun position_count(
+public(package) fun position_count(
     registry: &StakingRegistry,
 ): u64 {
     vector::length(
@@ -552,7 +552,7 @@ public fun position_count(
     )
 }
 
-public fun total_principal_staked(
+public(package) fun total_principal_staked(
     registry: &StakingRegistry,
 ): u64 {
     registry.total_principal_staked
@@ -570,7 +570,7 @@ public fun active_position_count(
     registry.active_position_count
 }
 
-public fun pool_is_active(
+public(package) fun pool_is_active(
     registry: &StakingRegistry,
     pool_id: u64,
 ): bool {
@@ -586,7 +586,7 @@ public fun pool_is_active(
     ).active
 }
 
-public fun pool_reward_rate_bps(
+public(package) fun pool_reward_rate_bps(
     registry: &StakingRegistry,
     pool_id: u64,
 ): u64 {
@@ -890,7 +890,7 @@ public fun stake(
    Principal Accounting
    ============================================================ */
 
-public fun principal_custody_balance(
+public(package) fun principal_custody_balance(
     registry: &StakingRegistry,
 ): u64 {
     balance::value(
@@ -898,7 +898,7 @@ public fun principal_custody_balance(
     )
 }
 
-public fun position_owner(
+public(package) fun position_owner(
     registry: &StakingRegistry,
     position_id: u64,
 ): address {
@@ -914,7 +914,7 @@ public fun position_owner(
     ).owner
 }
 
-public fun position_pool_id(
+public(package) fun position_pool_id(
     registry: &StakingRegistry,
     position_id: u64,
 ): u64 {
@@ -946,7 +946,7 @@ public fun position_principal(
     ).principal
 }
 
-public fun position_is_active(
+public(package) fun position_is_active(
     registry: &StakingRegistry,
     position_id: u64,
 ): bool {
@@ -1264,19 +1264,19 @@ public fun position_unstake_request_epoch(
    Reward Accounting Views
    ============================================================ */
 
-public fun total_reward_accrued(
+public(package) fun total_reward_accrued(
     registry: &StakingRegistry,
 ): u64 {
     registry.total_reward_accrued
 }
 
-public fun total_reward_pending(
+public(package) fun total_reward_pending(
     registry: &StakingRegistry,
 ): u64 {
     registry.total_reward_pending
 }
 
-public fun total_reward_claimed(
+public(package) fun total_reward_claimed(
     registry: &StakingRegistry,
 ): u64 {
     registry.total_reward_claimed
@@ -1314,7 +1314,7 @@ public fun position_reward_position_linked(
     vector::borrow(&registry.positions, index).reward_position_linked
 }
 
-public fun position_reward_position_id(
+public(package) fun position_reward_position_id(
     registry: &StakingRegistry,
     position_id: u64,
 ): u64 {
