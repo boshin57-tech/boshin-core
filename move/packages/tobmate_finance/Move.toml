@@ -1,0 +1,11 @@
+[package]
+name = "tobmate_finance"
+edition = "2024"
+
+[dependencies]
+tobmate_foundation = { local = "../tobmate_foundation" }
+tobmate_asset = { local = "../tobmate_asset" }
+tobmate_enterprise_security = { local = "../tobmate_enterprise_security" }
+
+[addresses]
+tobmate_finance = "0x0"
