@@ -320,7 +320,7 @@ public fun assert_active(position: &GoldBackingPosition) {
     assert!(position.status == STATUS_ACTIVE, E_POSITION_NOT_ACTIVE);
 }
 
-public fun assert_reserve(
+public(package) fun assert_reserve(
     position: &GoldBackingPosition,
     reserve: &GoldReserve,
 ) {

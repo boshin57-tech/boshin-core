@@ -264,7 +264,7 @@ module tobmate_enterprise_security::cross_network_execution_receipt {
     // receipt ↔ executed terminal record
     // ============================================================
 
-    public fun assert_receipt_valid(
+    public(package) fun assert_receipt_valid(
         receipt: &ExecutionReceipt,
         record: &cross_network_security::TerminalFinalityRecord,
         binding: &cross_network_security::CrossNetworkBinding,
@@ -316,7 +316,7 @@ module tobmate_enterprise_security::cross_network_execution_receipt {
     // Sequence assertion
     // ============================================================
 
-    public fun assert_receipt_sequence(
+    public(package) fun assert_receipt_sequence(
         receipt: &ExecutionReceipt,
         expected_sequence: u64,
     ) {

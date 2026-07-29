@@ -962,7 +962,7 @@ public fun position_is_active(
     ).active
 }
 
-public fun assert_principal_accounting_invariant(
+public(package) fun assert_principal_accounting_invariant(
     registry: &StakingRegistry,
 ) {
     assert!(

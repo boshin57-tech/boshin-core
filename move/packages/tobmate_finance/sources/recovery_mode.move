@@ -251,7 +251,7 @@ public fun evaluate_and_clear(
    Risk-Increase Guard
    ============================================================ */
 
-public fun assert_risk_increase_allowed(
+public(package) fun assert_risk_increase_allowed(
     registry: &RecoveryModeRegistry,
 ) {
     assert!(

@@ -217,7 +217,7 @@ module tobmate_enterprise_security::cross_network_remediation {
     // Audit Validation
     // ============================================================
 
-    public fun assert_remediation_binding(
+    public(package) fun assert_remediation_binding(
         record: &RemediationRecord,
         authorization:
             &cross_network_recovery_authorization::RecoveryAuthorization,

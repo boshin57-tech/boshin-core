@@ -443,7 +443,7 @@ public fun retire_reserve(
 }
 
 /// Asserts that a reserve can back a new digital asset.
-public fun assert_allocatable(
+public(package) fun assert_allocatable(
     reserve: &GoldReserve,
     required_weight_mg: u64,
 ) {

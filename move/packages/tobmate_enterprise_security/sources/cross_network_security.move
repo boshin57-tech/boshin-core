@@ -150,7 +150,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Full Binding Assertion
     // ============================================================
 
-    public fun assert_binding(
+    public(package) fun assert_binding(
         binding: &CrossNetworkBinding,
         expected_source_network_id: &vector<u8>,
         expected_source_domain: &vector<u8>,
@@ -414,7 +414,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Full Intent / Finality Assertion
     // ============================================================
 
-    public fun assert_intent_finality_binding(
+    public(package) fun assert_intent_finality_binding(
         binding: &CrossNetworkBinding,
         intent_binding: &IntentFinalityBinding,
         expected_intent_id: &vector<u8>,
@@ -1273,7 +1273,7 @@ module tobmate_enterprise_security::cross_network_security {
     // 4. EXECUTED can never execute again
     // ============================================================
 
-    public fun assert_finality_executable(
+    public(package) fun assert_finality_executable(
         record: &TerminalFinalityRecord,
         binding: &CrossNetworkBinding,
         intent_binding: &IntentFinalityBinding,
@@ -1336,7 +1336,7 @@ module tobmate_enterprise_security::cross_network_security {
     // replay-protected external reference / confirmation / proof.
     // ============================================================
 
-    public fun assert_execution_context(
+    public(package) fun assert_execution_context(
         record: &TerminalFinalityRecord,
         binding: &CrossNetworkBinding,
         intent_binding: &IntentFinalityBinding,

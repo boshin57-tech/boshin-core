@@ -1368,7 +1368,7 @@ public fun set_version(
     });
 }
 
-public fun assert_accounting_invariant(
+public(package) fun assert_accounting_invariant(
     manager: &CollateralManager,
 ) {
     let policy_count =

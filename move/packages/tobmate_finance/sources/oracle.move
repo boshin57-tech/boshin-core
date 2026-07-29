@@ -222,7 +222,7 @@ public fun update_version(
 /// the publisher is active.
 ///
 /// Observation submission will call this function in the next stage.
-public fun assert_valid_publisher(
+public(package) fun assert_valid_publisher(
     registry: &OracleRegistry,
     publisher_cap: &OraclePublisherCap,
     sender: address,

@@ -1400,7 +1400,7 @@ public fun protocol_reserves(
     pool.protocol_reserves
 }
 
-public fun assert_accounting_invariant(
+public(package) fun assert_accounting_invariant(
     pool: &LendingPool,
 ) {
     let outstanding =
@@ -1854,7 +1854,7 @@ public(package) fun recover_bad_debt(
    Bad Debt Invariant
    ============================================================ */
 
-public fun assert_bad_debt_accounting_invariant(
+public(package) fun assert_bad_debt_accounting_invariant(
     pool: &LendingPool,
 ) {
     assert!(

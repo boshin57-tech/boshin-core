@@ -412,7 +412,7 @@ public(package) fun burn_gold_nft(
 
 /// Validates every immutable relationship between a Gold NFT and its
 /// shared backing position.
-public fun assert_matches_position(
+public(package) fun assert_matches_position(
     nft: &GoldNFT,
     position: &GoldBackingPosition,
 ) {
@@ -444,7 +444,7 @@ public fun assert_matches_position(
 }
 
 /// Validates that the backing position points back to this NFT.
-public fun assert_linked_to_position(
+public(package) fun assert_linked_to_position(
     nft: &GoldNFT,
     position: &GoldBackingPosition,
 ) {

@@ -454,7 +454,7 @@ public fun assert_active(
     );
 }
 
-public fun assert_active_and_unfrozen(
+public(package) fun assert_active_and_unfrozen(
     record: &DualOwnershipRecord,
 ) {
     assert_active(record);
@@ -494,7 +494,7 @@ public fun assert_matches_position(
     );
 }
 
-public fun assert_matches_position_and_nft(
+public(package) fun assert_matches_position_and_nft(
     record: &DualOwnershipRecord,
     position: &GoldBackingPosition,
     nft: &GoldNFT,

@@ -274,7 +274,7 @@ module tobmate_enterprise_security::cross_network_policy {
     // Execution Policy Guard
     // ============================================================
 
-    public fun assert_policy_allows_amount(
+    public(package) fun assert_policy_allows_amount(
         policy: &CrossNetworkPolicy,
         amount: u64,
     ) {
