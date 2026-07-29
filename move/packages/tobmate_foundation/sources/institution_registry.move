@@ -541,7 +541,7 @@ public fun institution_jurisdiction(
     ).jurisdiction
 }
 
-public fun institution_is_active(
+public(package) fun institution_is_active(
     registry: &InstitutionRegistry,
     institution_id: u64,
 ): bool {
@@ -653,7 +653,7 @@ public fun is_paused(
     registry.paused
 }
 
-public fun total_institutions(
+public(package) fun total_institutions(
     registry: &InstitutionRegistry,
 ): u64 {
     registry.total_institutions

@@ -868,7 +868,7 @@ public(package) fun credential_status(
     ).status
 }
 
-public fun credential_tmid_id(
+public(package) fun credential_tmid_id(
     registry: &EnterpriseIdentityRegistry,
     credential_id: u64,
 ): ID {
@@ -1535,25 +1535,25 @@ public fun attest_credential_request(
    Request Read API
    ============================================================ */
 
-public fun request_status(
+public(package) fun request_status(
     request: &CredentialRequest,
 ): u8 {
     request.status
 }
 
-public fun request_tmid_id(
+public(package) fun request_tmid_id(
     request: &CredentialRequest,
 ): ID {
     request.tmid_id
 }
 
-public fun request_controller(
+public(package) fun request_controller(
     request: &CredentialRequest,
 ): address {
     request.controller
 }
 
-public fun request_provider_id(
+public(package) fun request_provider_id(
     request: &CredentialRequest,
 ): u64 {
     request.provider_id
