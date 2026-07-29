@@ -1167,7 +1167,7 @@ public fun repay(
     });
 }
 
-public fun calculate_interest(
+public(package) fun calculate_interest(
     principal: u64,
     rate_bps: u64,
     periods: u64,

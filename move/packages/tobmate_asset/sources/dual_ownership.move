@@ -1393,7 +1393,7 @@ public fun is_frozen(
     record.frozen
 }
 
-public fun is_active_record(
+public(package) fun is_active_record(
     record: &DualOwnershipRecord,
 ): bool {
     record.status == STATUS_ACTIVE

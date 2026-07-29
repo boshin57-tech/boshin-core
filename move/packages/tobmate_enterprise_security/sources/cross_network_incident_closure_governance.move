@@ -114,7 +114,7 @@ module tobmate_enterprise_security::cross_network_incident_closure_governance {
     // Deterministic Closure ID
     // ============================================================
 
-    public fun calculate_closure_id(
+    public(package) fun calculate_closure_id(
         case_sequence: u64,
         snapshot_sequence: u64,
         audit_digest: vector<u8>,

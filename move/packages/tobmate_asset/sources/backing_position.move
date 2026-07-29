@@ -330,7 +330,7 @@ public(package) fun assert_reserve(
     );
 }
 
-public fun assert_weight(
+public(package) fun assert_weight(
     position: &GoldBackingPosition,
     expected_weight_mg: u64,
 ) {

@@ -621,19 +621,19 @@ public(package) fun total_liquidation_quotes(
     engine.total_liquidation_quotes
 }
 
-public fun quote_collateral_value(
+public(package) fun quote_collateral_value(
     quote: &LiquidationQuote,
 ): u128 {
     quote.collateral_value
 }
 
-public fun quote_debt_value(
+public(package) fun quote_debt_value(
     quote: &LiquidationQuote,
 ): u128 {
     quote.debt_value
 }
 
-public fun quote_adjusted_collateral_value(
+public(package) fun quote_adjusted_collateral_value(
     quote: &LiquidationQuote,
 ): u128 {
     quote.adjusted_collateral_value

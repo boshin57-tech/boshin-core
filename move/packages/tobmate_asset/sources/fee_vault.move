@@ -329,7 +329,7 @@ public fun assert_accounting_invariant(
 }
 
 /// Checks fee category range.
-public fun assert_valid_category(category: u8) {
+public(package) fun assert_valid_category(category: u8) {
     assert!(
         category >= FEE_MARKETPLACE
             && category <= FEE_OTHER,

@@ -82,7 +82,7 @@ module tobmate_enterprise_security::cross_network_incident_resolution {
     }
 
 
-    public fun calculate_resolution_id(
+    public(package) fun calculate_resolution_id(
         incident_code: vector<u8>,
         evidence_hash: vector<u8>,
         sequence: u64,

@@ -918,7 +918,7 @@ public(package) fun collateral_value_from_price(
         / scale
 }
 
-public fun borrow_capacity_from_value(
+public(package) fun borrow_capacity_from_value(
     collateral_value: u64,
     max_ltv_bps: u64,
 ): u64 {
@@ -1031,7 +1031,7 @@ fun pow10(
 const HEALTH_FACTOR_SCALE: u64 = 1_000_000;
 const NO_DEBT_HEALTH_FACTOR: u64 = 1_000_000_000_000;
 
-public fun health_factor_from_values(
+public(package) fun health_factor_from_values(
     collateral_value: u64,
     debt_value: u64,
     liquidation_threshold_bps: u64,

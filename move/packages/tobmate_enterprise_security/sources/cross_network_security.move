@@ -657,7 +657,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Raw Fingerprint Calculation
     // ============================================================
 
-    public fun calculate_raw_replay_fingerprint(
+    public(package) fun calculate_raw_replay_fingerprint(
         replay_type: u8,
         value: vector<u8>,
     ): vector<u8> {
@@ -679,7 +679,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Context Replay Key Calculation
     // ============================================================
 
-    public fun calculate_context_replay_key(
+    public(package) fun calculate_context_replay_key(
         intent_binding: &IntentFinalityBinding,
         replay_type: u8,
         value_fingerprint: vector<u8>,
@@ -963,7 +963,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Context Replay Query
     // ============================================================
 
-    public fun is_context_consumed(
+    public(package) fun is_context_consumed(
         registry: &ReplayProtectionRegistry,
         intent_binding: &IntentFinalityBinding,
         replay_type: u8,

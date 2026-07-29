@@ -119,7 +119,7 @@ module tobmate_enterprise_security::cross_network_recovery_control {
     // Deterministic Case ID
     // ============================================================
 
-    public fun calculate_case_id(
+    public(package) fun calculate_case_id(
         execution_id: vector<u8>,
         binding_hash: vector<u8>,
         intent_finality_hash: vector<u8>,

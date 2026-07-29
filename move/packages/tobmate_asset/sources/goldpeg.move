@@ -391,7 +391,7 @@ public fun position_available_units(
 }
 
 /// Verifies the accounting relationship for one backing position.
-public fun assert_position_invariants(
+public(package) fun assert_position_invariants(
     position: &GoldBackingPosition,
 ) {
     let capacity = position_capacity_units(position);

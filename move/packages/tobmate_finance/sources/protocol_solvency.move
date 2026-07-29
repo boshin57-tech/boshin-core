@@ -286,13 +286,13 @@ public fun snapshot_protocol_reserves(
     snapshot.protocol_reserves
 }
 
-public fun snapshot_insurance_balance(
+public(package) fun snapshot_insurance_balance(
     snapshot: &SolvencySnapshot,
 ): u64 {
     snapshot.insurance_balance
 }
 
-public fun snapshot_treasury_balance(
+public(package) fun snapshot_treasury_balance(
     snapshot: &SolvencySnapshot,
 ): u64 {
     snapshot.treasury_balance
