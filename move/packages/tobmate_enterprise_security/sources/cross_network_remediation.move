@@ -291,7 +291,7 @@ module tobmate_enterprise_security::cross_network_remediation {
     }
 
 
-    public fun remediation_amount(
+    public(package) fun remediation_amount(
         record: &RemediationRecord,
     ): u64 {
         record.remediation_amount

@@ -311,7 +311,7 @@ module tobmate_enterprise_security::cross_network_risk_limit {
     // Read Accessors
     // ============================================================
 
-    public fun usage_epoch(
+    public(package) fun usage_epoch(
         usage: &RiskLimitUsage,
     ): u64 {
         usage.current_epoch
@@ -325,14 +325,14 @@ module tobmate_enterprise_security::cross_network_risk_limit {
     }
 
 
-    public fun epoch_transaction_count(
+    public(package) fun epoch_transaction_count(
         usage: &RiskLimitUsage,
     ): u64 {
         usage.epoch_transaction_count
     }
 
 
-    public fun operator_count(
+    public(package) fun operator_count(
         usage: &RiskLimitUsage,
     ): u64 {
         vector::length(
@@ -363,7 +363,7 @@ module tobmate_enterprise_security::cross_network_risk_limit {
     }
 
 
-    public fun operator_transaction_count(
+    public(package) fun operator_transaction_count(
         usage: &RiskLimitUsage,
         operator: address,
     ): u64 {
@@ -385,7 +385,7 @@ module tobmate_enterprise_security::cross_network_risk_limit {
     }
 
 
-    public fun usage_version(
+    public(package) fun usage_version(
         usage: &RiskLimitUsage,
     ): u64 {
         usage.version

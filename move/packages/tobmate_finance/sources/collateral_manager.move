@@ -900,7 +900,7 @@ public fun set_position_debt_value(
     });
 }
 
-public fun collateral_value_from_price(
+public(package) fun collateral_value_from_price(
     collateral_units: u64,
     asset_decimals: u8,
     price: u64,
@@ -927,7 +927,7 @@ public fun borrow_capacity_from_value(
         / BPS_DENOMINATOR
 }
 
-public fun liquidation_value_from_value(
+public(package) fun liquidation_value_from_value(
     collateral_value: u64,
     liquidation_threshold_bps: u64,
 ): u64 {
@@ -1593,7 +1593,7 @@ public fun policy_count(
     vector::length(&manager.policies)
 }
 
-public fun position_count(
+public(package) fun position_count(
     manager: &CollateralManager,
 ): u64 {
     vector::length(&manager.positions)
@@ -1713,7 +1713,7 @@ public fun policy_liquidation_bonus_bps(
     ).liquidation_bonus_bps
 }
 
-public fun position_owner(
+public(package) fun position_owner(
     manager: &CollateralManager,
     position_id: u64,
 ): address {
@@ -1729,7 +1729,7 @@ public fun position_owner(
     ).owner
 }
 
-public fun position_policy_id(
+public(package) fun position_policy_id(
     manager: &CollateralManager,
     position_id: u64,
 ): u64 {

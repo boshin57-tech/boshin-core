@@ -293,7 +293,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun binding_hash(
+    public(package) fun binding_hash(
         binding: &CrossNetworkBinding,
     ): &vector<u8> {
         &binding.binding_hash
@@ -490,7 +490,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun intent_finality_hash(
+    public(package) fun intent_finality_hash(
         binding: &IntentFinalityBinding,
     ): &vector<u8> {
         &binding.intent_finality_hash
@@ -1010,7 +1010,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun external_reference_count(
+    public(package) fun external_reference_count(
         registry: &ReplayProtectionRegistry,
     ): u64 {
         vector::length(
@@ -1019,7 +1019,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun confirmation_hash_count(
+    public(package) fun confirmation_hash_count(
         registry: &ReplayProtectionRegistry,
     ): u64 {
         vector::length(
@@ -1028,7 +1028,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun proof_fingerprint_count(
+    public(package) fun proof_fingerprint_count(
         registry: &ReplayProtectionRegistry,
     ): u64 {
         vector::length(
@@ -1037,7 +1037,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun context_replay_count(
+    public(package) fun context_replay_count(
         registry: &ReplayProtectionRegistry,
     ): u64 {
         vector::length(
@@ -1369,14 +1369,14 @@ module tobmate_enterprise_security::cross_network_security {
     // Status Accessors
     // ============================================================
 
-    public fun finality_status(
+    public(package) fun finality_status(
         record: &TerminalFinalityRecord,
     ): u8 {
         record.status
     }
 
 
-    public fun finality_pending_status(): u8 {
+    public(package) fun finality_pending_status(): u8 {
         FINALITY_PENDING
     }
 
@@ -1396,7 +1396,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun finality_executed_status(): u8 {
+    public(package) fun finality_executed_status(): u8 {
         FINALITY_EXECUTED
     }
 }
