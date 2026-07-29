@@ -1,13 +1,13 @@
 [package]
-name = "tobmate_core"
+name = "tobmate_integration_tests"
 edition = "2024"
 
 [dependencies]
 tobmate_foundation = { local = "../tobmate_foundation" }
 tobmate_asset = { local = "../tobmate_asset" }
 tobmate_enterprise_security = { local = "../tobmate_enterprise_security" }
-tobmate_finance = { local = "../tobmate_finance" }
 tobmate_gsos = { local = "../tobmate_gsos" }
+tobmate_finance = { local = "../tobmate_finance" }
 
 [addresses]
-tobmate_core = "0x0"
+tobmate_integration_tests = "0x0"

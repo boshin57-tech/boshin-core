@@ -1,0 +1,9 @@
+[package]
+name = "tobmate_gsos"
+edition = "2024"
+
+[dependencies]
+tobmate_foundation = { local = "../tobmate_foundation" }
+
+[addresses]
+tobmate_gsos = "0x0"

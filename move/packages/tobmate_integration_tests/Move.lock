@@ -22,12 +22,6 @@ use_environment = "testnet"
 manifest_digest = "E937328A89F9410CFDC19278B17987D1FFCC5FA391B249796FF613246554A17C"
 deps = { std = "MoveStdlib", sui = "Sui", tobmate_foundation = "tobmate_foundation" }
 
-[pinned.testnet.tobmate_core]
-source = { root = true }
-use_environment = "testnet"
-manifest_digest = "165455A909352E26A0B3C523F538A536077BC1490AD367E711E52E2AE75F04DD"
-deps = { std = "MoveStdlib", sui = "Sui", tobmate_asset = "tobmate_asset", tobmate_enterprise_security = "tobmate_enterprise_security", tobmate_finance = "tobmate_finance", tobmate_foundation = "tobmate_foundation", tobmate_gsos = "tobmate_gsos" }
-
 [pinned.testnet.tobmate_enterprise_security]
 source = { local = "../tobmate_enterprise_security" }
 use_environment = "testnet"
@@ -51,3 +45,9 @@ source = { local = "../tobmate_gsos" }
 use_environment = "testnet"
 manifest_digest = "E937328A89F9410CFDC19278B17987D1FFCC5FA391B249796FF613246554A17C"
 deps = { std = "MoveStdlib", sui = "Sui", tobmate_foundation = "tobmate_foundation" }
+
+[pinned.testnet.tobmate_integration_tests]
+source = { root = true }
+use_environment = "testnet"
+manifest_digest = "165455A909352E26A0B3C523F538A536077BC1490AD367E711E52E2AE75F04DD"
+deps = { std = "MoveStdlib", sui = "Sui", tobmate_asset = "tobmate_asset", tobmate_enterprise_security = "tobmate_enterprise_security", tobmate_finance = "tobmate_finance", tobmate_foundation = "tobmate_foundation", tobmate_gsos = "tobmate_gsos" }

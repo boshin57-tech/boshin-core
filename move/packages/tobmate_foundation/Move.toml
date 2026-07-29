@@ -1,0 +1,8 @@
+[package]
+name = "tobmate_foundation"
+edition = "2024"
+
+[dependencies]
+
+[addresses]
+tobmate_foundation = "0x0"

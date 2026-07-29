@@ -1,0 +1,9 @@
+[package]
+name = "tobmate_enterprise_security"
+edition = "2024"
+
+[dependencies]
+tobmate_foundation = { local = "../tobmate_foundation" }
+
+[addresses]
+tobmate_enterprise_security = "0x0"
