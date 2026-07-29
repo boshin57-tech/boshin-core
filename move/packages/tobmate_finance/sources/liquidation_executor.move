@@ -315,19 +315,19 @@ public(package) fun total_executions(
     executor.total_executions
 }
 
-public fun total_repaid_principal(
+public(package) fun total_repaid_principal(
     executor: &LiquidationExecutor,
 ): u64 {
     executor.total_repaid_principal
 }
 
-public fun total_collateral_seized(
+public(package) fun total_collateral_seized(
     executor: &LiquidationExecutor,
 ): u64 {
     executor.total_collateral_seized
 }
 
-public fun execution_count(
+public(package) fun execution_count(
     executor: &LiquidationExecutor,
 ): u64 {
     vector::length(
@@ -789,7 +789,7 @@ public fun execution_liquidator(
     ).liquidator
 }
 
-public fun execution_repay_amount(
+public(package) fun execution_repay_amount(
     executor: &LiquidationExecutor,
     index: u64,
 ): u64 {
@@ -849,7 +849,7 @@ public fun execution_collateral_after(
     ).collateral_after
 }
 
-public fun execution_health_factor_bps(
+public(package) fun execution_health_factor_bps(
     executor: &LiquidationExecutor,
     index: u64,
 ): u64 {
@@ -953,13 +953,13 @@ public fun destroy_admin_cap_for_testing(
    Liquidator Claim Read API
    ============================================================ */
 
-public fun claim_execution_id(
+public(package) fun claim_execution_id(
     claim: &LiquidatorClaim,
 ): u64 {
     claim.execution_id
 }
 
-public fun claim_collateral_position_id(
+public(package) fun claim_collateral_position_id(
     claim: &LiquidatorClaim,
 ): u64 {
     claim.collateral_position_id

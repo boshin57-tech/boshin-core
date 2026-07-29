@@ -326,7 +326,7 @@ fun copy_u64_vector(
    Pure calculation functions
    ============================================================ */
 
-public fun calculate_median(
+public(package) fun calculate_median(
     mut prices: vector<u64>,
 ): u64 {
     let count = vector::length(&prices);
@@ -362,7 +362,7 @@ public fun calculate_median(
     }
 }
 
-public fun calculate_weighted_median(
+public(package) fun calculate_weighted_median(
     mut prices: vector<u64>,
     mut weights: vector<u64>,
 ): u64 {
@@ -435,7 +435,7 @@ public fun calculate_weighted_median(
     )
 }
 
-public fun calculate_deviation_bps(
+public(package) fun calculate_deviation_bps(
     first_price: u64,
     second_price: u64,
 ): u64 {
@@ -611,19 +611,19 @@ public fun min_observations(
     aggregator.min_observations
 }
 
-public fun max_deviation_bps(
+public(package) fun max_deviation_bps(
     aggregator: &OracleAggregator,
 ): u64 {
     aggregator.max_deviation_bps
 }
 
-public fun latest_round_id(
+public(package) fun latest_round_id(
     aggregator: &OracleAggregator,
 ): u64 {
     aggregator.latest_round_id
 }
 
-public fun latest_median_price(
+public(package) fun latest_median_price(
     aggregator: &OracleAggregator,
 ): u64 {
     aggregator.latest_median_price

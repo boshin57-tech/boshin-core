@@ -302,19 +302,19 @@ public fun admin_registry_id(
     admin_cap.registry_id
 }
 
-public fun publisher_cap_registry_id(
+public(package) fun publisher_cap_registry_id(
     publisher_cap: &OraclePublisherCap,
 ): ID {
     publisher_cap.registry_id
 }
 
-public fun publisher_cap_id(
+public(package) fun publisher_cap_id(
     publisher_cap: &OraclePublisherCap,
 ): u64 {
     publisher_cap.publisher_id
 }
 
-public fun protocol_version(): u64 {
+public(package) fun protocol_version(): u64 {
     PROTOCOL_VERSION
 }
 
@@ -336,7 +336,7 @@ public fun active_publisher_count(
     registry.active_publisher_count
 }
 
-public fun total_publisher_count(
+public(package) fun total_publisher_count(
     registry: &OracleRegistry,
 ): u64 {
     registry.total_publisher_count
@@ -363,7 +363,7 @@ public fun publisher_exists(
     false
 }
 
-public fun publisher_address(
+public(package) fun publisher_address(
     registry: &OracleRegistry,
     publisher_id: u64,
 ): address {
@@ -379,7 +379,7 @@ public fun publisher_weight(
     vector::borrow(&registry.publishers, index).weight
 }
 
-public fun publisher_is_active(
+public(package) fun publisher_is_active(
     registry: &OracleRegistry,
     publisher_id: u64,
 ): bool {

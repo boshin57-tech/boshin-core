@@ -463,7 +463,7 @@ fun observation_exists(
    Read-only API
    ============================================================ */
 
-public fun store_registry_id(
+public(package) fun store_registry_id(
     store: &OracleFeedStore,
 ): ID {
     store.registry_id
