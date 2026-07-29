@@ -477,7 +477,7 @@ public fun base_borrow_rate_bps(
     pool.base_borrow_rate_bps
 }
 
-public fun utilization_bps(
+public(package) fun utilization_bps(
     pool: &LendingPool,
 ): u64 {
     let borrowed =
@@ -1888,7 +1888,7 @@ public fun outstanding_bad_debt(
     pool.outstanding_bad_debt
 }
 
-public fun bad_debt_count(
+public(package) fun bad_debt_count(
     pool: &LendingPool,
 ): u64 {
     pool.bad_debt_count

@@ -257,7 +257,7 @@ public fun update_version(
 
 /// Calculates:
 /// amount * price / price_scale
-public fun asset_value(
+public(package) fun asset_value(
     amount: u64,
     price: u64,
     price_scale: u64,
@@ -273,7 +273,7 @@ public fun asset_value(
    Adjusted Collateral
    ============================================================ */
 
-public fun adjusted_collateral_value(
+public(package) fun adjusted_collateral_value(
     collateral_amount: u64,
     collateral_price: u64,
     price_scale: u64,
@@ -393,7 +393,7 @@ public(package) fun calculate_max_repay(
    Collateral Seizure Math
    ============================================================ */
 
-public fun calculate_seize_amount(
+public(package) fun calculate_seize_amount(
     repay_amount: u64,
     debt_price: u64,
     collateral_price: u64,
@@ -597,7 +597,7 @@ public fun is_paused(
     engine.paused
 }
 
-public fun liquidation_threshold_bps(
+public(package) fun liquidation_threshold_bps(
     engine: &LiquidationEngine,
 ): u64 {
     engine.liquidation_threshold_bps
@@ -609,13 +609,13 @@ public fun close_factor_bps(
     engine.close_factor_bps
 }
 
-public fun liquidation_bonus_bps(
+public(package) fun liquidation_bonus_bps(
     engine: &LiquidationEngine,
 ): u64 {
     engine.liquidation_bonus_bps
 }
 
-public fun total_liquidation_quotes(
+public(package) fun total_liquidation_quotes(
     engine: &LiquidationEngine,
 ): u64 {
     engine.total_liquidation_quotes
@@ -639,31 +639,31 @@ public fun quote_adjusted_collateral_value(
     quote.adjusted_collateral_value
 }
 
-public fun quote_health_factor_bps(
+public(package) fun quote_health_factor_bps(
     quote: &LiquidationQuote,
 ): u64 {
     quote.health_factor_bps
 }
 
-public fun quote_max_repay_amount(
+public(package) fun quote_max_repay_amount(
     quote: &LiquidationQuote,
 ): u64 {
     quote.max_repay_amount
 }
 
-public fun quote_repay_amount(
+public(package) fun quote_repay_amount(
     quote: &LiquidationQuote,
 ): u64 {
     quote.repay_amount
 }
 
-public fun quote_seize_amount(
+public(package) fun quote_seize_amount(
     quote: &LiquidationQuote,
 ): u64 {
     quote.seize_amount
 }
 
-public fun quote_is_liquidatable(
+public(package) fun quote_is_liquidatable(
     quote: &LiquidationQuote,
 ): bool {
     quote.liquidatable
@@ -673,7 +673,7 @@ public fun basis_point_denominator(): u64 {
     BPS_DENOMINATOR
 }
 
-public fun healthy_health_factor_bps(): u64 {
+public(package) fun healthy_health_factor_bps(): u64 {
     HEALTH_FACTOR_BASE_BPS
 }
 

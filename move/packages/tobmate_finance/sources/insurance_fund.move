@@ -521,7 +521,7 @@ public fun assert_accounting_invariant(
     );
 }
 
-public fun fund_id(fund: &InsuranceFund): ID {
+public(package) fun fund_id(fund: &InsuranceFund): ID {
     object::uid_to_inner(&fund.id)
 }
 
@@ -606,7 +606,7 @@ public fun claim_requested_amount(
     ).requested_amount
 }
 
-public fun claim_approved_amount(
+public(package) fun claim_approved_amount(
     fund: &InsuranceFund,
     claim_id: u64,
 ): u64 {

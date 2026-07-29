@@ -303,13 +303,13 @@ public fun is_paused(
     executor.paused
 }
 
-public fun next_execution_id(
+public(package) fun next_execution_id(
     executor: &LiquidationExecutor,
 ): u64 {
     executor.next_execution_id
 }
 
-public fun total_executions(
+public(package) fun total_executions(
     executor: &LiquidationExecutor,
 ): u64 {
     executor.total_executions

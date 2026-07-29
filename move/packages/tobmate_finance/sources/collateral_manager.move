@@ -1761,7 +1761,7 @@ public fun position_collateral_units(
     ).collateral_units
 }
 
-public fun position_debt_value(
+public(package) fun position_debt_value(
     manager: &CollateralManager,
     position_id: u64,
 ): u64 {
@@ -1777,7 +1777,7 @@ public fun position_debt_value(
     ).debt_value
 }
 
-public fun position_is_active(
+public(package) fun position_is_active(
     manager: &CollateralManager,
     position_id: u64,
 ): bool {
