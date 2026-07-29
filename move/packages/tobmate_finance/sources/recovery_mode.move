@@ -375,13 +375,13 @@ public fun recovery_threshold_bps(
     registry.recovery_threshold_bps
 }
 
-public fun activation_count(
+public(package) fun activation_count(
     registry: &RecoveryModeRegistry,
 ): u64 {
     registry.activation_count
 }
 
-public fun recovery_count(
+public(package) fun recovery_count(
     registry: &RecoveryModeRegistry,
 ): u64 {
     registry.recovery_count

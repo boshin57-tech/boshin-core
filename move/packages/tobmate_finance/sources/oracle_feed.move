@@ -469,13 +469,13 @@ public(package) fun store_registry_id(
     store.registry_id
 }
 
-public fun feed_count(
+public(package) fun feed_count(
     store: &OracleFeedStore,
 ): u64 {
     store.feed_count
 }
 
-public fun observation_count(
+public(package) fun observation_count(
     store: &OracleFeedStore,
 ): u64 {
     store.observation_count
@@ -517,7 +517,7 @@ public fun feed_heartbeat_ms(
     vector::borrow(&store.feeds, index).heartbeat_ms
 }
 
-public fun feed_min_price(
+public(package) fun feed_min_price(
     store: &OracleFeedStore,
     feed_id: u64,
 ): u64 {
@@ -525,7 +525,7 @@ public fun feed_min_price(
     vector::borrow(&store.feeds, index).min_price
 }
 
-public fun feed_max_price(
+public(package) fun feed_max_price(
     store: &OracleFeedStore,
     feed_id: u64,
 ): u64 {
@@ -533,7 +533,7 @@ public fun feed_max_price(
     vector::borrow(&store.feeds, index).max_price
 }
 
-public fun feed_is_paused(
+public(package) fun feed_is_paused(
     store: &OracleFeedStore,
     feed_id: u64,
 ): bool {
@@ -549,7 +549,7 @@ public fun latest_round(
     vector::borrow(&store.feeds, index).latest_round
 }
 
-public fun latest_price(
+public(package) fun latest_price(
     store: &OracleFeedStore,
     feed_id: u64,
 ): u64 {
@@ -557,7 +557,7 @@ public fun latest_price(
     vector::borrow(&store.feeds, index).latest_price
 }
 
-public fun latest_confidence_bps(
+public(package) fun latest_confidence_bps(
     store: &OracleFeedStore,
     feed_id: u64,
 ): u64 {
@@ -573,7 +573,7 @@ public fun latest_timestamp_ms(
     vector::borrow(&store.feeds, index).latest_timestamp_ms
 }
 
-public fun feed_observation_count(
+public(package) fun feed_observation_count(
     store: &OracleFeedStore,
     feed_id: u64,
 ): u64 {

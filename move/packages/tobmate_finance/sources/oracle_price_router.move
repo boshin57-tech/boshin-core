@@ -324,55 +324,55 @@ public fun new_quote_for_testing(
    Quote getters
    ============================================================ */
 
-public fun quote_registry_id(
+public(package) fun quote_registry_id(
     quote: &PriceQuote,
 ): ID {
     quote.registry_id
 }
 
-public fun quote_feed_id(
+public(package) fun quote_feed_id(
     quote: &PriceQuote,
 ): u64 {
     quote.feed_id
 }
 
-public fun quote_round(
+public(package) fun quote_round(
     quote: &PriceQuote,
 ): u64 {
     quote.round
 }
 
-public fun quote_price(
+public(package) fun quote_price(
     quote: &PriceQuote,
 ): u64 {
     quote.price
 }
 
-public fun quote_confidence_bps(
+public(package) fun quote_confidence_bps(
     quote: &PriceQuote,
 ): u64 {
     quote.confidence_bps
 }
 
-public fun quote_observed_at_ms(
+public(package) fun quote_observed_at_ms(
     quote: &PriceQuote,
 ): u64 {
     quote.observed_at_ms
 }
 
-public fun quote_queried_at_ms(
+public(package) fun quote_queried_at_ms(
     quote: &PriceQuote,
 ): u64 {
     quote.queried_at_ms
 }
 
-public fun quote_age_ms(
+public(package) fun quote_age_ms(
     quote: &PriceQuote,
 ): u64 {
     quote.age_ms
 }
 
-public fun quote_effective_max_age_ms(
+public(package) fun quote_effective_max_age_ms(
     quote: &PriceQuote,
 ): u64 {
     quote.effective_max_age_ms

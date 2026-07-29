@@ -156,7 +156,7 @@ public fun loss_absorption_capacity(
    basis points
    ============================================================ */
 
-public fun coverage_bps(
+public(package) fun coverage_bps(
     pool: &LendingPool,
     insurance: &InsuranceFund,
     protocol_treasury: &ProtocolTreasury,
