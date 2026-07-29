@@ -341,7 +341,7 @@ public fun position_id(position: &GoldBackingPosition): ID {
     object::uid_to_inner(&position.id)
 }
 
-public fun reserve_id(position: &GoldBackingPosition): ID {
+public(package) fun reserve_id(position: &GoldBackingPosition): ID {
     position.reserve_id
 }
 
@@ -357,7 +357,7 @@ public fun weight_mg(position: &GoldBackingPosition): u64 {
     position.weight_mg
 }
 
-public fun purity_bps(position: &GoldBackingPosition): u64 {
+public(package) fun purity_bps(position: &GoldBackingPosition): u64 {
     position.purity_bps
 }
 
@@ -371,7 +371,7 @@ public fun has_gold_nft(position: &GoldBackingPosition): bool {
     option::is_some(&position.gold_nft_id)
 }
 
-public fun gold_nft_id(position: &GoldBackingPosition): Option<ID> {
+public(package) fun gold_nft_id(position: &GoldBackingPosition): Option<ID> {
     position.gold_nft_id
 }
 

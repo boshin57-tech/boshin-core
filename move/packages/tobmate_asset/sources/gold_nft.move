@@ -489,11 +489,11 @@ public fun serial_number(nft: &GoldNFT): u64 {
     nft.serial_number
 }
 
-public fun backing_position_id(nft: &GoldNFT): ID {
+public(package) fun backing_position_id(nft: &GoldNFT): ID {
     nft.backing_position_id
 }
 
-public fun reserve_id(nft: &GoldNFT): ID {
+public(package) fun reserve_id(nft: &GoldNFT): ID {
     nft.reserve_id
 }
 
@@ -501,7 +501,7 @@ public fun weight_mg(nft: &GoldNFT): u64 {
     nft.weight_mg
 }
 
-public fun purity_bps(nft: &GoldNFT): u64 {
+public(package) fun purity_bps(nft: &GoldNFT): u64 {
     nft.purity_bps
 }
 

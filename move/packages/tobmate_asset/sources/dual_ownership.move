@@ -1363,7 +1363,7 @@ public fun reserve_id(
     record.reserve_id
 }
 
-public fun gold_nft_id(
+public(package) fun gold_nft_id(
     record: &DualOwnershipRecord,
 ): ID {
     record.gold_nft_id

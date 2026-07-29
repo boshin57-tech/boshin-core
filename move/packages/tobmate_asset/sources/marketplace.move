@@ -524,7 +524,7 @@ public fun is_paused(
     marketplace.paused
 }
 
-public fun marketplace_fee_bps(
+public(package) fun marketplace_fee_bps(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.marketplace_fee_bps
@@ -621,7 +621,7 @@ public fun listing_created_at_epoch<
     listing.created_at_epoch
 }
 
-public fun max_marketplace_fee_bps(): u64 {
+public(package) fun max_marketplace_fee_bps(): u64 {
     MAX_MARKETPLACE_FEE_BPS
 }
 

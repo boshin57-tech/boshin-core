@@ -332,14 +332,14 @@ module tobmate_enterprise_security::cross_network_execution_receipt {
     // Read accessors
     // ============================================================
 
-    public fun execution_id(
+    public(package) fun execution_id(
         receipt: &ExecutionReceipt,
     ): &vector<u8> {
         &receipt.execution_id
     }
 
 
-    public fun receipt_binding_hash(
+    public(package) fun receipt_binding_hash(
         receipt: &ExecutionReceipt,
     ): &vector<u8> {
         &receipt.binding_hash
@@ -374,7 +374,7 @@ module tobmate_enterprise_security::cross_network_execution_receipt {
     }
 
 
-    public fun receipt_sequence(
+    public(package) fun receipt_sequence(
         receipt: &ExecutionReceipt,
     ): u64 {
         receipt.sequence

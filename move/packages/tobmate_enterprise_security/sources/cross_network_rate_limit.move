@@ -382,7 +382,7 @@ module tobmate_enterprise_security::cross_network_rate_limit {
     }
 
 
-    public fun operator_count(
+    public(package) fun operator_count(
         state: &RateLimitState,
     ): u64 {
         vector::length(
@@ -391,7 +391,7 @@ module tobmate_enterprise_security::cross_network_rate_limit {
     }
 
 
-    public fun operator_request_count(
+    public(package) fun operator_request_count(
         state: &RateLimitState,
         operator: address,
     ): u64 {
@@ -413,7 +413,7 @@ module tobmate_enterprise_security::cross_network_rate_limit {
     }
 
 
-    public fun rate_limit_version(
+    public(package) fun rate_limit_version(
         state: &RateLimitState,
     ): u64 {
         state.version

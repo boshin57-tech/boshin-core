@@ -407,7 +407,7 @@ module tobmate_enterprise_security::cross_network_recovery_control {
     // Read Accessors
     // ============================================================
 
-    public fun case_id(
+    public(package) fun case_id(
         case: &RecoveryCase,
     ): &vector<u8> {
         &case.case_id
@@ -442,7 +442,7 @@ module tobmate_enterprise_security::cross_network_recovery_control {
     }
 
 
-    public fun case_requested_amount(
+    public(package) fun case_requested_amount(
         case: &RecoveryCase,
     ): u64 {
         case.requested_amount
@@ -463,14 +463,14 @@ module tobmate_enterprise_security::cross_network_recovery_control {
     }
 
 
-    public fun case_status(
+    public(package) fun case_status(
         case: &RecoveryCase,
     ): u8 {
         case.status
     }
 
 
-    public fun case_open_status(): u8 {
+    public(package) fun case_open_status(): u8 {
         CASE_OPEN
     }
 

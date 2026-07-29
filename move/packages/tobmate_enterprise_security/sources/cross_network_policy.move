@@ -330,7 +330,7 @@ module tobmate_enterprise_security::cross_network_policy {
     }
 
 
-    public fun max_transaction_amount(
+    public(package) fun max_transaction_amount(
         policy: &CrossNetworkPolicy,
     ): u64 {
         policy.max_transaction_amount
