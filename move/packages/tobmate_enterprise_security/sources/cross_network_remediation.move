@@ -83,7 +83,7 @@ module tobmate_enterprise_security::cross_network_remediation {
     // Deterministic Remediation ID
     // ============================================================
 
-    public fun calculate_remediation_id(
+    public(package) fun calculate_remediation_id(
         authorization_id: vector<u8>,
         case_id: vector<u8>,
         remediation_type: vector<u8>,
@@ -312,7 +312,7 @@ module tobmate_enterprise_security::cross_network_remediation {
     }
 
 
-    public fun total_remediation_records(
+    public(package) fun total_remediation_records(
         registry: &RemediationRegistry,
     ): u64 {
         registry.total_records

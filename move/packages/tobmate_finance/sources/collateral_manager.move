@@ -1599,13 +1599,13 @@ public fun position_count(
     vector::length(&manager.positions)
 }
 
-public fun total_collateral_units(
+public(package) fun total_collateral_units(
     manager: &CollateralManager,
 ): u64 {
     manager.total_collateral_units
 }
 
-public fun total_debt_value(
+public(package) fun total_debt_value(
     manager: &CollateralManager,
 ): u64 {
     manager.total_debt_value

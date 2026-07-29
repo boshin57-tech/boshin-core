@@ -368,14 +368,14 @@ module tobmate_enterprise_security::cross_network_rate_limit {
     // Read Accessors
     // ============================================================
 
-    public fun current_window_id(
+    public(package) fun current_window_id(
         state: &RateLimitState,
     ): u64 {
         state.current_window_id
     }
 
 
-    public fun total_requests(
+    public(package) fun total_requests(
         state: &RateLimitState,
     ): u64 {
         state.total_requests

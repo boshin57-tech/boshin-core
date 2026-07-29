@@ -92,7 +92,7 @@ module tobmate_enterprise_security::cross_network_policy {
     // Policy ID
     // ============================================================
 
-    public fun calculate_policy_id(
+    public(package) fun calculate_policy_id(
         network_id: vector<u8>,
         domain: vector<u8>,
         version: u64,
@@ -358,7 +358,7 @@ module tobmate_enterprise_security::cross_network_policy {
     }
 
 
-    public fun total_policies(
+    public(package) fun total_policies(
         registry: &PolicyRegistry,
     ): u64 {
         registry.total_policies

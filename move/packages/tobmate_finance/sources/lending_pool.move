@@ -440,7 +440,7 @@ public fun is_paused(
     pool.paused
 }
 
-public fun available_liquidity(
+public(package) fun available_liquidity(
     pool: &LendingPool,
 ): u64 {
     balance::value(&pool.liquidity)
@@ -1382,13 +1382,13 @@ public fun repay_interest(
     });
 }
 
-public fun total_borrow_interest_accrued(
+public(package) fun total_borrow_interest_accrued(
     pool: &LendingPool,
 ): u64 {
     pool.total_borrow_interest_accrued
 }
 
-public fun total_borrow_interest_paid(
+public(package) fun total_borrow_interest_paid(
     pool: &LendingPool,
 ): u64 {
     pool.total_borrow_interest_paid
@@ -1870,13 +1870,13 @@ public(package) fun assert_bad_debt_accounting_invariant(
    Read API
    ============================================================ */
 
-public fun total_bad_debt_created(
+public(package) fun total_bad_debt_created(
     pool: &LendingPool,
 ): u64 {
     pool.total_bad_debt_created
 }
 
-public fun total_bad_debt_recovered(
+public(package) fun total_bad_debt_recovered(
     pool: &LendingPool,
 ): u64 {
     pool.total_bad_debt_recovered

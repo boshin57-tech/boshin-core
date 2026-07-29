@@ -118,7 +118,7 @@ module tobmate_enterprise_security::cross_network_execution_receipt {
     // Execution ID
     // ============================================================
 
-    public fun calculate_execution_id(
+    public(package) fun calculate_execution_id(
         binding_hash: vector<u8>,
         intent_finality_hash: vector<u8>,
         external_reference_digest: vector<u8>,

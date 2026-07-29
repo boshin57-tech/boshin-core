@@ -594,13 +594,13 @@ public fun record_count(
     )
 }
 
-public fun total_bad_debt_recorded(
+public(package) fun total_bad_debt_recorded(
     registry: &BadDebtSettlementRegistry,
 ): u64 {
     registry.total_bad_debt_recorded
 }
 
-public fun total_recovered(
+public(package) fun total_recovered(
     registry: &BadDebtSettlementRegistry,
 ): u64 {
     registry.total_recovered

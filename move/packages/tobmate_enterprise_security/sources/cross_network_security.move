@@ -108,7 +108,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Canonical Binding Hash
     // ============================================================
 
-    public fun calculate_binding_hash(
+    public(package) fun calculate_binding_hash(
         source_network_id: vector<u8>,
         source_domain: vector<u8>,
         destination_network_id: vector<u8>,
@@ -384,7 +384,7 @@ module tobmate_enterprise_security::cross_network_security {
     // Canonical Intent / Finality Hash
     // ============================================================
 
-    public fun calculate_intent_finality_hash(
+    public(package) fun calculate_intent_finality_hash(
         binding_hash: vector<u8>,
         intent_id: vector<u8>,
         finality_record_id: vector<u8>,

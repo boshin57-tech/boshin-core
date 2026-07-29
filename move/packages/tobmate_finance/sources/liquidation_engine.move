@@ -299,7 +299,7 @@ public fun adjusted_collateral_value(
 /// 10_000 = 1.00
 /// >10_000 = healthy
 /// <10_000 = liquidatable
-public fun calculate_health_factor_bps(
+public(package) fun calculate_health_factor_bps(
     collateral_amount: u64,
     collateral_price: u64,
     debt_amount: u64,
@@ -371,7 +371,7 @@ public fun position_is_liquidatable(
    Close Factor
    ============================================================ */
 
-public fun calculate_max_repay(
+public(package) fun calculate_max_repay(
     debt_amount: u64,
     close_factor_bps: u64,
 ): u64 {
