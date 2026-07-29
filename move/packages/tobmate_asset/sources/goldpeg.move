@@ -468,13 +468,13 @@ public fun registry_circulating_units(
     registry.circulating_units
 }
 
-public fun registry_active_backing_positions(
+public(package) fun registry_active_backing_positions(
     registry: &GoldpegRegistry,
 ): u64 {
     registry.active_backing_positions
 }
 
-public fun registry_issuance_paused(
+public(package) fun registry_issuance_paused(
     registry: &GoldpegRegistry,
 ): bool {
     registry.issuance_paused

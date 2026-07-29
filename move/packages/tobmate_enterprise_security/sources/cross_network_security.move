@@ -1391,7 +1391,7 @@ module tobmate_enterprise_security::cross_network_security {
     }
 
 
-    public fun finality_expired_status(): u8 {
+    public(package) fun finality_expired_status(): u8 {
         FINALITY_EXPIRED
     }
 

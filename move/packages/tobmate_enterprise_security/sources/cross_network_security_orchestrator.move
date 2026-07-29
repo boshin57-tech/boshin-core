@@ -524,7 +524,7 @@ module tobmate_enterprise_security::cross_network_security_orchestrator {
         state.case_sequence
     }
 
-    public fun source_snapshot_sequence(
+    public(package) fun source_snapshot_sequence(
         state: &SecurityOrchestrationState,
     ): u64 {
         state.source_snapshot_sequence

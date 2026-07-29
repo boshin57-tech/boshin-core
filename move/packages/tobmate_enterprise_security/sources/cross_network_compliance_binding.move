@@ -369,14 +369,14 @@ module tobmate_enterprise_security::cross_network_compliance_binding {
     }
 
 
-    public fun binding_valid_from(
+    public(package) fun binding_valid_from(
         binding: &ComplianceBinding,
     ): u64 {
         binding.valid_from_epoch
     }
 
 
-    public fun binding_valid_until(
+    public(package) fun binding_valid_until(
         binding: &ComplianceBinding,
     ): u64 {
         binding.valid_until_epoch

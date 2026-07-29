@@ -473,7 +473,7 @@ public fun result_raw_observation_count(
     result.raw_observation_count
 }
 
-public fun result_active_observation_count(
+public(package) fun result_active_observation_count(
     result: &FeedAggregationResult,
 ): u64 {
     result.active_observation_count

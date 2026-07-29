@@ -1617,7 +1617,7 @@ public fun active_position_count(
     manager.active_position_count
 }
 
-public fun policy_is_active(
+public(package) fun policy_is_active(
     manager: &CollateralManager,
     policy_id: u64,
 ): bool {

@@ -542,7 +542,7 @@ public fun listing_count(
     marketplace.listing_count
 }
 
-public fun active_listing_count(
+public(package) fun active_listing_count(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.active_listing_count

@@ -629,7 +629,7 @@ public fun supply_position_principal(
     ).supplied_principal
 }
 
-public fun supply_position_is_active(
+public(package) fun supply_position_is_active(
     pool: &LendingPool,
     position_id: u64,
 ): bool {

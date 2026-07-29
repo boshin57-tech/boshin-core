@@ -389,7 +389,7 @@ public fun registry_total_positions_created(
     registry.total_positions_created
 }
 
-public fun registry_total_active_positions(
+public(package) fun registry_total_active_positions(
     registry: &BackingRegistry,
 ): u64 {
     registry.total_active_positions

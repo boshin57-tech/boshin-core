@@ -497,7 +497,7 @@ public fun is_suspended(reserve: &GoldReserve): bool {
     reserve.status == STATUS_SUSPENDED
 }
 
-public fun is_retired(reserve: &GoldReserve): bool {
+public(package) fun is_retired(reserve: &GoldReserve): bool {
     reserve.status == STATUS_RETIRED
 }
 

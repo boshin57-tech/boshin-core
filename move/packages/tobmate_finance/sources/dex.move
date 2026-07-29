@@ -625,7 +625,7 @@ public fun max_oracle_deviation_bps(
     registry.max_oracle_deviation_bps
 }
 
-public fun oracle_circuit_breaker_active(
+public(package) fun oracle_circuit_breaker_active(
     registry: &DexRegistry,
 ): bool {
     registry.oracle_circuit_breaker_active
