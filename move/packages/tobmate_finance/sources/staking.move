@@ -558,7 +558,7 @@ public(package) fun total_principal_staked(
     registry.total_principal_staked
 }
 
-public fun total_positions_created(
+public(package) fun total_positions_created(
     registry: &StakingRegistry,
 ): u64 {
     registry.total_positions_created
