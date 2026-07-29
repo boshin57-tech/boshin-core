@@ -536,7 +536,7 @@ public fun fee_recipient(
     marketplace.fee_recipient
 }
 
-public fun listing_count(
+public(package) fun listing_count(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.listing_count
@@ -548,25 +548,25 @@ public(package) fun active_listing_count(
     marketplace.active_listing_count
 }
 
-public fun completed_sale_count(
+public(package) fun completed_sale_count(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.completed_sale_count
 }
 
-public fun cancelled_listing_count(
+public(package) fun cancelled_listing_count(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.cancelled_listing_count
 }
 
-public fun total_sales_volume(
+public(package) fun total_sales_volume(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.total_sales_volume
 }
 
-public fun total_marketplace_fees(
+public(package) fun total_marketplace_fees(
     marketplace: &Marketplace,
 ): u64 {
     marketplace.total_marketplace_fees

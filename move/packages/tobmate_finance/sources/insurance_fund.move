@@ -553,7 +553,7 @@ public fun total_claimed(
     fund.total_claimed
 }
 
-public fun total_approved(
+public(package) fun total_approved(
     fund: &InsuranceFund,
 ): u64 {
     fund.total_approved

@@ -505,31 +505,31 @@ public fun last_audit_epoch(reserve: &GoldReserve): u64 {
     reserve.last_audit_epoch
 }
 
-public fun registry_total_reserves(
+public(package) fun registry_total_reserves(
     registry: &GoldReserveRegistry,
 ): u64 {
     registry.total_reserves
 }
 
-public fun registry_total_custodians(
+public(package) fun registry_total_custodians(
     registry: &GoldReserveRegistry,
 ): u64 {
     registry.total_custodians
 }
 
-public fun registry_total_weight_mg(
+public(package) fun registry_total_weight_mg(
     registry: &GoldReserveRegistry,
 ): u64 {
     registry.total_weight_mg
 }
 
-public fun registry_total_allocated_mg(
+public(package) fun registry_total_allocated_mg(
     registry: &GoldReserveRegistry,
 ): u64 {
     registry.total_allocated_mg
 }
 
-public fun registry_total_available_mg(
+public(package) fun registry_total_available_mg(
     registry: &GoldReserveRegistry,
 ): u64 {
     registry.total_available_mg

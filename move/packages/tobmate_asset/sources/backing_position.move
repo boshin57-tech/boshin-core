@@ -395,7 +395,7 @@ public(package) fun registry_total_active_positions(
     registry.total_active_positions
 }
 
-public fun registry_total_closed_positions(
+public(package) fun registry_total_closed_positions(
     registry: &BackingRegistry,
 ): u64 {
     registry.total_closed_positions

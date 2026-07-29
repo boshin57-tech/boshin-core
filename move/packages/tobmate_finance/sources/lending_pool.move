@@ -446,13 +446,13 @@ public(package) fun available_liquidity(
     balance::value(&pool.liquidity)
 }
 
-public fun total_supplied_principal(
+public(package) fun total_supplied_principal(
     pool: &LendingPool,
 ): u64 {
     pool.total_supplied_principal
 }
 
-public fun total_borrowed_principal(
+public(package) fun total_borrowed_principal(
     pool: &LendingPool,
 ): u64 {
     pool.total_borrowed_principal

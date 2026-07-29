@@ -450,7 +450,7 @@ public fun registry_version(
     registry.version
 }
 
-public fun registry_total_issued_units(
+public(package) fun registry_total_issued_units(
     registry: &GoldpegRegistry,
 ): u64 {
     registry.total_issued_units
@@ -462,7 +462,7 @@ public fun registry_total_burned_units(
     registry.total_burned_units
 }
 
-public fun registry_circulating_units(
+public(package) fun registry_circulating_units(
     registry: &GoldpegRegistry,
 ): u64 {
     registry.circulating_units

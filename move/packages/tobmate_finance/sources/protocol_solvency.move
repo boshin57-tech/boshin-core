@@ -280,7 +280,7 @@ public fun snapshot_outstanding_bad_debt(
     snapshot.outstanding_bad_debt
 }
 
-public fun snapshot_protocol_reserves(
+public(package) fun snapshot_protocol_reserves(
     snapshot: &SolvencySnapshot,
 ): u64 {
     snapshot.protocol_reserves
