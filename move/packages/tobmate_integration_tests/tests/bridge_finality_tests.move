@@ -19,7 +19,7 @@ use tobmate_enterprise_security::cross_network_settlement_intent::{
     Self as cross_intent,
 };
 
-use tobmate_finance::bridge_finality::{
+use tobmate_enterprise_security::bridge_finality::{
     Self as bridge_finality,
 };
 
@@ -291,7 +291,7 @@ fun test_02_attestor_registration() {
 #[test]
 #[expected_failure(
     abort_code = 3,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_03_duplicate_attestor_rejected() {
     let mut scenario =
@@ -476,7 +476,7 @@ fun test_05_attestor_suspension() {
 #[test]
 #[expected_failure(
     abort_code = 6,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_06_unauthorized_attestor_rejected() {
     let mut scenario =
@@ -535,7 +535,7 @@ fun test_06_unauthorized_attestor_rejected() {
 #[test]
 #[expected_failure(
     abort_code = 10,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_07_duplicate_attestation_rejected() {
     let mut scenario =
@@ -616,7 +616,7 @@ fun test_07_duplicate_attestation_rejected() {
 #[test]
 #[expected_failure(
     abort_code = 12,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_08_threshold_not_reached() {
     let mut scenario =
@@ -948,7 +948,7 @@ fun test_10_successful_finalization() {
 #[test]
 #[expected_failure(
     abort_code = 9,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_11_finality_replay_rejected() {
     let mut scenario = test_scenario::begin(ADMIN);
@@ -1115,7 +1115,7 @@ fun test_12_reject_finality() {
 #[test]
 #[expected_failure(
     abort_code = 5,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_13_suspended_attestor_rejected() {
     let mut scenario =
@@ -1197,7 +1197,7 @@ fun test_13_suspended_attestor_rejected() {
 #[test]
 #[expected_failure(
     abort_code = 13,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_14_unconfirmed_intent_rejected() {
     let mut scenario =
@@ -1422,7 +1422,7 @@ fun test_16_accounting_invariant() {
 #[test]
 #[expected_failure(
     abort_code = 17,
-    location = tobmate_finance::bridge_finality,
+    location = tobmate_enterprise_security::bridge_finality,
 )]
 fun test_17_wrong_admin_cap_rejected() {
     let mut scenario =

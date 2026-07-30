@@ -31,8 +31,8 @@ deps = { std = "MoveStdlib", sui = "Sui", tobmate_foundation = "tobmate_foundati
 [pinned.testnet.tobmate_finance]
 source = { local = "../tobmate_finance" }
 use_environment = "testnet"
-manifest_digest = "7E570D4505069197409CD34DFCAED2012E51667B48E59E27A9D12644C9FFC4B2"
-deps = { std = "MoveStdlib", sui = "Sui", tobmate_asset = "tobmate_asset", tobmate_enterprise_security = "tobmate_enterprise_security", tobmate_foundation = "tobmate_foundation" }
+manifest_digest = "2CF93A1A2CC0A674BBE2E595A2B8BA4FE233A9EE4F8C375EEEF4C7096EFD1BC9"
+deps = { std = "MoveStdlib", sui = "Sui", tobmate_asset = "tobmate_asset", tobmate_foundation = "tobmate_foundation" }
 
 [pinned.testnet.tobmate_foundation]
 source = { local = "../tobmate_foundation" }

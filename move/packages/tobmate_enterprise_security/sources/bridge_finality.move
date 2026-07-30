@@ -1,4 +1,4 @@
-module tobmate_finance::bridge_finality;
+module tobmate_enterprise_security::bridge_finality;
 
 use sui::event;
 use sui::object::{Self, ID, UID};
