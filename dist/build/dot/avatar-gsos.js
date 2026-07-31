@@ -316,4 +316,438 @@
       detail: identity
     })
   );
+
+  /*
+   * TOBMATE_GSOS_PRESENCE_CLIENT_V1
+   *
+   * World Entry는 classroom3d.html이 담당한다.
+   * 이 모듈은 발급된 Entry Session으로 Presence Hub에 연결한다.
+   */
+  var presenceSocket = null;
+  var presenceSession = null;
+  var presenceJoined = false;
+  var presenceConnecting = false;
+  var presenceMoveTimer = null;
+  var lastPresencePosition = null;
+
+  function getPresenceAdapter() {
+    var classroom = window.TobmateClassroom3D;
+
+    return (
+      classroom &&
+      classroom.presenceAdapter
+    ) || null;
+  }
+
+  function normalizePresenceList(payload) {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (
+      payload &&
+      Array.isArray(payload.users)
+    ) {
+      return payload.users;
+    }
+
+    if (
+      payload &&
+      Array.isArray(payload.presences)
+    ) {
+      return payload.presences;
+    }
+
+    return [];
+  }
+
+  function normalizePresence(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    return (
+      payload.presence ||
+      payload.user ||
+      payload
+    );
+  }
+
+  function positionHasChanged(position) {
+    if (!lastPresencePosition) {
+      return true;
+    }
+
+    return (
+      Math.abs(
+        position.x - lastPresencePosition.x
+      ) > 0.03 ||
+      Math.abs(
+        position.y - lastPresencePosition.y
+      ) > 0.03 ||
+      Math.abs(
+        position.z - lastPresencePosition.z
+      ) > 0.03
+    );
+  }
+
+  function stopPresenceMovement() {
+    if (presenceMoveTimer) {
+      clearInterval(presenceMoveTimer);
+      presenceMoveTimer = null;
+    }
+  }
+
+  function startPresenceMovement() {
+    stopPresenceMovement();
+
+    presenceMoveTimer = setInterval(function () {
+      if (
+        !presenceSocket ||
+        !presenceSocket.connected ||
+        !presenceJoined
+      ) {
+        return;
+      }
+
+      var adapter = getPresenceAdapter();
+
+      if (
+        !adapter ||
+        typeof adapter.getLocalPose !== 'function'
+      ) {
+        return;
+      }
+
+      var pose = adapter.getLocalPose();
+
+      if (!pose) {
+        return;
+      }
+
+      var position = {
+        x: Number(pose.x) || 0,
+        y: Number(pose.y) || 0,
+        z: Number(pose.z) || 0
+      };
+
+      if (!positionHasChanged(position)) {
+        return;
+      }
+
+      lastPresencePosition = position;
+
+      /*
+       * Presence Hub에서 검증된 현재 프로토콜:
+       * { x, y, z }
+       */
+      presenceSocket.emit(
+        'presence:move',
+        position,
+        function (result) {
+          if (result && result.ok === false) {
+            console.warn(
+              '[Avatar GSOS] presence:move 거절:',
+              result
+            );
+          }
+        }
+      );
+    }, 150);
+  }
+
+  function bindPresenceSocket(socket) {
+    socket.on('presence:list', function (payload) {
+      var adapter = getPresenceAdapter();
+
+      if (!adapter) return;
+
+      adapter.applyList(
+        normalizePresenceList(payload).filter(
+          function (presence) {
+            return (
+              presence &&
+              presence.socketId !== socket.id
+            );
+          }
+        )
+      );
+    });
+
+    socket.on('presence:joined', function (payload) {
+      var presence = normalizePresence(payload);
+      var adapter = getPresenceAdapter();
+
+      if (
+        adapter &&
+        presence &&
+        presence.socketId !== socket.id
+      ) {
+        adapter.joined(presence);
+      }
+    });
+
+    socket.on('presence:moved', function (payload) {
+      var presence = normalizePresence(payload);
+      var adapter = getPresenceAdapter();
+
+      if (
+        adapter &&
+        presence &&
+        presence.socketId !== socket.id
+      ) {
+        adapter.moved(presence);
+      }
+    });
+
+    socket.on('presence:left', function (payload) {
+      var presence = normalizePresence(payload);
+      var adapter = getPresenceAdapter();
+
+      if (adapter && presence) {
+        adapter.left(presence);
+      }
+    });
+
+    socket.on('disconnect', function (reason) {
+      presenceJoined = false;
+      stopPresenceMovement();
+
+      console.warn(
+        '[Avatar GSOS] Presence 연결 종료:',
+        reason
+      );
+    });
+
+    socket.on('connect_error', function (error) {
+      presenceConnecting = false;
+
+      console.error(
+        '[Avatar GSOS] Presence 연결 실패:',
+        error && error.message
+          ? error.message
+          : error
+      );
+    });
+  }
+
+  function connectPresenceFromSession(session) {
+    if (
+      !session ||
+      !session.presence ||
+      !session.presence.joinPayload
+    ) {
+      console.warn(
+        '[Avatar GSOS] Presence joinPayload가 없습니다.',
+        session
+      );
+      return null;
+    }
+
+    if (typeof window.io !== 'function') {
+      console.warn(
+        '[Avatar GSOS] Socket.IO가 아직 준비되지 않았습니다.'
+      );
+      return null;
+    }
+
+    if (!getPresenceAdapter()) {
+      return null;
+    }
+
+    if (
+      presenceSocket &&
+      presenceSocket.connected &&
+      presenceJoined
+    ) {
+      return presenceSocket;
+    }
+
+    if (presenceConnecting) {
+      return presenceSocket;
+    }
+
+    presenceConnecting = true;
+    presenceSession = session;
+
+    /*
+     * 기존 Classroom Socket은 그대로 유지한다.
+     * GSOS Presence는 별도 path로 병렬 연결한다.
+     *
+     * Entry Ticket은 일회성일 수 있으므로 자동 재접속은
+     * 이번 검증 단계에서는 끈다.
+     */
+    presenceSocket = window.io({
+      path: '/gsos/presence/socket.io',
+      transports: ['websocket', 'polling'],
+      reconnection: false,
+      timeout: 10000
+    });
+
+    bindPresenceSocket(presenceSocket);
+
+    presenceSocket.on('connect', function () {
+      console.log(
+        '[Avatar GSOS] Presence Socket 연결:',
+        presenceSocket.id
+      );
+
+      presenceSocket.emit(
+        'presence:join',
+        session.presence.joinPayload,
+        function (result) {
+          presenceConnecting = false;
+
+          if (!result || result.ok !== true) {
+            console.error(
+              '[Avatar GSOS] Presence Join 실패:',
+              result
+            );
+
+            return;
+          }
+
+          presenceJoined = true;
+          lastPresencePosition = null;
+
+          var adapter = getPresenceAdapter();
+
+          if (adapter) {
+            adapter.applyList(
+              normalizePresenceList(result).filter(
+                function (presence) {
+                  return (
+                    presence &&
+                    presence.socketId !==
+                      presenceSocket.id
+                  );
+                }
+              )
+            );
+          }
+
+          startPresenceMovement();
+
+          console.log(
+            '[Avatar GSOS] Presence Join 성공:',
+            result.presence || result
+          );
+
+          window.dispatchEvent(
+            new CustomEvent(
+              'tobmate:gsos-presence-ready',
+              {
+                detail: {
+                  socketId: presenceSocket.id,
+                  session: presenceSession,
+                  result: result
+                }
+              }
+            )
+          );
+        }
+      );
+    });
+
+    return presenceSocket;
+  }
+
+  function getGlobalPresenceSession() {
+    if (
+      !window.GSOS_ENTRY_TICKET ||
+      !window.GSOS_PRESENCE
+    ) {
+      return null;
+    }
+
+    return {
+      userId: window.GSOS_USER_ID || null,
+      avatarId: window.GSOS_AVATAR_ID || null,
+      spaceId: window.GSOS_SPACE_ID || null,
+      ticket: window.GSOS_ENTRY_TICKET,
+      presence: window.GSOS_PRESENCE
+    };
+  }
+
+  function tryConnectPresence() {
+    if (!presenceSession) {
+      presenceSession =
+        getGlobalPresenceSession();
+    }
+
+    if (
+      !presenceSession ||
+      !getPresenceAdapter() ||
+      typeof window.io !== 'function'
+    ) {
+      return;
+    }
+
+    connectPresenceFromSession(
+      presenceSession
+    );
+  }
+
+  window.addEventListener(
+    'tobmate:gsos-entry',
+    function (event) {
+      var detail =
+        event && event.detail
+          ? event.detail
+          : null;
+
+      presenceSession =
+        detail && detail.session
+          ? detail.session
+          : detail;
+
+      tryConnectPresence();
+    }
+  );
+
+  window.addEventListener(
+    'tobmate:classroom3d-presence-adapter-ready',
+    tryConnectPresence
+  );
+
+  window.addEventListener(
+    'load',
+    tryConnectPresence
+  );
+
+  window.TobmateAvatarGSOS.connectPresence =
+    connectPresenceFromSession;
+
+  window.TobmateAvatarGSOS.getPresenceSocket =
+    function () {
+      return presenceSocket;
+    };
+
+  window.TobmateAvatarGSOS.isPresenceJoined =
+    function () {
+      return presenceJoined;
+    };
+
+  window.TobmateAvatarGSOS.disconnectPresence =
+    function () {
+      stopPresenceMovement();
+      presenceJoined = false;
+      presenceConnecting = false;
+
+      if (presenceSocket) {
+        presenceSocket.disconnect();
+        presenceSocket = null;
+      }
+
+      var adapter = getPresenceAdapter();
+
+      if (
+        adapter &&
+        typeof adapter.clear === 'function'
+      ) {
+        adapter.clear();
+      }
+    };
+
+
 })();

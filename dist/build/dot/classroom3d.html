@@ -69,6 +69,37 @@ scene.fog = new THREE.Fog(0x020014, 15, 40);
 const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
 camera.position.set(0, 8, 12);
 
+/* TOBMATE_GSOS_CLASSROOM_SCENE_BRIDGE_V1 */
+window.TobmateClassroom3D = window.TobmateClassroom3D || {};
+window.TobmateClassroom3D.scene = scene;
+window.TobmateClassroom3D.camera = camera;
+window.TobmateClassroom3D.THREE = THREE;
+window.TobmateClassroom3D.frameCallbacks =
+  window.TobmateClassroom3D.frameCallbacks || [];
+
+window.TobmateClassroom3D.addFrameCallback = function(callback){
+  if(typeof callback !== 'function') return function(){};
+
+  window.TobmateClassroom3D.frameCallbacks.push(callback);
+
+  return function(){
+    const callbacks =
+      window.TobmateClassroom3D.frameCallbacks;
+
+    const index = callbacks.indexOf(callback);
+
+    if(index !== -1){
+      callbacks.splice(index, 1);
+    }
+  };
+};
+
+window.dispatchEvent(
+  new CustomEvent('tobmate:classroom3d-ready', {
+    detail: window.TobmateClassroom3D
+  })
+);
+
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -1736,6 +1767,24 @@ function animate(){
     greeted = true;
     teacherSpeak(T3.greet);
   }
+  /* TOBMATE_GSOS_FRAME_CALLBACKS_V1 */
+  const gsosFrameCallbacks =
+    window.TobmateClassroom3D &&
+    window.TobmateClassroom3D.frameCallbacks;
+
+  if(Array.isArray(gsosFrameCallbacks)){
+    gsosFrameCallbacks.slice().forEach(function(callback){
+      try{
+        callback();
+      }catch(error){
+        console.warn(
+          '[Classroom3D] GSOS frame callback failed:',
+          error
+        );
+      }
+    });
+  }
+
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
@@ -1751,7 +1800,7 @@ addEventListener('resize', ()=>{
 <script src="/classroom/socket.io/socket.io.js"></script>
 <script src="/dot/galaxy.js?v=1783869112"></script>
 <script src="/dot/avatar.js?v=1783869112"></script>
-<script src="/dot/avatar-gsos.js?v=20260719a"></script>
+<script src="/dot/avatar-gsos.js?v=20260719c"></script>
 <script>
 try{(function(){
   if(typeof io==='undefined'){console.warn('[C3D] socket.io 로드 실패');return;}
@@ -1814,6 +1863,226 @@ try{(function(){
   sock.on('c3d_enter',spawnOther);
   sock.on('c3d_pos',function(d){var av=others[d.id];if(av)av.userData.tgt={x:d.x,z:d.z,ry:d.ry||0};});
   sock.on('c3d_leave',function(d){var av=others[d.id];if(av){scene.remove(av);delete others[d.id];}});
+
+  /*
+   * TOBMATE_GSOS_CLASSROOM_PRESENCE_ADAPTER_V1
+   *
+   * 기존 Classroom 아바타 렌더링을 GSOS Presence에서도 재사용한다.
+   * 같은 사용자가 Classroom Socket에도 있으면 기존 아바타에 결합하여
+   * 화면에 중복 아바타가 생성되지 않도록 한다.
+   */
+  const gsosBindings = {};
+
+  function gsosPresenceKey(socketId){
+    return 'gsos:' + String(socketId || '');
+  }
+
+  function gsosPresenceName(presence){
+    return String(
+      presence &&
+      (
+        presence.userId ||
+        presence.name ||
+        presence.avatarId
+      ) ||
+      'Guest'
+    ).slice(0, 12);
+  }
+
+  function findClassroomAvatarByName(name){
+    for(const id in others){
+      const avatar = others[id];
+
+      if(
+        avatar &&
+        avatar.userData &&
+        avatar.userData.pname === name
+      ){
+        return {
+          id: id,
+          avatar: avatar
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function bindGsosPresence(presence){
+    if(!presence || !presence.socketId) return null;
+
+    const socketId = String(presence.socketId);
+
+    if(gsosBindings[socketId]){
+      return gsosBindings[socketId].avatar;
+    }
+
+    const name = gsosPresenceName(presence);
+    const existing = findClassroomAvatarByName(name);
+
+    /*
+     * 동일 사용자가 기존 Classroom Socket으로 이미 표시되었다면
+     * 해당 아바타를 GSOS socketId에도 결합한다.
+     */
+    if(existing){
+      gsosBindings[socketId] = {
+        avatar: existing.avatar,
+        otherId: existing.id,
+        ownedByGsos: false
+      };
+
+      return existing.avatar;
+    }
+
+    const position = presence.position || {};
+    const otherId = gsosPresenceKey(socketId);
+
+    spawnOther({
+      id: otherId,
+      name: name,
+      x: Number(position.x) || RING,
+      y: Number(position.y) || 0,
+      z: Number(position.z) || RING,
+      ry: Number(presence.ry) || 0
+    });
+
+    const avatar = others[otherId];
+
+    if(!avatar) return null;
+
+    avatar.userData.gsosSocketId = socketId;
+    avatar.userData.gsosAvatarId =
+      presence.avatarId || null;
+    avatar.userData.gsosUserId =
+      presence.userId || null;
+
+    gsosBindings[socketId] = {
+      avatar: avatar,
+      otherId: otherId,
+      ownedByGsos: true
+    };
+
+    return avatar;
+  }
+
+  function moveGsosPresence(presence){
+    if(!presence || !presence.socketId) return;
+
+    const avatar = bindGsosPresence(presence);
+
+    if(!avatar) return;
+
+    const position = presence.position || presence;
+    const nextX = Number(position.x);
+    const nextZ = Number(position.z);
+
+    if(!Number.isFinite(nextX) || !Number.isFinite(nextZ)){
+      return;
+    }
+
+    const currentTarget =
+      avatar.userData.tgt || {
+        x: avatar.position.x,
+        z: avatar.position.z,
+        ry: avatar.rotation.y
+      };
+
+    const dx = nextX - currentTarget.x;
+    const dz = nextZ - currentTarget.z;
+
+    /*
+     * GSOS 현재 프로토콜은 XYZ를 동기화한다.
+     * 진행 방향은 직전 좌표와 새 좌표로 계산한다.
+     */
+    let nextRotation = currentTarget.ry;
+
+    if(Math.abs(dx) + Math.abs(dz) > 0.002){
+      nextRotation = Math.atan2(dx, dz);
+    }
+
+    avatar.userData.tgt = {
+      x: nextX,
+      z: nextZ,
+      ry: nextRotation
+    };
+  }
+
+  function removeGsosPresence(socketId){
+    socketId = String(socketId || '');
+
+    const binding = gsosBindings[socketId];
+
+    if(!binding) return;
+
+    /*
+     * GSOS가 직접 만든 아바타만 제거한다.
+     * Classroom Socket의 기존 아바타에 결합된 경우에는 유지한다.
+     */
+    if(binding.ownedByGsos){
+      const avatar = others[binding.otherId];
+
+      if(avatar){
+        scene.remove(avatar);
+        delete others[binding.otherId];
+      }
+    }
+
+    delete gsosBindings[socketId];
+  }
+
+  window.TobmateClassroom3D =
+    window.TobmateClassroom3D || {};
+
+  window.TobmateClassroom3D.presenceAdapter = {
+    version: '1.0.0',
+
+    applyList: function(list){
+      (Array.isArray(list) ? list : []).forEach(
+        bindGsosPresence
+      );
+    },
+
+    joined: bindGsosPresence,
+    moved: moveGsosPresence,
+
+    left: function(presence){
+      removeGsosPresence(
+        presence && presence.socketId
+          ? presence.socketId
+          : presence
+      );
+    },
+
+    clear: function(){
+      Object.keys(gsosBindings).forEach(
+        removeGsosPresence
+      );
+    },
+
+    getLocalPose: function(){
+      return {
+        x: myAvatar.position.x,
+        y: myAvatar.position.y,
+        z: myAvatar.position.z,
+        ry: myAvatar.rotation.y
+      };
+    },
+
+    getBindings: function(){
+      return gsosBindings;
+    }
+  };
+
+  window.dispatchEvent(
+    new CustomEvent(
+      'tobmate:classroom3d-presence-adapter-ready',
+      {
+        detail:
+          window.TobmateClassroom3D.presenceAdapter
+      }
+    )
+  );
+
   // === 채팅 ===
   const chatBox=document.createElement('div');
   chatBox.style.cssText='position:fixed;bottom:calc(45% + 42px);left:10px;width:min(250px,55vw);max-height:24vh;overflow:hidden;z-index:19;font-family:monospace;font-size:12px;color:#fff;pointer-events:none';

@@ -969,14 +969,6 @@ app.post(
 async function start() {
   await mongoose.connect(MONGO_URL);
 
-  const {
-    registerBlockchainRoutes,
-  } = await import(
-    '../blockchain-wallet/blockchain-api.mjs'
-  );
-
-  registerBlockchainRoutes(app);
-
   app.listen(PORT, HOST, () => {
     console.log(
       `TOBMATE Blockchain Auth listening on ${HOST}:${PORT}`

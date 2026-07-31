@@ -1,4 +1,16 @@
 (() => {
+  var __defProp = Object.defineProperty;
+  var __typeError = (msg) => {
+    throw TypeError(msg);
+  };
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
+  var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
+  var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+  var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
+  var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
+
   // node_modules/@mysten/bcs/dist/uleb.mjs
   function ulebEncode(num) {
     let bigNum = BigInt(num);
@@ -514,32 +526,33 @@
   }
 
   // node_modules/@mysten/bcs/dist/bcs-type.mjs
-  var BcsType = class BcsType2 {
-    #write;
-    #serialize;
+  var _write, _serialize, _a;
+  var BcsType = (_a = class {
     constructor(options) {
+      __privateAdd(this, _write);
+      __privateAdd(this, _serialize);
       this.name = options.name;
       this.read = options.read;
       this.serializedSize = options.serializedSize ?? (() => null);
-      this.#write = options.write;
-      this.#serialize = options.serialize ?? ((value, options$1) => {
+      __privateSet(this, _write, options.write);
+      __privateSet(this, _serialize, options.serialize ?? ((value, options$1) => {
         const writer = new BcsWriter({
           initialSize: this.serializedSize(value) ?? void 0,
           ...options$1
         });
-        this.#write(value, writer);
+        __privateGet(this, _write).call(this, value, writer);
         return writer.toBytes();
-      });
+      }));
       this.validate = options.validate ?? (() => {
       });
     }
     write(value, writer) {
       this.validate(value);
-      this.#write(value, writer);
+      __privateGet(this, _write).call(this, value, writer);
     }
     serialize(value, options) {
       this.validate(value);
-      return new SerializedBcs(this, this.#serialize(value, options));
+      return new SerializedBcs(this, __privateGet(this, _serialize).call(this, value, options));
     }
     parse(bytes) {
       const reader = new BcsReader(bytes);
@@ -555,46 +568,47 @@
       return this.parse(fromBase64(b64));
     }
     transform({ name, input, output, validate }) {
-      return new BcsType2({
+      return new _a({
         name: name ?? this.name,
         read: (reader) => output ? output(this.read(reader)) : this.read(reader),
-        write: (value, writer) => this.#write(input ? input(value) : value, writer),
+        write: (value, writer) => __privateGet(this, _write).call(this, input ? input(value) : value, writer),
         serializedSize: (value) => this.serializedSize(input ? input(value) : value),
-        serialize: (value, options) => this.#serialize(input ? input(value) : value, options),
+        serialize: (value, options) => __privateGet(this, _serialize).call(this, input ? input(value) : value, options),
         validate: (value) => {
           validate?.(value);
           this.validate(input ? input(value) : value);
         }
       });
     }
-  };
+  }, _write = new WeakMap(), _serialize = new WeakMap(), _a);
   var SERIALIZED_BCS_BRAND = /* @__PURE__ */ Symbol.for("@mysten/serialized-bcs");
-  var SerializedBcs = class {
-    #schema;
-    #bytes;
+  var _schema, _bytes, _a2;
+  var SerializedBcs = (_a2 = class {
+    constructor(schema, bytes) {
+      __privateAdd(this, _schema);
+      __privateAdd(this, _bytes);
+      __privateSet(this, _schema, schema);
+      __privateSet(this, _bytes, bytes);
+    }
     get [SERIALIZED_BCS_BRAND]() {
       return true;
     }
-    constructor(schema, bytes) {
-      this.#schema = schema;
-      this.#bytes = bytes;
-    }
     toBytes() {
-      return this.#bytes;
+      return __privateGet(this, _bytes);
     }
     toHex() {
-      return toHex(this.#bytes);
+      return toHex(__privateGet(this, _bytes));
     }
     toBase64() {
-      return toBase64(this.#bytes);
+      return toBase64(__privateGet(this, _bytes));
     }
     toBase58() {
-      return toBase58(this.#bytes);
+      return toBase58(__privateGet(this, _bytes));
     }
     parse() {
-      return this.#schema.parse(this.#bytes);
+      return __privateGet(this, _schema).parse(__privateGet(this, _bytes));
     }
-  };
+  }, _schema = new WeakMap(), _bytes = new WeakMap(), _a2);
   function fixedSizeBcsType({ size, ...options }) {
     return new BcsType({
       ...options,
@@ -2109,19 +2123,19 @@
     return a & b ^ a & c ^ b & c;
   }
   var HashMD = class {
-    blockLen;
-    outputLen;
-    canXOF = false;
-    padOffset;
-    isLE;
-    // For partial updates less than block size
-    buffer;
-    view;
-    finished = false;
-    length = 0;
-    pos = 0;
-    destroyed = false;
     constructor(blockLen, outputLen, padOffset, isLE2) {
+      __publicField(this, "blockLen");
+      __publicField(this, "outputLen");
+      __publicField(this, "canXOF", false);
+      __publicField(this, "padOffset");
+      __publicField(this, "isLE");
+      // For partial updates less than block size
+      __publicField(this, "buffer");
+      __publicField(this, "view");
+      __publicField(this, "finished", false);
+      __publicField(this, "length", 0);
+      __publicField(this, "pos", 0);
+      __publicField(this, "destroyed", false);
       this.blockLen = blockLen;
       this.outputLen = outputLen;
       this.padOffset = padOffset;
@@ -2189,7 +2203,7 @@
       return res;
     }
     _cloneInto(to) {
-      to ||= new this.constructor();
+      to || (to = new this.constructor());
       to.set(...this.get());
       const { blockLen, buffer, length, finished, destroyed, pos } = this;
       to.destroyed = destroyed;
@@ -2307,16 +2321,16 @@
       abytes(personalization, persLen, "personalization");
   }
   var _BLAKE2 = class {
-    buffer;
-    buffer32;
-    finished = false;
-    destroyed = false;
-    length = 0;
-    pos = 0;
-    blockLen;
-    outputLen;
-    canXOF = false;
     constructor(blockLen, outputLen) {
+      __publicField(this, "buffer");
+      __publicField(this, "buffer32");
+      __publicField(this, "finished", false);
+      __publicField(this, "destroyed", false);
+      __publicField(this, "length", 0);
+      __publicField(this, "pos", 0);
+      __publicField(this, "blockLen");
+      __publicField(this, "outputLen");
+      __publicField(this, "canXOF", false);
       anumber2(blockLen);
       anumber2(outputLen);
       this.blockLen = blockLen;
@@ -2390,7 +2404,7 @@
     }
     _cloneInto(to) {
       const { buffer, length, finished, destroyed, outputLen, pos } = this;
-      to ||= new this.constructor({ dkLen: outputLen });
+      to || (to = new this.constructor({ dkLen: outputLen }));
       to.set(...this.get());
       to.buffer.set(buffer);
       to.destroyed = destroyed;
@@ -2405,26 +2419,26 @@
     }
   };
   var _BLAKE2b = class extends _BLAKE2 {
-    // Same IV words as SHA-512 / BLAKE2b, encoded as LE u32 low/high halves.
-    v0l = B2B_IV[0] | 0;
-    v0h = B2B_IV[1] | 0;
-    v1l = B2B_IV[2] | 0;
-    v1h = B2B_IV[3] | 0;
-    v2l = B2B_IV[4] | 0;
-    v2h = B2B_IV[5] | 0;
-    v3l = B2B_IV[6] | 0;
-    v3h = B2B_IV[7] | 0;
-    v4l = B2B_IV[8] | 0;
-    v4h = B2B_IV[9] | 0;
-    v5l = B2B_IV[10] | 0;
-    v5h = B2B_IV[11] | 0;
-    v6l = B2B_IV[12] | 0;
-    v6h = B2B_IV[13] | 0;
-    v7l = B2B_IV[14] | 0;
-    v7h = B2B_IV[15] | 0;
     constructor(opts = {}) {
       const olen = opts.dkLen === void 0 ? 64 : opts.dkLen;
       super(128, olen);
+      // Same IV words as SHA-512 / BLAKE2b, encoded as LE u32 low/high halves.
+      __publicField(this, "v0l", B2B_IV[0] | 0);
+      __publicField(this, "v0h", B2B_IV[1] | 0);
+      __publicField(this, "v1l", B2B_IV[2] | 0);
+      __publicField(this, "v1h", B2B_IV[3] | 0);
+      __publicField(this, "v2l", B2B_IV[4] | 0);
+      __publicField(this, "v2h", B2B_IV[5] | 0);
+      __publicField(this, "v3l", B2B_IV[6] | 0);
+      __publicField(this, "v3h", B2B_IV[7] | 0);
+      __publicField(this, "v4l", B2B_IV[8] | 0);
+      __publicField(this, "v4h", B2B_IV[9] | 0);
+      __publicField(this, "v5l", B2B_IV[10] | 0);
+      __publicField(this, "v5h", B2B_IV[11] | 0);
+      __publicField(this, "v6l", B2B_IV[12] | 0);
+      __publicField(this, "v6h", B2B_IV[13] | 0);
+      __publicField(this, "v7l", B2B_IV[14] | 0);
+      __publicField(this, "v7h", B2B_IV[15] | 0);
       checkBlake2Opts(olen, opts, 64, 16, 16);
       let { key, personalization, salt } = opts;
       let keyLength = 0;
@@ -2759,18 +2773,18 @@
     }
   };
   var _SHA256 = class extends SHA2_32B {
-    // We cannot use array here since array allows indexing by variable
-    // which means optimizer/compiler cannot use registers.
-    A = SHA256_IV[0] | 0;
-    B = SHA256_IV[1] | 0;
-    C = SHA256_IV[2] | 0;
-    D = SHA256_IV[3] | 0;
-    E = SHA256_IV[4] | 0;
-    F = SHA256_IV[5] | 0;
-    G = SHA256_IV[6] | 0;
-    H = SHA256_IV[7] | 0;
     constructor() {
       super(32);
+      // We cannot use array here since array allows indexing by variable
+      // which means optimizer/compiler cannot use registers.
+      __publicField(this, "A", SHA256_IV[0] | 0);
+      __publicField(this, "B", SHA256_IV[1] | 0);
+      __publicField(this, "C", SHA256_IV[2] | 0);
+      __publicField(this, "D", SHA256_IV[3] | 0);
+      __publicField(this, "E", SHA256_IV[4] | 0);
+      __publicField(this, "F", SHA256_IV[5] | 0);
+      __publicField(this, "G", SHA256_IV[6] | 0);
+      __publicField(this, "H", SHA256_IV[7] | 0);
     }
   };
   var sha256 = /* @__PURE__ */ createHasher(
@@ -3173,15 +3187,15 @@
   }
   var FIELD_SQRT = /* @__PURE__ */ new WeakMap();
   var _Field = class {
-    ORDER;
-    BITS;
-    BYTES;
-    isLE;
-    ZERO = _0n2;
-    ONE = _1n2;
-    _lengths;
-    _mod;
     constructor(ORDER, opts = {}) {
+      __publicField(this, "ORDER");
+      __publicField(this, "BITS");
+      __publicField(this, "BYTES");
+      __publicField(this, "isLE");
+      __publicField(this, "ZERO", _0n2);
+      __publicField(this, "ONE", _1n2);
+      __publicField(this, "_lengths");
+      __publicField(this, "_mod");
       if (ORDER <= _1n2)
         throw new Error("invalid field: expected ORDER > 1, got " + ORDER);
       let _nbitLength = void 0;
@@ -3384,12 +3398,12 @@
       throw new Error("invalid wNAF");
   }
   var wNAF = class {
-    BASE;
-    ZERO;
-    Fn;
-    bits;
     // Parametrized with a given Point class (not individual point)
     constructor(Point, bits) {
+      __publicField(this, "BASE");
+      __publicField(this, "ZERO");
+      __publicField(this, "Fn");
+      __publicField(this, "bits");
       this.BASE = Point.BASE;
       this.ZERO = Point.ZERO;
       this.Fn = Point.Fn;
@@ -3570,14 +3584,14 @@
 
   // node_modules/@noble/hashes/hmac.js
   var _HMAC = class {
-    oHash;
-    iHash;
-    blockLen;
-    outputLen;
-    canXOF = false;
-    finished = false;
-    destroyed = false;
     constructor(hash, key) {
+      __publicField(this, "oHash");
+      __publicField(this, "iHash");
+      __publicField(this, "blockLen");
+      __publicField(this, "outputLen");
+      __publicField(this, "canXOF", false);
+      __publicField(this, "finished", false);
+      __publicField(this, "destroyed", false);
       ahash(hash);
       abytes(key, void 0, "key");
       this.iHash = hash.create();
@@ -3618,7 +3632,7 @@
       return out;
     }
     _cloneInto(to) {
-      to ||= Object.create(Object.getPrototypeOf(this), {});
+      to || (to = Object.create(Object.getPrototypeOf(this), {}));
       const { oHash, iHash, finished, destroyed, blockLen, outputLen } = this;
       to = to;
       to.finished = finished;
@@ -3916,21 +3930,12 @@
       k2p = negateCt(k2neg, k2p);
       return k1p.add(k2p);
     }
-    class Point {
-      // base / generator point
-      static BASE = new Point(CURVE.Gx, CURVE.Gy, Fp.ONE);
-      // zero / infinity / identity point
-      static ZERO = new Point(Fp.ZERO, Fp.ONE, Fp.ZERO);
-      // 0, 1, 0
-      // math field
-      static Fp = Fp;
-      // scalar field
-      static Fn = Fn;
-      X;
-      Y;
-      Z;
+    const _Point = class _Point {
       /** Does NOT validate if the point is valid. Use `.assertValidity()`. */
       constructor(X, Y, Z) {
+        __publicField(this, "X");
+        __publicField(this, "Y");
+        __publicField(this, "Z");
         this.X = acoord("x", X);
         this.Y = acoord("y", Y, true);
         this.Z = acoord("z", Z);
@@ -3944,19 +3949,19 @@
         const { x, y } = p || {};
         if (!p || !Fp.isValid(x) || !Fp.isValid(y))
           throw new Error("invalid affine point");
-        if (p instanceof Point)
+        if (p instanceof _Point)
           throw new Error("projective point not allowed");
         if (Fp.is0(x) && Fp.is0(y))
-          return Point.ZERO;
-        return new Point(x, y, Fp.ONE);
+          return _Point.ZERO;
+        return new _Point(x, y, Fp.ONE);
       }
       static fromBytes(bytes) {
-        const P = Point.fromAffine(decodePoint(abytes2(bytes, void 0, "point")));
+        const P = _Point.fromAffine(decodePoint(abytes2(bytes, void 0, "point")));
         P.assertValidity();
         return P;
       }
       static fromHex(hex) {
-        return Point.fromBytes(hexToBytes2(hex));
+        return _Point.fromBytes(hexToBytes2(hex));
       }
       get x() {
         return this.toAffine().x;
@@ -4010,7 +4015,7 @@
       }
       /** Flips point to one corresponding to (x, -y) in Affine coordinates. */
       negate() {
-        return new Point(this.X, Fp.neg(this.Y), this.Z);
+        return new _Point(this.X, Fp.neg(this.Y), this.Z);
       }
       // Renes-Costello-Batina exception-free doubling formula.
       // There is 30% faster Jacobian formula, but it is not complete.
@@ -4052,7 +4057,7 @@
         Z3 = Fp.mul(t2, t1);
         Z3 = Fp.add(Z3, Z3);
         Z3 = Fp.add(Z3, Z3);
-        return new Point(X3, Y3, Z3);
+        return new _Point(X3, Y3, Z3);
       }
       // Renes-Costello-Batina exception-free addition formula.
       // There is 30% faster Jacobian formula, but it is not complete.
@@ -4105,14 +4110,14 @@
         t0 = Fp.mul(t3, t1);
         Z3 = Fp.mul(t5, Z3);
         Z3 = Fp.add(Z3, t0);
-        return new Point(X3, Y3, Z3);
+        return new _Point(X3, Y3, Z3);
       }
       subtract(other) {
         aprjpoint(other);
         return this.add(other.negate());
       }
       is0() {
-        return this.equals(Point.ZERO);
+        return this.equals(_Point.ZERO);
       }
       /**
        * Constant time multiplication.
@@ -4128,7 +4133,7 @@
         if (!Fn.isValidNot0(scalar))
           throw new RangeError("invalid scalar: out of range");
         let point, fake;
-        const mul = (n) => wnaf.cached(this, n, (p) => normalizeZ(Point, p));
+        const mul = (n) => wnaf.cached(this, n, (p) => normalizeZ(_Point, p));
         if (endo2) {
           const { k1neg, k1, k2neg, k2 } = splitEndoScalarN(scalar);
           const { p: k1p, f: k1f } = mul(k1);
@@ -4140,7 +4145,7 @@
           point = p;
           fake = f;
         }
-        return normalizeZ(Point, [point, fake])[0];
+        return normalizeZ(_Point, [point, fake])[0];
       }
       /**
        * Non-constant-time multiplication. Uses double-and-add algorithm.
@@ -4154,14 +4159,14 @@
         if (!Fn.isValid(sc))
           throw new RangeError("invalid scalar: out of range");
         if (sc === _0n4 || p.is0())
-          return Point.ZERO;
+          return _Point.ZERO;
         if (sc === _1n4)
           return p;
         if (wnaf.hasCache(this))
           return this.multiply(sc);
         if (endo2) {
           const { k1neg, k1, k2neg, k2 } = splitEndoScalarN(sc);
-          const { p1, p2 } = mulEndoUnsafe(Point, p, k1, k2);
+          const { p1, p2 } = mulEndoUnsafe(_Point, p, k1, k2);
           return finishEndo(endo2.beta, p1, p2, k1neg, k2neg);
         } else {
           return wnaf.unsafe(p, sc);
@@ -4199,7 +4204,7 @@
         if (cofactor === _1n4)
           return true;
         if (isTorsionFree)
-          return isTorsionFree(Point, this);
+          return isTorsionFree(_Point, this);
         return wnaf.unsafe(this, CURVE_ORDER).is0();
       }
       clearCofactor() {
@@ -4207,7 +4212,7 @@
         if (cofactor === _1n4)
           return this;
         if (clearCofactor)
-          return clearCofactor(Point, this);
+          return clearCofactor(_Point, this);
         return this.multiplyUnsafe(cofactor);
       }
       isSmallOrder() {
@@ -4218,7 +4223,7 @@
       toBytes(isCompressed = true) {
         abool(isCompressed, "isCompressed");
         this.assertValidity();
-        return encodePoint(Point, this, isCompressed);
+        return encodePoint(_Point, this, isCompressed);
       }
       toHex(isCompressed = true) {
         return bytesToHex2(this.toBytes(isCompressed));
@@ -4226,7 +4231,17 @@
       toString() {
         return `<Point ${this.is0() ? "ZERO" : this.toHex()}>`;
       }
-    }
+    };
+    // base / generator point
+    __publicField(_Point, "BASE", new _Point(CURVE.Gx, CURVE.Gy, Fp.ONE));
+    // zero / infinity / identity point
+    __publicField(_Point, "ZERO", new _Point(Fp.ZERO, Fp.ONE, Fp.ZERO));
+    // 0, 1, 0
+    // math field
+    __publicField(_Point, "Fp", Fp);
+    // scalar field
+    __publicField(_Point, "Fn", Fn);
+    let Point = _Point;
     const bits = Fn.BITS;
     const wnaf = new wNAF(Point, extraOpts.endo ? Math.ceil(bits / 2) : bits);
     if (bits >= 8)
@@ -4357,10 +4372,10 @@
       return abytes2(bytes, sizer);
     }
     class Signature {
-      r;
-      s;
-      recovery;
       constructor(r, s, recovery) {
+        __publicField(this, "r");
+        __publicField(this, "s");
+        __publicField(this, "recovery");
         this.r = validateRS("r", r);
         this.s = validateRS("s", s);
         if (recovery != null) {
@@ -4596,10 +4611,8 @@
     66,
     0
   ]);
-  var PasskeyPublicKey = class extends PublicKey2 {
-    static {
-      this.SIZE = PASSKEY_PUBLIC_KEY_SIZE;
-    }
+  var _a3;
+  var PasskeyPublicKey = (_a3 = class extends PublicKey2 {
     /**
     * Create a new PasskeyPublicKey object
     * @param value passkey public key as buffer or base-64 encoded string
@@ -4643,7 +4656,7 @@
       const sig = parsed.userSignature.slice(1, PASSKEY_SIGNATURE_SIZE + 1);
       return p256.verify(sig, payload, pk);
     }
-  };
+  }, _a3.SIZE = PASSKEY_PUBLIC_KEY_SIZE, _a3);
   function parseSerializedPasskeySignature(signature) {
     const bytes = typeof signature === "string" ? fromBase64(signature) : signature;
     if (bytes[0] !== SIGNATURE_SCHEME_TO_FLAG.Passkey) throw new Error("Invalid signature scheme");
@@ -4755,37 +4768,39 @@
   }
 
   // node_modules/@mysten/sui/dist/zklogin/publickey.mjs
-  var ZkLoginPublicIdentifier = class ZkLoginPublicIdentifier2 extends PublicKey2 {
-    #data;
-    #client;
-    #legacyAddress;
+  var _data, _client, _legacyAddress, _ZkLoginPublicIdentifier_instances, toLegacyAddress_fn, _a4;
+  var ZkLoginPublicIdentifier = (_a4 = class extends PublicKey2 {
     /**
     * Create a new ZkLoginPublicIdentifier object
     * @param value zkLogin public identifier as buffer or base-64 encoded string
     */
     constructor(value, { client } = {}) {
       super();
-      this.#client = client;
-      if (typeof value === "string") this.#data = fromBase64(value);
-      else if (value instanceof Uint8Array) this.#data = value;
-      else this.#data = Uint8Array.from(value);
-      this.#legacyAddress = this.#data.length !== this.#data[0] + 1 + 32;
-      if (this.#legacyAddress) this.#data = normalizeZkLoginPublicKeyBytes(this.#data, false);
+      __privateAdd(this, _ZkLoginPublicIdentifier_instances);
+      __privateAdd(this, _data);
+      __privateAdd(this, _client);
+      __privateAdd(this, _legacyAddress);
+      __privateSet(this, _client, client);
+      if (typeof value === "string") __privateSet(this, _data, fromBase64(value));
+      else if (value instanceof Uint8Array) __privateSet(this, _data, value);
+      else __privateSet(this, _data, Uint8Array.from(value));
+      __privateSet(this, _legacyAddress, __privateGet(this, _data).length !== __privateGet(this, _data)[0] + 1 + 32);
+      if (__privateGet(this, _legacyAddress)) __privateSet(this, _data, normalizeZkLoginPublicKeyBytes(__privateGet(this, _data), false));
     }
     /**
     * Whether this identifier resolves to the deprecated legacy address derivation.
     */
     get legacyAddress() {
-      return this.#legacyAddress;
+      return __privateGet(this, _legacyAddress);
     }
     static fromBytes(bytes, { client, address, legacyAddress } = {}) {
       let publicKey;
-      if (legacyAddress === true) publicKey = new ZkLoginPublicIdentifier2(normalizeZkLoginPublicKeyBytes(bytes, true), { client });
-      else if (legacyAddress === false) publicKey = new ZkLoginPublicIdentifier2(normalizeZkLoginPublicKeyBytes(bytes, false), { client });
+      if (legacyAddress === true) publicKey = new _a4(normalizeZkLoginPublicKeyBytes(bytes, true), { client });
+      else if (legacyAddress === false) publicKey = new _a4(normalizeZkLoginPublicKeyBytes(bytes, false), { client });
       else if (address) {
-        publicKey = new ZkLoginPublicIdentifier2(normalizeZkLoginPublicKeyBytes(bytes, false), { client });
-        if (publicKey.toSuiAddress() !== address) publicKey = new ZkLoginPublicIdentifier2(normalizeZkLoginPublicKeyBytes(bytes, true), { client });
-      } else publicKey = new ZkLoginPublicIdentifier2(bytes, { client });
+        publicKey = new _a4(normalizeZkLoginPublicKeyBytes(bytes, false), { client });
+        if (publicKey.toSuiAddress() !== address) publicKey = new _a4(normalizeZkLoginPublicKeyBytes(bytes, true), { client });
+      } else publicKey = new _a4(bytes, { client });
       if (address && publicKey.toSuiAddress() !== address) throw new Error("Public key bytes do not match the provided address");
       return publicKey;
     }
@@ -4805,21 +4820,14 @@
       return super.equals(publicKey);
     }
     toSuiAddress() {
-      if (this.#legacyAddress) return this.#toLegacyAddress();
+      if (__privateGet(this, _legacyAddress)) return __privateMethod(this, _ZkLoginPublicIdentifier_instances, toLegacyAddress_fn).call(this);
       return super.toSuiAddress();
-    }
-    #toLegacyAddress() {
-      const legacyBytes = normalizeZkLoginPublicKeyBytes(this.#data, true);
-      const addressBytes = new Uint8Array(legacyBytes.length + 1);
-      addressBytes[0] = this.flag();
-      addressBytes.set(legacyBytes, 1);
-      return normalizeSuiAddress(bytesToHex(blake2b(addressBytes, { dkLen: 32 })).slice(0, SUI_ADDRESS_LENGTH * 2));
     }
     /**
     * Return the byte array representation of the zkLogin public identifier
     */
     toRawBytes() {
-      return this.#data;
+      return __privateGet(this, _data);
     }
     /**
     * Return the Sui address associated with this ZkLogin public identifier
@@ -4839,11 +4847,11 @@
     verifyPersonalMessage(message, signature) {
       const parsedSignature = parseSerializedZkLoginSignature(signature);
       return graphqlVerifyZkLoginSignature({
-        address: new ZkLoginPublicIdentifier2(parsedSignature.publicKey).toSuiAddress(),
+        address: new _a4(parsedSignature.publicKey).toSuiAddress(),
         bytes: toBase64(message),
         signature: parsedSignature.serializedSignature,
         intentScope: "PersonalMessage",
-        client: this.#client
+        client: __privateGet(this, _client)
       });
     }
     /**
@@ -4852,20 +4860,26 @@
     verifyTransaction(transaction, signature) {
       const parsedSignature = parseSerializedZkLoginSignature(signature);
       return graphqlVerifyZkLoginSignature({
-        address: new ZkLoginPublicIdentifier2(parsedSignature.publicKey).toSuiAddress(),
+        address: new _a4(parsedSignature.publicKey).toSuiAddress(),
         bytes: toBase64(transaction),
         signature: parsedSignature.serializedSignature,
         intentScope: "TransactionData",
-        client: this.#client
+        client: __privateGet(this, _client)
       });
     }
     /**
     * Verifies that the public key is associated with the provided address
     */
     verifyAddress(address) {
-      return address === super.toSuiAddress() || address === this.#toLegacyAddress();
+      return address === super.toSuiAddress() || address === __privateMethod(this, _ZkLoginPublicIdentifier_instances, toLegacyAddress_fn).call(this);
     }
-  };
+  }, _data = new WeakMap(), _client = new WeakMap(), _legacyAddress = new WeakMap(), _ZkLoginPublicIdentifier_instances = new WeakSet(), toLegacyAddress_fn = function() {
+    const legacyBytes = normalizeZkLoginPublicKeyBytes(__privateGet(this, _data), true);
+    const addressBytes = new Uint8Array(legacyBytes.length + 1);
+    addressBytes[0] = this.flag();
+    addressBytes.set(legacyBytes, 1);
+    return normalizeSuiAddress(bytesToHex(blake2b(addressBytes, { dkLen: 32 })).slice(0, SUI_ADDRESS_LENGTH * 2));
+  }, _a4);
   function toZkLoginPublicIdentifier(addressSeed, iss, options) {
     if (options.legacyAddress === void 0) throw new Error("legacyAddress parameter must be specified");
     const addressSeedBytesBigEndian = options.legacyAddress ? toBigEndianBytes(addressSeed, 32) : toPaddedBigEndianBytes(addressSeed, 32);
@@ -5005,10 +5019,8 @@
 
   // node_modules/@mysten/sui/dist/keypairs/secp256r1/publickey.mjs
   var SECP256R1_PUBLIC_KEY_SIZE = 33;
-  var Secp256r1PublicKey = class extends PublicKey2 {
-    static {
-      this.SIZE = SECP256R1_PUBLIC_KEY_SIZE;
-    }
+  var _a5;
+  var Secp256r1PublicKey = (_a5 = class extends PublicKey2 {
     /**
     * Create a new Secp256r1PublicKey object
     * @param value secp256r1 public key as buffer or base-64 encoded string
@@ -5051,7 +5063,7 @@
       } else bytes = signature;
       return p256.verify(bytes, message, this.toRawBytes());
     }
-  };
+  }, _a5.SIZE = SECP256R1_PUBLIC_KEY_SIZE, _a5);
 
   // node_modules/@mysten/webcrypto-signer/dist/index.mjs
   function getCompressedPublicKey(publicKey) {
@@ -5063,29 +5075,30 @@
     compressed.set(x, 1);
     return compressed;
   }
-  var WebCryptoSigner = class WebCryptoSigner2 extends Signer {
-    #publicKey;
+  var _publicKey, _a6;
+  var WebCryptoSigner = (_a6 = class extends Signer {
+    constructor(privateKey, publicKey) {
+      super();
+      __privateAdd(this, _publicKey);
+      this.privateKey = privateKey;
+      __privateSet(this, _publicKey, new Secp256r1PublicKey(publicKey));
+    }
     static async generate({ extractable = false } = {}) {
       const keypair = await globalThis.crypto.subtle.generateKey({
         name: "ECDSA",
         namedCurve: "P-256"
       }, extractable, ["sign", "verify"]);
       const publicKey = await globalThis.crypto.subtle.exportKey("raw", keypair.publicKey);
-      return new WebCryptoSigner2(keypair.privateKey, getCompressedPublicKey(new Uint8Array(publicKey)));
+      return new _a6(keypair.privateKey, getCompressedPublicKey(new Uint8Array(publicKey)));
     }
     /**
     * Imports a keypair using the value returned by `export()`.
     */
     static import(data) {
-      return new WebCryptoSigner2(data.privateKey, data.publicKey);
+      return new _a6(data.privateKey, data.publicKey);
     }
     getKeyScheme() {
       return "Secp256r1";
-    }
-    constructor(privateKey, publicKey) {
-      super();
-      this.privateKey = privateKey;
-      this.#publicKey = new Secp256r1PublicKey(publicKey);
     }
     /**
     * Exports the keypair so that it can be stored in IndexedDB.
@@ -5093,7 +5106,7 @@
     export() {
       const exportedKeypair = {
         privateKey: this.privateKey,
-        publicKey: this.#publicKey.toRawBytes()
+        publicKey: __privateGet(this, _publicKey).toRawBytes()
       };
       Object.defineProperty(exportedKeypair, "toJSON", {
         enumerable: false,
@@ -5104,7 +5117,7 @@
       return exportedKeypair;
     }
     getPublicKey() {
-      return this.#publicKey;
+      return __privateGet(this, _publicKey);
     }
     async sign(bytes) {
       const rawSignature = await globalThis.crypto.subtle.sign({
@@ -5114,7 +5127,7 @@
       const signature = p256.Signature.fromBytes(new Uint8Array(rawSignature));
       return (signature.hasHighS() ? new p256.Signature(signature.r, p256.Point.Fn.neg(signature.s)) : signature).toBytes("compact");
     }
-  };
+  }, _publicKey = new WeakMap(), _a6);
 
   // node_modules/idb-keyval/dist/index.js
   function promisifyRequest(request) {
@@ -5184,7 +5197,9 @@
     async signMessage(message) {
       const signer = await loadSigner();
       if (!signer) {
-        throw new Error("Wallet not created");
+        throw new Error(
+          window.TobmatePopupI18n?.message("walletNotCreated") || "Wallet not created"
+        );
       }
       const bytes = new TextEncoder().encode(message);
       return await signer.signPersonalMessage(bytes);

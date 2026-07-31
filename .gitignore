@@ -41,3 +41,13 @@ blockchain-wallet/node_modules/
 blockchain-auth/*.save
 blockchain-wallet/test-wallet.js
 blockchain-wallet/test-wallet.bundle.js
+
+# TOBMATE private keys and local secrets
+.sui_testnet_executor_key
+*.pem
+*.key
+
+# Local backup files
+*.backup
+*.before-*
+*.failed-*

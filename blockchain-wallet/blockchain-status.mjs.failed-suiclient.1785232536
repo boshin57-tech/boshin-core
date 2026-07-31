@@ -1,0 +1,128 @@
+import fs from 'node:fs';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+
+const DEFAULT_KEY_FILE =
+  '/home/boshin57/Tobmate_Live/.sui_testnet_executor_key';
+
+const MIST_PER_SUI = 1_000_000_000n;
+
+function formatSui(rawValue) {
+  const raw = BigInt(rawValue);
+  const whole = raw / MIST_PER_SUI;
+  const fraction = (raw % MIST_PER_SUI)
+    .toString()
+    .padStart(9, '0')
+    .replace(/0+$/, '');
+
+  return fraction ? `${whole}.${fraction}` : `${whole}.00`;
+}
+
+function normalizeNetwork(value) {
+  const network = String(value || 'testnet').trim().toLowerCase();
+
+  if (!['testnet', 'mainnet', 'devnet', 'localnet'].includes(network)) {
+    throw new Error(`Unsupported Sui network: ${network}`);
+  }
+
+  return network;
+}
+
+export function createBlockchainClient() {
+  const network = normalizeNetwork(process.env.SUI_NETWORK);
+  const rpcUrl =
+    process.env.SUI_FULLNODE ||
+    getFullnodeUrl(network);
+
+  return {
+    network,
+    rpcUrl,
+    client: new SuiClient({ url: rpcUrl }),
+  };
+}
+
+export function loadExecutorKeypair() {
+  const keyFile =
+    process.env.SUI_EXECUTOR_KEY_FILE ||
+    DEFAULT_KEY_FILE;
+
+  if (!fs.existsSync(keyFile)) {
+    throw new Error(`Executor key file not found: ${keyFile}`);
+  }
+
+  const secret = fs.readFileSync(keyFile, 'utf8').trim();
+
+  if (!secret) {
+    throw new Error('Executor key file is empty');
+  }
+
+  return {
+    keyFile,
+    keypair: Ed25519Keypair.fromSecretKey(secret),
+  };
+}
+
+export async function getBlockchainStatus() {
+  const checkedAt = new Date().toISOString();
+
+  try {
+    const { network, rpcUrl, client } =
+      createBlockchainClient();
+
+    const { keypair } =
+      loadExecutorKeypair();
+
+    const executorAddress =
+      keypair.toSuiAddress();
+
+    const balance = await client.getBalance({
+      owner: executorAddress,
+      coinType: '0x2::sui::SUI',
+    });
+
+    const latestCheckpoint =
+      await client.getLatestCheckpointSequenceNumber();
+
+    const balanceRaw =
+      String(balance.totalBalance ?? '0');
+
+    return {
+      ok: true,
+      online: true,
+      network,
+      rpcUrl,
+      executorAddress,
+      balanceRaw,
+      balanceSui: formatSui(balanceRaw),
+      coinType: balance.coinType,
+      coinObjectCount: balance.coinObjectCount,
+      lockedBalance: balance.lockedBalance,
+      latestCheckpoint: String(latestCheckpoint),
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      online: false,
+      network:
+        process.env.SUI_NETWORK || 'testnet',
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error),
+      checkedAt,
+    };
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const status = await getBlockchainStatus();
+
+  console.log(
+    JSON.stringify(status, null, 2)
+  );
+
+  if (!status.ok) {
+    process.exitCode = 1;
+  }
+}

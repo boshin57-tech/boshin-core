@@ -1,0 +1,221 @@
+import {
+  getBlockchainStatus,
+} from './blockchain-status.mjs';
+
+import {
+  getWalletSummary,
+  listWalletCoins,
+  listWalletObjects,
+  loadExecutorKeypair,
+  SUI_COIN_TYPE,
+} from './blockchain-client.mjs';
+
+function disableCache(res) {
+  res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, private',
+  );
+
+  res.setHeader(
+    'Pragma',
+    'no-cache',
+  );
+
+  res.setHeader(
+    'Expires',
+    '0',
+  );
+}
+
+function parseLimit(value) {
+  return Math.min(
+    Math.max(
+      Number.parseInt(
+        String(value ?? '50'),
+        10,
+      ) || 50,
+      1,
+    ),
+    100,
+  );
+}
+
+function errorResponse(
+  res,
+  error,
+  fallbackCode,
+) {
+  return res
+    .status(500)
+    .json({
+      ok: false,
+      online: true,
+      service:
+        'tobmate-blockchain-hub',
+      transport: 'grpc',
+      error:
+        fallbackCode,
+      message:
+        error instanceof Error
+          ? error.message
+          : String(error),
+      checkedAt:
+        new Date().toISOString(),
+    });
+}
+
+export function registerBlockchainRoutes(app) {
+  if (
+    !app ||
+    typeof app.get !== 'function'
+  ) {
+    throw new TypeError(
+      'An Express-compatible app instance is required',
+    );
+  }
+
+  app.get(
+    '/api/blockchain/status',
+    async (_req, res) => {
+      disableCache(res);
+
+      try {
+        const status =
+          await getBlockchainStatus();
+
+        return res
+          .status(
+            status.ok
+              ? 200
+              : 503,
+          )
+          .json(status);
+      } catch (error) {
+        return errorResponse(
+          res,
+          error,
+          'BLOCKCHAIN_STATUS_FAILED',
+        );
+      }
+    },
+  );
+
+  app.get(
+    '/api/blockchain/wallet',
+    async (_req, res) => {
+      disableCache(res);
+
+      try {
+        const wallet =
+          await getWalletSummary();
+
+        return res
+          .status(200)
+          .json(wallet);
+      } catch (error) {
+        return errorResponse(
+          res,
+          error,
+          'BLOCKCHAIN_WALLET_FAILED',
+        );
+      }
+    },
+  );
+
+  app.get(
+    '/api/blockchain/coins',
+    async (req, res) => {
+      disableCache(res);
+
+      try {
+        const {
+          executorAddress,
+        } = loadExecutorKeypair();
+
+        const result =
+          await listWalletCoins(
+            executorAddress,
+            {
+              coinType:
+                String(
+                  req.query.coinType ||
+                  SUI_COIN_TYPE,
+                ),
+              limit:
+                parseLimit(
+                  req.query.limit,
+                ),
+              cursor:
+                req.query.cursor
+                  ? String(
+                      req.query.cursor,
+                    )
+                  : null,
+            },
+          );
+
+        return res.json({
+          ok: true,
+          service:
+            'tobmate-blockchain-hub',
+          ...result,
+          raw: undefined,
+          checkedAt:
+            new Date().toISOString(),
+        });
+      } catch (error) {
+        return errorResponse(
+          res,
+          error,
+          'BLOCKCHAIN_COINS_FAILED',
+        );
+      }
+    },
+  );
+
+  app.get(
+    '/api/blockchain/objects',
+    async (req, res) => {
+      disableCache(res);
+
+      try {
+        const {
+          executorAddress,
+        } = loadExecutorKeypair();
+
+        const result =
+          await listWalletObjects(
+            executorAddress,
+            {
+              limit:
+                parseLimit(
+                  req.query.limit,
+                ),
+              cursor:
+                req.query.cursor
+                  ? String(
+                      req.query.cursor,
+                    )
+                  : null,
+            },
+          );
+
+        return res.json({
+          ok: true,
+          service:
+            'tobmate-blockchain-hub',
+          ...result,
+          raw: undefined,
+          checkedAt:
+            new Date().toISOString(),
+        });
+      } catch (error) {
+        return errorResponse(
+          res,
+          error,
+          'BLOCKCHAIN_OBJECTS_FAILED',
+        );
+      }
+    },
+  );
+}

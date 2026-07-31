@@ -1,0 +1,245 @@
+import { Transaction } from '@mysten/sui/transactions';
+
+import {
+  createBlockchainClient,
+  loadExecutorKeypair,
+} from './blockchain-client.mjs';
+
+const DEFAULT_GAS_BUDGET = 10_000_000n;
+const MAX_GAS_BUDGET = 100_000_000n;
+const MAX_TRANSFER_MIST = 100_000_000_000n;
+
+function normalizeBigInt(
+  value,
+  fieldName,
+  {
+    minimum = 0n,
+    maximum = null,
+    defaultValue = null,
+  } = {},
+) {
+  if (
+    (value === undefined || value === null || value === '') &&
+    defaultValue !== null
+  ) {
+    return defaultValue;
+  }
+
+  let normalized;
+
+  try {
+    normalized = BigInt(value);
+  } catch {
+    throw new Error(
+      `${fieldName} must be a valid integer value`,
+    );
+  }
+
+  if (normalized < minimum) {
+    throw new Error(
+      `${fieldName} must be at least ${minimum.toString()}`,
+    );
+  }
+
+  if (
+    maximum !== null &&
+    normalized > maximum
+  ) {
+    throw new Error(
+      `${fieldName} must not exceed ${maximum.toString()}`,
+    );
+  }
+
+  return normalized;
+}
+
+function normalizeAddress(value, fieldName) {
+  if (
+    typeof value !== 'string' ||
+    !/^0x[0-9a-fA-F]{1,64}$/.test(value)
+  ) {
+    throw new Error(
+      `${fieldName} must be a valid Sui address`,
+    );
+  }
+
+  return value.toLowerCase();
+}
+
+function normalizeTransactionKind(value) {
+  const kind = value ?? 'self-transfer';
+
+  if (kind !== 'self-transfer') {
+    throw new Error(
+      'Phase 3A supports only transaction kind: self-transfer',
+    );
+  }
+
+  return kind;
+}
+
+function extractSimulationError(result) {
+  return (
+    result?.effects?.status?.error ??
+    result?.effects?.status?.failure ??
+    result?.error ??
+    null
+  );
+}
+
+function extractSimulationStatus(result) {
+  const status =
+    result?.effects?.status?.status ??
+    result?.effects?.status?.success ??
+    result?.effects?.status ??
+    null;
+
+  if (status === true || status === 'success') {
+    return 'success';
+  }
+
+  if (status === false || status === 'failure') {
+    return 'failure';
+  }
+
+  return status ?? 'unknown';
+}
+
+function stringifySafe(value) {
+  return JSON.parse(
+    JSON.stringify(
+      value,
+      (_, currentValue) =>
+        typeof currentValue === 'bigint'
+          ? currentValue.toString()
+          : currentValue,
+    ),
+  );
+}
+
+export async function buildSelfTransferTransaction({
+  recipient,
+  amountMist = '1',
+  gasBudget = DEFAULT_GAS_BUDGET.toString(),
+} = {}) {
+  const executor = loadExecutorKeypair();
+  const executorKeypair = executor.keypair;
+  const sender = executor.executorAddress;
+
+  const normalizedRecipient = normalizeAddress(
+    recipient ?? sender,
+    'recipient',
+  );
+
+  const normalizedAmount = normalizeBigInt(
+    amountMist,
+    'amountMist',
+    {
+      minimum: 1n,
+      maximum: MAX_TRANSFER_MIST,
+    },
+  );
+
+  const normalizedGasBudget = normalizeBigInt(
+    gasBudget,
+    'gasBudget',
+    {
+      minimum: 1_000_000n,
+      maximum: MAX_GAS_BUDGET,
+      defaultValue: DEFAULT_GAS_BUDGET,
+    },
+  );
+
+  const transaction = new Transaction();
+
+  transaction.setSender(sender);
+  transaction.setGasBudget(normalizedGasBudget);
+
+  const [coin] = transaction.splitCoins(
+    transaction.gas,
+    [
+      transaction.pure.u64(
+        normalizedAmount,
+      ),
+    ],
+  );
+
+  transaction.transferObjects(
+    [coin],
+    normalizedRecipient,
+  );
+
+  return {
+    transaction,
+    sender,
+    recipient: normalizedRecipient,
+    amountMist: normalizedAmount,
+    gasBudget: normalizedGasBudget,
+  };
+}
+
+export async function simulateTransaction({
+  kind = 'self-transfer',
+  recipient,
+  amountMist = '1',
+  gasBudget = DEFAULT_GAS_BUDGET.toString(),
+} = {}) {
+  const normalizedKind =
+    normalizeTransactionKind(kind);
+
+  const blockchain = createBlockchainClient();
+  const client = blockchain.client;
+
+  const {
+    transaction,
+    sender,
+    recipient: normalizedRecipient,
+    amountMist: normalizedAmount,
+    gasBudget: normalizedGasBudget,
+  } = await buildSelfTransferTransaction({
+    recipient,
+    amountMist,
+    gasBudget,
+  });
+
+  const transactionBytes =
+    await transaction.build({
+      client,
+    });
+
+  const response =
+    await client.core.simulateTransaction({
+      transaction: transactionBytes,
+    });
+
+  const simulation =
+    response?.transaction ??
+    response?.result ??
+    response;
+
+  const status =
+    extractSimulationStatus(simulation);
+
+  const error =
+    extractSimulationError(simulation);
+
+  return {
+    ok: status !== 'failure' && !error,
+    service: 'tobmate-blockchain-hub',
+    transport: 'grpc',
+    network:
+      process.env.SUI_NETWORK ?? 'testnet',
+    mode: 'simulation',
+    transactionKind: normalizedKind,
+    sender,
+    recipient: normalizedRecipient,
+    amountMist: normalizedAmount.toString(),
+    gasBudget: normalizedGasBudget.toString(),
+    transactionBytesLength:
+      transactionBytes.length,
+    status,
+    error,
+    simulation: stringifySafe(simulation),
+    checkedAt: new Date().toISOString(),
+  };
+}

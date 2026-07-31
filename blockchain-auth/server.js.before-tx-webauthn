@@ -333,24 +333,10 @@ app.post(
           }
         });
 
-      const passkeyChallengeStore =
-        mongoose.connection.collection('passkey_challenges');
-
-      await passkeyChallengeStore.updateOne(
-        { user_id: userId },
-        {
-          $set: {
-            user_id: userId,
-            challenge: options.challenge,
-            expires_at: new Date(Date.now() + 5 * 60 * 1000),
-            updated_at: new Date()
-          },
-          $setOnInsert: {
-            created_at: new Date()
-          }
-        },
-        { upsert: true }
-      );
+      passkeyChallenges.set(userId, {
+        challenge: options.challenge,
+        expiresAt: Date.now() + 5 * 60 * 1000
+      });
 
       return res.json({
         ok: true,
@@ -379,13 +365,7 @@ app.post(
     try {
       const userId = req.blockchainUser;
 
-      const passkeyChallengeStore =
-        mongoose.connection.collection('passkey_challenges');
-
-      const pending =
-        await passkeyChallengeStore.findOne({
-          user_id: userId
-        });
+      const pending = passkeyChallenges.get(userId);
 
       if (!pending) {
         return res.status(400).json({
@@ -394,10 +374,8 @@ app.post(
         });
       }
 
-      if (new Date() > pending.expires_at) {
-        await passkeyChallengeStore.deleteOne({
-          user_id: userId
-        });
+      if (Date.now() > pending.expiresAt) {
+        passkeyChallenges.delete(userId);
 
         return res.status(400).json({
           ok: false,
@@ -463,9 +441,7 @@ app.post(
         { upsert: true }
       );
 
-      await passkeyChallengeStore.deleteOne({
-        user_id: userId
-      });
+      passkeyChallenges.delete(userId);
 
       return res.json({
         ok: true,
@@ -495,97 +471,98 @@ app.post(
   async (req, res) => {
     try {
       const userId = req.blockchainUser;
-      const action = String(req.body.action || '').trim();
-      const payload = req.body.payload || {};
+
+      const action =
+        String(req.body.action || '').trim();
+
+      const payload =
+        req.body.payload || {};
 
       if (!action) {
         return res.status(400).json({
-          ok: false,
-          error: 'ACTION_REQUIRED'
+          ok:false,
+          error:'ACTION_REQUIRED'
         });
       }
-
-      const passkeys =
-        mongoose.connection.collection('passkeys');
-
-      const userPasskeys = await passkeys.find({
-        user_id: userId,
-        status: 'active'
-      }).toArray();
-
-      if (!userPasskeys.length) {
-        return res.status(400).json({
-          ok: false,
-          error: 'PASSKEY_NOT_REGISTERED'
-        });
-      }
-
-      const { generateAuthenticationOptions } =
-        await import('@simplewebauthn/server');
-
-      const options =
-        await generateAuthenticationOptions({
-          rpID: 'tobmate.com',
-          userVerification: 'required',
-          allowCredentials: userPasskeys.map((p) => ({
-            id: p.credential_id,
-            transports: p.transports || []
-          }))
-        });
 
       const crypto = require('crypto');
-      const txId = crypto.randomUUID();
+
+      const txId =
+        crypto.randomUUID();
 
       const payloadHash =
-        crypto.createHash('sha256')
+        crypto
+          .createHash('sha256')
           .update(JSON.stringify(payload))
           .digest('hex');
 
-      const expiresAt =
-        new Date(Date.now() + 5 * 60 * 1000);
+      const challenge =
+        crypto.randomBytes(32)
+          .toString('hex');
 
-      await mongoose.connection
-        .collection('transaction_authorizations')
-        .insertOne({
-          user_id: userId,
-          tx_id: txId,
-          action,
-          network: 'sui',
-          payload_hash: payloadHash,
-          challenge: options.challenge,
-          status: 'PENDING',
-          created_at: new Date(),
-          expires_at: expiresAt
-        });
-
-      return res.json({
-        ok: true,
-        tx_id: txId,
-        options
+      transactionChallenges.set(txId,{
+        user_id:userId,
+        challenge,
+        payloadHash,
+        expiresAt:
+          Date.now()+5*60*1000
       });
 
-    } catch (err) {
+      const collection =
+        mongoose.connection
+        .collection(
+          'transaction_authorizations'
+        );
+
+      await collection.insertOne({
+        user_id:userId,
+        tx_id:txId,
+        action,
+        network:'sui',
+        payload_hash:payloadHash,
+        challenge,
+        status:'PENDING',
+        created_at:new Date(),
+        expires_at:
+          new Date(Date.now()+5*60*1000)
+      });
+
+      return res.json({
+        ok:true,
+        tx_id:txId,
+        challenge
+      });
+
+    } catch(err){
+
       console.error(
         '[TX_CHALLENGE_ERROR]',
         err.message
       );
 
-      return res.status(500).json({
-        ok: false,
-        error: 'TX_CHALLENGE_FAILED'
+      res.status(500).json({
+        ok:false,
+        error:'TX_CHALLENGE_FAILED'
       });
     }
   }
 );
+
+
 
 app.post(
   '/transaction/authorize',
   requireBlockchainAuth,
   async (req,res)=>{
     try {
-      const userId=req.blockchainUser;
-      const txId=String(req.body.tx_id||'').trim();
-      const response=req.body.response;
+
+      const userId = req.blockchainUser;
+
+      const txId =
+        String(req.body.tx_id || '').trim();
+
+      const response =
+        req.body.response;
 
       if(!txId || !response){
         return res.status(400).json({
@@ -594,13 +571,20 @@ app.post(
         });
       }
 
-      const txs=mongoose.connection
-        .collection('transaction_authorizations');
 
-      const tx=await txs.findOne({
-        tx_id:txId,
-        user_id:userId
-      });
+      const collection =
+        mongoose.connection
+        .collection(
+          'transaction_authorizations'
+        );
+
+
+      const tx =
+        await collection.findOne({
+          tx_id:txId,
+          user_id:userId
+        });
+
 
       if(!tx){
         return res.status(404).json({
@@ -609,17 +593,24 @@ app.post(
         });
       }
 
-      if(tx.status!=='PENDING'){
+
+      if(tx.status !== 'PENDING'){
         return res.status(400).json({
           ok:false,
           error:'TX_NOT_PENDING'
         });
       }
 
-      if(new Date()>tx.expires_at){
-        await txs.updateOne(
-          {tx_id:txId,user_id:userId},
-          {$set:{status:'EXPIRED'}}
+
+      if(new Date() > tx.expires_at){
+
+        await collection.updateOne(
+          {tx_id:txId},
+          {
+            $set:{
+              status:'EXPIRED'
+            }
+          }
         );
 
         return res.status(400).json({
@@ -628,71 +619,19 @@ app.post(
         });
       }
 
-      const passkeys=
-        mongoose.connection.collection('passkeys');
 
-      const passkey=await passkeys.findOne({
-        user_id:userId,
-        credential_id:response.id,
-        status:'active'
-      });
+      /*
+       WebAuthn verification will be connected here.
+       Phase 2-A:
+       - load credential
+       - verifyAuthenticationResponse
+       - challenge match
+      */
 
-      if(!passkey){
-        return res.status(401).json({
-          ok:false,
-          error:'PASSKEY_NOT_FOUND'
-        });
-      }
 
-      const {verifyAuthenticationResponse}=
-        await import('@simplewebauthn/server');
-
-      const publicKey=
-        new Uint8Array(passkey.public_key.buffer);
-
-      const verification=
-        await verifyAuthenticationResponse({
-          response,
-          expectedChallenge:tx.challenge,
-          expectedOrigin:'https://tobmate.com',
-          expectedRPID:'tobmate.com',
-          requireUserVerification:true,
-          credential:{
-            id:passkey.credential_id,
-            publicKey,
-            counter:Number(passkey.counter||0),
-            transports:passkey.transports||[]
-          }
-        });
-
-      if(!verification.verified){
-        return res.status(401).json({
-          ok:false,
-          error:'PASSKEY_AUTHENTICATION_FAILED'
-        });
-      }
-
-      const newCounter=
-        verification.authenticationInfo.newCounter;
-
-      await passkeys.updateOne(
+      await collection.updateOne(
         {
-          user_id:userId,
-          credential_id:passkey.credential_id
-        },
-        {
-          $set:{
-            counter:newCounter,
-            last_used_at:new Date()
-          }
-        }
-      );
-
-      const result=await txs.updateOne(
-        {
-          tx_id:txId,
-          user_id:userId,
-          status:'PENDING'
+          tx_id:txId
         },
         {
           $set:{
@@ -702,12 +641,6 @@ app.post(
         }
       );
 
-      if(result.modifiedCount!==1){
-        return res.status(409).json({
-          ok:false,
-          error:'TX_STATE_CHANGED'
-        });
-      }
 
       return res.json({
         ok:true,
@@ -715,267 +648,25 @@ app.post(
         status:'AUTHORIZED'
       });
 
+
     }catch(err){
+
       console.error(
         '[TX_AUTHORIZE_ERROR]',
         err.message
       );
 
-      return res.status(401).json({
-        ok:false,
-        error:'TX_PASSKEY_VERIFY_FAILED'
-      });
-    }
-  }
-);
-
-
-app.post(
-  '/transaction/consume',
-  requireBlockchainAuth,
-  async (req,res)=>{
-    try {
-      const userId=req.blockchainUser;
-      const txId=String(req.body.tx_id||'').trim();
-
-      if(!txId){
-        return res.status(400).json({
-          ok:false,
-          error:'TX_ID_REQUIRED'
-        });
-      }
-
-      const txs=mongoose.connection
-        .collection('transaction_authorizations');
-
-      const tx=await txs.findOne({
-        tx_id:txId,
-        user_id:userId
-      });
-
-      if(!tx){
-        return res.status(404).json({
-          ok:false,
-          error:'TX_NOT_FOUND'
-        });
-      }
-
-      if(tx.status!=='AUTHORIZED'){
-        return res.status(409).json({
-          ok:false,
-          error:'TX_NOT_AUTHORIZED'
-        });
-      }
-
-      const result=await txs.updateOne(
-        {
-          tx_id:txId,
-          user_id:userId,
-          status:'AUTHORIZED'
-        },
-        {
-          $set:{
-            status:'CONSUMED',
-            consumed_at:new Date()
-          }
-        }
-      );
-
-      if(result.modifiedCount!==1){
-        return res.status(409).json({
-          ok:false,
-          error:'TX_ALREADY_CONSUMED'
-        });
-      }
-
-      return res.json({
-        ok:true,
-        tx_id:txId,
-        status:'CONSUMED'
-      });
-
-    }catch(err){
-      console.error(
-        '[TX_CONSUME_ERROR]',
-        err.message
-      );
-
       return res.status(500).json({
         ok:false,
-        error:'TX_CONSUME_FAILED'
-      });
-    }
-  }
-);
-
-
-app.post(
-  '/transaction/execute/start',
-  requireBlockchainAuth,
-  async (req,res)=>{
-    try {
-      const userId=req.blockchainUser;
-      const txId=String(req.body.tx_id||'').trim();
-
-      if(!txId){
-        return res.status(400).json({
-          ok:false,
-          error:'TX_ID_REQUIRED'
-        });
-      }
-
-      const txs=mongoose.connection
-        .collection('transaction_authorizations');
-
-      const result=await txs.updateOne(
-        {
-          tx_id:txId,
-          user_id:userId,
-          status:'AUTHORIZED'
-        },
-        {
-          $set:{
-            status:'EXECUTING',
-            execution_started_at:new Date()
-          }
-        }
-      );
-
-      if(result.modifiedCount!==1){
-        return res.status(409).json({
-          ok:false,
-          error:'TX_NOT_EXECUTABLE'
-        });
-      }
-
-      return res.json({
-        ok:true,
-        tx_id:txId,
-        status:'EXECUTING'
+        error:'TX_AUTHORIZE_FAILED'
       });
 
-    }catch(err){
-      console.error(
-        '[TX_EXECUTE_START_ERROR]',
-        err.message
-      );
-
-      return res.status(500).json({
-        ok:false,
-        error:'TX_EXECUTE_START_FAILED'
-      });
-    }
-  }
-);
-
-
-app.post(
-  '/transaction/execute/simulated',
-  requireBlockchainAuth,
-  async (req,res)=>{
-    try {
-      const userId=req.blockchainUser;
-      const txId=String(req.body.tx_id||'').trim();
-
-      const txs=mongoose.connection
-        .collection('transaction_authorizations');
-
-      const result=await txs.updateOne(
-        {
-          tx_id:txId,
-          user_id:userId,
-          status:'EXECUTING'
-        },
-        {
-          $set:{
-            status:'EXECUTION_SIMULATED',
-            simulated_at:new Date()
-          }
-        }
-      );
-
-      if(result.modifiedCount!==1){
-        return res.status(409).json({
-          ok:false,
-          error:'TX_NOT_EXECUTING'
-        });
-      }
-
-      return res.json({
-        ok:true,
-        tx_id:txId,
-        status:'EXECUTION_SIMULATED'
-      });
-
-    }catch(err){
-      return res.status(500).json({
-        ok:false,
-        error:'TX_SIMULATION_RECORD_FAILED'
-      });
-    }
-  }
-);
-
-
-app.post(
-  '/transaction/execute/failed',
-  requireBlockchainAuth,
-  async (req,res)=>{
-    try {
-      const userId=req.blockchainUser;
-      const txId=String(req.body.tx_id||'').trim();
-      const reason=String(req.body.reason||'').slice(0,500);
-
-      const txs=mongoose.connection
-        .collection('transaction_authorizations');
-
-      const result=await txs.updateOne(
-        {
-          tx_id:txId,
-          user_id:userId,
-          status:'EXECUTING'
-        },
-        {
-          $set:{
-            status:'EXECUTION_FAILED',
-            execution_failed_at:new Date(),
-            execution_error:reason
-          }
-        }
-      );
-
-      if(result.modifiedCount!==1){
-        return res.status(409).json({
-          ok:false,
-          error:'TX_NOT_EXECUTING'
-        });
-      }
-
-      return res.json({
-        ok:true,
-        tx_id:txId,
-        status:'EXECUTION_FAILED'
-      });
-
-    }catch(err){
-      return res.status(500).json({
-        ok:false,
-        error:'TX_FAILURE_RECORD_FAILED'
-      });
     }
   }
 );
 
 async function start() {
   await mongoose.connect(MONGO_URL);
-
-  const {
-    registerBlockchainRoutes,
-  } = await import(
-    '../blockchain-wallet/blockchain-api.mjs'
-  );
-
-  registerBlockchainRoutes(app);
 
   app.listen(PORT, HOST, () => {
     console.log(

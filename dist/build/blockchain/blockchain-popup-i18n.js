@@ -1,0 +1,190 @@
+(() => {
+  "use strict";
+
+  const M = {
+    en: {
+      walletCreated: "Wallet created successfully.",
+      walletNotCreated: "Wallet has not been created yet.",
+      walletConnected: "Wallet connected successfully.",
+      walletBound: "Wallet binding completed.",
+      passkeyRegistered: "Passkey registered successfully.",
+      transactionCompleted: "Transaction completed successfully.",
+      transactionFailed: "Transaction failed.",
+      networkError: "Network error. Please try again.",
+      invalidPassword: "Invalid password.",
+      walletNotFound: "Wallet not found.",
+      authenticationFailed: "Authentication failed.",
+      insufficientBalance: "Insufficient balance.",
+      connectionTimeout: "Connection timed out.",
+      createWalletConfirm: "Create a new wallet?",
+      bindWalletConfirm: "Bind this wallet to your TMID?",
+      connectWalletConfirm: "Connect the existing wallet?",
+      approveTransactionConfirm: "Approve this transaction?",
+      loading: "Loading...",
+      creatingWallet: "Creating wallet...",
+      connectingWallet: "Connecting wallet...",
+      processingTransaction: "Processing transaction...",
+      waitingBlockchain: "Waiting for blockchain confirmation..."
+    },
+
+    ko: {
+      walletCreated: "지갑이 성공적으로 생성되었습니다.",
+      walletNotCreated: "아직 지갑이 생성되지 않았습니다.",
+      walletConnected: "지갑이 성공적으로 연결되었습니다.",
+      walletBound: "지갑 연결이 완료되었습니다.",
+      passkeyRegistered: "패스키가 성공적으로 등록되었습니다.",
+      transactionCompleted: "거래가 성공적으로 완료되었습니다.",
+      transactionFailed: "거래에 실패했습니다.",
+      networkError: "네트워크 오류입니다. 다시 시도하세요.",
+      invalidPassword: "비밀번호가 올바르지 않습니다.",
+      walletNotFound: "지갑을 찾을 수 없습니다.",
+      authenticationFailed: "인증에 실패했습니다.",
+      insufficientBalance: "잔액이 부족합니다.",
+      connectionTimeout: "연결 시간이 초과되었습니다.",
+      createWalletConfirm: "새 지갑을 생성하시겠습니까?",
+      bindWalletConfirm: "이 지갑을 TMID에 연결하시겠습니까?",
+      connectWalletConfirm: "기존 지갑을 연결하시겠습니까?",
+      approveTransactionConfirm: "이 거래를 승인하시겠습니까?",
+      loading: "불러오는 중...",
+      creatingWallet: "지갑을 생성하는 중...",
+      connectingWallet: "지갑을 연결하는 중...",
+      processingTransaction: "거래를 처리하는 중...",
+      waitingBlockchain: "블록체인 승인을 기다리는 중..."
+    },
+
+    zh: {
+      walletCreated: "钱包创建成功。",
+      walletNotCreated: "尚未创建钱包。",
+      walletConnected: "钱包连接成功。",
+      walletBound: "钱包绑定完成。",
+      passkeyRegistered: "通行密钥注册成功。",
+      transactionCompleted: "交易成功完成。",
+      transactionFailed: "交易失败。",
+      networkError: "网络错误，请重试。",
+      invalidPassword: "密码不正确。",
+      walletNotFound: "未找到钱包。",
+      authenticationFailed: "身份验证失败。",
+      insufficientBalance: "余额不足。",
+      connectionTimeout: "连接超时。",
+      createWalletConfirm: "是否创建新钱包？",
+      bindWalletConfirm: "是否将此钱包绑定到 TMID？",
+      connectWalletConfirm: "是否连接现有钱包？",
+      approveTransactionConfirm: "是否批准此交易？",
+      loading: "加载中...",
+      creatingWallet: "正在创建钱包...",
+      connectingWallet: "正在连接钱包...",
+      processingTransaction: "正在处理交易...",
+      waitingBlockchain: "正在等待区块链确认..."
+    },
+    ja: {
+      walletCreated: "ウォレットが正常に作成されました。",
+      walletNotCreated: "ウォレットはまだ作成されていません。",
+      walletConnected: "ウォレットが正常に接続されました。",
+      walletBound: "ウォレットの連携が完了しました。",
+      passkeyRegistered: "パスキーが正常に登録されました。",
+      transactionCompleted: "取引が正常に完了しました。",
+      transactionFailed: "取引に失敗しました。",
+      networkError: "ネットワークエラーです。もう一度お試しください。",
+      invalidPassword: "パスワードが正しくありません。",
+      walletNotFound: "ウォレットが見つかりません。",
+      authenticationFailed: "認証に失敗しました。",
+      insufficientBalance: "残高が不足しています。",
+      connectionTimeout: "接続がタイムアウトしました。",
+      createWalletConfirm: "新しいウォレットを作成しますか？",
+      bindWalletConfirm: "このウォレットをTMIDに連携しますか？",
+      connectWalletConfirm: "既存のウォレットを接続しますか？",
+      approveTransactionConfirm: "この取引を承認しますか？",
+      loading: "読み込み中...",
+      creatingWallet: "ウォレットを作成中...",
+      connectingWallet: "ウォレットを接続中...",
+      processingTransaction: "取引を処理中...",
+      waitingBlockchain: "ブロックチェーンの確認を待っています..."
+    },
+
+    ru: {
+      walletCreated: "Кошелёк успешно создан.",
+      walletNotCreated: "Кошелёк ещё не создан.",
+      walletConnected: "Кошелёк успешно подключён.",
+      walletBound: "Привязка кошелька завершена.",
+      passkeyRegistered: "Ключ доступа успешно зарегистрирован.",
+      transactionCompleted: "Транзакция успешно завершена.",
+      transactionFailed: "Не удалось выполнить транзакцию.",
+      networkError: "Ошибка сети. Повторите попытку.",
+      invalidPassword: "Неверный пароль.",
+      walletNotFound: "Кошелёк не найден.",
+      authenticationFailed: "Ошибка аутентификации.",
+      insufficientBalance: "Недостаточный баланс.",
+      connectionTimeout: "Время ожидания подключения истекло.",
+      createWalletConfirm: "Создать новый кошелёк?",
+      bindWalletConfirm: "Привязать этот кошелёк к TMID?",
+      connectWalletConfirm: "Подключить существующий кошелёк?",
+      approveTransactionConfirm: "Одобрить эту транзакцию?",
+      loading: "Загрузка...",
+      creatingWallet: "Создание кошелька...",
+      connectingWallet: "Подключение кошелька...",
+      processingTransaction: "Обработка транзакции...",
+      waitingBlockchain: "Ожидание подтверждения блокчейна..."
+    },
+
+    ar: {
+      walletCreated: "تم إنشاء المحفظة بنجاح.",
+      walletNotCreated: "لم يتم إنشاء المحفظة بعد.",
+      walletConnected: "تم ربط المحفظة بنجاح.",
+      walletBound: "اكتمل ربط المحفظة.",
+      passkeyRegistered: "تم تسجيل مفتاح المرور بنجاح.",
+      transactionCompleted: "اكتملت المعاملة بنجاح.",
+      transactionFailed: "فشلت المعاملة.",
+      networkError: "حدث خطأ في الشبكة. حاول مرة أخرى.",
+      invalidPassword: "كلمة المرور غير صحيحة.",
+      walletNotFound: "تعذر العثور على المحفظة.",
+      authenticationFailed: "فشلت المصادقة.",
+      insufficientBalance: "الرصيد غير كافٍ.",
+      connectionTimeout: "انتهت مهلة الاتصال.",
+      createWalletConfirm: "هل تريد إنشاء محفظة جديدة؟",
+      bindWalletConfirm: "هل تريد ربط هذه المحفظة بـ TMID؟",
+      connectWalletConfirm: "هل تريد ربط محفظة موجودة؟",
+      approveTransactionConfirm: "هل تريد اعتماد هذه المعاملة؟",
+      loading: "جارٍ التحميل...",
+      creatingWallet: "جارٍ إنشاء المحفظة...",
+      connectingWallet: "جارٍ ربط المحفظة...",
+      processingTransaction: "جارٍ معالجة المعاملة...",
+      waitingBlockchain: "في انتظار تأكيد البلوكشين..."
+    }
+  };
+
+  function getLang() {
+    const select = document.getElementById("blockchain-language");
+    const query = new URLSearchParams(location.search).get("lang");
+    const saved = localStorage.getItem("tobmate_language");
+
+    const lang = select?.value || query || saved || "en";
+    return M[lang] ? lang : "en";
+  }
+
+  function msg(key) {
+    const lang = getLang();
+    return M[lang]?.[key] || M.en[key] || key;
+  }
+
+  window.TobmatePopupI18n = {
+    message: msg,
+
+    alert(key) {
+      window.alert(msg(key));
+    },
+
+    confirm(key) {
+      return window.confirm(msg(key));
+    },
+
+    error(key) {
+      window.alert(msg(key));
+    },
+
+    success(key) {
+      window.alert(msg(key));
+    }
+  };
+
+  console.info("[TOBMATE Popup i18n] ready");
+})();

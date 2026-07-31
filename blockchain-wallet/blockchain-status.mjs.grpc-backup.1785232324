@@ -1,0 +1,99 @@
+import fs from 'node:fs';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
+
+const DEFAULT_KEY_FILE =
+  '/home/boshin57/Tobmate_Live/.sui_testnet_executor_key';
+
+const DEFAULT_RPC =
+  'https://fullnode.testnet.sui.io:443';
+
+const MIST_PER_SUI = 1_000_000_000n;
+
+function formatSui(rawBalance) {
+  const raw = BigInt(rawBalance);
+  const whole = raw / MIST_PER_SUI;
+  const fraction = (raw % MIST_PER_SUI)
+    .toString()
+    .padStart(9, '0')
+    .replace(/0+$/, '');
+
+  return fraction ? `${whole}.${fraction}` : `${whole}.00`;
+}
+
+function extractBalance(result) {
+  const candidate =
+    result?.balance?.totalBalance ??
+    result?.totalBalance ??
+    result?.balance?.total_balance ??
+    result?.total_balance ??
+    '0';
+
+  return String(candidate);
+}
+
+export async function getBlockchainStatus() {
+  const network = process.env.SUI_NETWORK || 'testnet';
+  const rpcUrl = process.env.SUI_FULLNODE || DEFAULT_RPC;
+  const keyFile = process.env.SUI_EXECUTOR_KEY_FILE || DEFAULT_KEY_FILE;
+
+  const checkedAt = new Date().toISOString();
+
+  try {
+    if (!fs.existsSync(keyFile)) {
+      throw new Error(`Executor key file not found: ${keyFile}`);
+    }
+
+    const secret = fs.readFileSync(keyFile, 'utf8').trim();
+
+    if (!secret) {
+      throw new Error('Executor key file is empty');
+    }
+
+    const keypair = Ed25519Keypair.fromSecretKey(secret);
+    const executorAddress = keypair.toSuiAddress();
+
+    const client = new SuiGrpcClient({
+      network,
+      baseUrl: rpcUrl,
+    });
+
+    const result = await client.getBalance({
+      owner: executorAddress,
+    });
+
+    const balanceRaw = extractBalance(result);
+
+    return {
+      ok: true,
+      online: true,
+      network,
+      executorAddress,
+      balanceRaw,
+      balanceSui: formatSui(balanceRaw),
+      coinType:
+        result?.balance?.coinType ??
+        result?.coinType ??
+        '0x2::sui::SUI',
+      rpcUrl,
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      online: false,
+      network,
+      error: error instanceof Error ? error.message : String(error),
+      checkedAt,
+    };
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const status = await getBlockchainStatus();
+  console.log(JSON.stringify(status, null, 2));
+
+  if (!status.ok) {
+    process.exitCode = 1;
+  }
+}

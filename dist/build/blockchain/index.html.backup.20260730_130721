@@ -200,7 +200,7 @@ document.querySelectorAll('.card').forEach(function(card){
 
 });
 </script>
-<script src="/blockchain/wallet-client.js?v=2"></script>
+<script src="/blockchain/wallet-client.js?v=1"></script>
 <script>
 async function createTobmateWallet() {
   try {
@@ -634,7 +634,7 @@ async function testTransactionAuthorization() {
   <script src="/blockchain/blockchain-i18n-safe.js?v=1"></script>
   <script src="/blockchain/blockchain-i18n-extra.js?v=6"></script>
   <script src="/blockchain/blockchain-status-i18n.js?v=1"></script>
-  <script src="/blockchain/blockchain-popup-i18n.js?v=2"></script>
+  <script src="/blockchain/blockchain-popup-i18n.js?v=1"></script>
 </body>
 </html>
 
