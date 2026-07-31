@@ -15,7 +15,7 @@ const PASS_MOVE = 8224;
 // 순장바둑 초기 배치
 const SJ_BLACK = ['D4','D7','D13','K4','K16','Q7','Q13','Q16'];
 const SJ_WHITE = ['D10','D16','G4','G16','N4','N16','Q4','Q10'];
-const HANDICAP_STONES = ['K10','N7','G13','N13','G7','K13','K7','N10','G10'];
+const HANDICAP_STONES = ['D4','Q16','D16','Q4','D10','Q10','K16','K4','K10'];
 
 function wpos2coord(wpos) {
     if(wpos === PASS_MOVE) return 'pass';
@@ -26,6 +26,7 @@ function coord2wpos(coord) {
     if(!coord || coord.toLowerCase() === 'pass' || coord.toLowerCase() === 'resign') return PASS_MOVE;
     const x = COLS.indexOf(coord[0].toUpperCase());
     const y = 19 - parseInt(coord.slice(1));
+    console.log("[MAP]",coord,"x="+x,"y="+y,"wpos="+((y<<8)|x));
     return (y << 8) | x;
 }
 
@@ -55,7 +56,7 @@ function initBoard(state, data, callback) {
     const gtp = state.gtp;
     gtp.cmd('boardsize '+state.boardsize, function() {
         gtp.cmd('clear_board', function() {
-            gtp.cmd('komi 6.5', function() {
+            gtp.cmd('komi ' + (data.kpmi ?? 6.5), function() {
                 if(state.rule === 2) {
                     // 순장바둑 초기 배치 (접바둑 포함)
                     const cmds = [];
@@ -84,7 +85,11 @@ function initBoard(state, data, callback) {
                             callback();
                             return;
                         }
-                        gtp.cmd(cmds[idx], function(){ runCmd(idx+1); });
+                        console.log('[INIT] 일반접바둑:', cmds[idx]);
+                        gtp.cmd(cmds[idx], function(r){
+                            console.log('[INIT] 일반접바둑 응답:', cmds[idx], '->', r);
+                            runCmd(idx+1);
+                        });
                     };
                     runCmd(0);
                 } else {
